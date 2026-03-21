@@ -1,11 +1,13 @@
 package dev.robdoes.kmpresources.view
 
+import com.intellij.icons.AllIcons
 import com.intellij.ide.projectView.PresentationData
 import com.intellij.ide.projectView.ProjectViewNode
 import com.intellij.ide.projectView.ViewSettings
 import com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode
 import com.intellij.ide.projectView.impl.nodes.PsiFileNode
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.vfs.VfsUtilCore
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiManager
 import com.intellij.ui.IconManager
@@ -18,54 +20,50 @@ class KmpModuleNode(
     settings: ViewSettings?
 ) : ProjectViewNode<VirtualFile>(project, moduleDir, settings) {
 
+    companion object {
+        private const val DIR_SRC = "src"
+        private const val DIR_COMMON_MAIN = "commonMain"
+        private const val DIR_COMPOSE_RESOURCES = "composeResources"
+    }
+
     override fun update(presentation: PresentationData) {
         presentation.presentableText = moduleDisplayName
-        presentation.setIcon(PlatformIcons.FOLDER_ICON)
+        presentation.setIcon(AllIcons.Nodes.Module)
     }
 
     override fun getChildren(): MutableCollection<out ProjectViewNode<*>> {
-        val children = mutableListOf<ProjectViewNode<*>>()
-        val project = myProject ?: return children
+        val project = myProject ?: return mutableListOf()
         val psiManager = PsiManager.getInstance(project)
 
-        // Suche den composeResources Ordner innerhalb des Moduls
         val composeResourcesDir = moduleDir
-            .findChild("src")
-            ?.findChild("commonMain")
-            ?.findChild("composeResources")
+            .findChild(DIR_SRC)
+            ?.findChild(DIR_COMMON_MAIN)
+            ?.findChild(DIR_COMPOSE_RESOURCES)
 
-        if (composeResourcesDir != null && composeResourcesDir.isDirectory) {
-            // WENN der Ordner existiert, zeigen wir NUR dessen Inhalt an (z.B. values, drawable)
-            composeResourcesDir.children?.forEach { childFile ->
-                if (!childFile.name.startsWith(".")) {
-                    val psiDir = psiManager.findDirectory(childFile)
-                    if (psiDir != null) {
-                        children.add(PsiDirectoryNode(project, psiDir, settings))
-                    } else {
-                        val psiFile = psiManager.findFile(childFile)
-                        if (psiFile != null) {
-                            children.add(PsiFileNode(project, psiFile, settings))
-                        }
+        if (composeResourcesDir == null || !composeResourcesDir.isDirectory) {
+            return mutableListOf()
+        }
+
+        val children = mutableListOf<ProjectViewNode<*>>()
+
+        composeResourcesDir.children?.forEach { childFile ->
+            if (!childFile.name.startsWith(".")) {
+                val psiDir = psiManager.findDirectory(childFile)
+                if (psiDir != null) {
+                    children.add(PsiDirectoryNode(project, psiDir, settings))
+                } else {
+                    val psiFile = psiManager.findFile(childFile)
+                    if (psiFile != null) {
+                        children.add(PsiFileNode(project, psiFile, settings))
                     }
                 }
             }
-        } else {
-            // WENN der Ordner (noch) NICHT existiert:
-            // Geben wir vorerst eine leere Liste zurück.
-            // Später können wir hier eine UI (z.B. ein spezielles Icon/Item) einbauen,
-            // auf das der User klicken kann, um den Ordner anlegen zu lassen.
-            return mutableListOf()
         }
 
         return children
     }
 
     override fun contains(file: VirtualFile): Boolean {
-        var current: VirtualFile? = file
-        while (current != null) {
-            if (current == moduleDir) return true
-            current = current.parent
-        }
-        return false
+        return VfsUtilCore.isAncestor(moduleDir, file, false)
     }
 }
