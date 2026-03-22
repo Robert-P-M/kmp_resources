@@ -10,8 +10,6 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VfsUtilCore
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiManager
-import com.intellij.ui.IconManager
-import com.intellij.util.PlatformIcons
 
 class KmpModuleNode(
     project: Project,

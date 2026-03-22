@@ -1,0 +1,261 @@
+package dev.robdoes.kmpresources.editor.ui
+
+import com.intellij.icons.AllIcons
+import com.intellij.openapi.project.Project
+import com.intellij.openapi.ui.Messages
+import com.intellij.ui.JBColor
+import com.intellij.ui.components.JBLabel
+import com.intellij.ui.components.JBScrollPane
+import com.intellij.ui.components.JBTextField
+import com.intellij.util.ui.JBUI
+import com.intellij.util.ui.UIUtil
+import dev.robdoes.kmpresources.KmpResourcesBundle
+import dev.robdoes.kmpresources.domain.model.*
+import java.awt.*
+import java.awt.event.KeyAdapter
+import java.awt.event.KeyEvent
+import javax.swing.*
+
+class ResourceEditPanel(private val project: Project) : JPanel(BorderLayout()) {
+
+    enum class EditMode { ADD, UPDATE }
+
+    var onSaveRequested: ((XmlResource) -> Unit)? = null
+    var onCancelRequested: (() -> Unit)? = null
+
+    private var currentEditMode = EditMode.ADD
+    private var isUntranslatableState = false
+
+    private val titleLabel = JBLabel().apply { font = font.deriveFont(Font.BOLD, 14f) }
+    private val descriptionLabel = JBLabel().apply { foreground = UIUtil.getContextHelpForeground(); font = font.deriveFont(11f) }
+
+    private val typeComboBox = com.intellij.openapi.ui.ComboBox(arrayOf("string", "plurals", "string-array"))
+    private val keyField = JBTextField(25).apply { emptyText.text = KmpResourcesBundle.message("add.panel.key.placeholder") }
+
+    private val stringValueField = JBTextField(35).apply { emptyText.text = KmpResourcesBundle.message("add.panel.value.placeholder") }
+    private val pluralValueFields = mutableMapOf<String, JBTextField>()
+
+    // Dynamische Array Felder
+    private val arrayItemsContainer = JPanel().apply { layout = BoxLayout(this, BoxLayout.Y_AXIS) }
+    private val arrayValueFields = mutableListOf<JBTextField>()
+
+    private val mainActionButton = JButton(KmpResourcesBundle.message("add.panel.button.add"), AllIcons.General.Add)
+    private val cardLayout = CardLayout()
+    private val cardsPanel = JPanel(cardLayout)
+
+    private val validQuantities = listOf("zero", "one", "two", "few", "many", "other")
+
+    init {
+        border = BorderFactory.createCompoundBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, JBColor.border()), JBUI.Borders.empty(5, 10, 10, 10))
+
+        val headerPanel = JPanel(BorderLayout(0, 2)).apply { border = JBUI.Borders.emptyBottom(5) }
+        headerPanel.add(titleLabel, BorderLayout.NORTH)
+        headerPanel.add(descriptionLabel, BorderLayout.CENTER)
+
+        val controlPanel = JPanel(FlowLayout(FlowLayout.LEFT, 0, 0)).apply { border = JBUI.Borders.emptyBottom(5) }
+        controlPanel.add(typeComboBox)
+        controlPanel.add(Box.createHorizontalStrut(10))
+        controlPanel.add(keyField)
+
+        // CARD 1: String
+        val stringCard = JPanel(FlowLayout(FlowLayout.LEFT, 0, 0)).apply { add(stringValueField) }
+
+        // CARD 2: Plurals
+        val pluralsCard = JPanel().apply { layout = BoxLayout(this, BoxLayout.Y_AXIS) }
+        validQuantities.forEach { q ->
+            val rowPanel = JPanel(FlowLayout(FlowLayout.LEFT, 0, 2))
+            rowPanel.add(Box.createHorizontalStrut(10))
+            val label = JLabel(q).apply { preferredSize = Dimension(45, preferredSize.height) }
+            val qValueField = JBTextField(35).apply { emptyText.text = KmpResourcesBundle.message("add.panel.plural.item.placeholder", q) }
+            pluralValueFields[q] = qValueField
+            rowPanel.add(label)
+            rowPanel.add(qValueField)
+            pluralsCard.add(rowPanel)
+        }
+
+        // CARD 3: String-Array
+        val arrayCard = JPanel(BorderLayout())
+        val addArrayItemBtn = JButton(KmpResourcesBundle.message("add.panel.array.button.add.item"), AllIcons.General.Add).apply {
+            addActionListener { buildArrayItemRow("") }
+        }
+        val arrayScroll = JBScrollPane(arrayItemsContainer).apply {
+            preferredSize = Dimension(400, 120)
+            border = JBUI.Borders.empty()
+        }
+        val arrayTopPanel = JPanel(FlowLayout(FlowLayout.LEFT, 10, 0)).apply { add(addArrayItemBtn) }
+        arrayCard.add(arrayTopPanel, BorderLayout.NORTH)
+        arrayCard.add(arrayScroll, BorderLayout.CENTER)
+
+        cardsPanel.add(stringCard, "string")
+        cardsPanel.add(pluralsCard, "plurals")
+        cardsPanel.add(arrayCard, "string-array")
+
+        typeComboBox.addActionListener {
+            val selected = typeComboBox.selectedItem as String
+            cardLayout.show(cardsPanel, selected)
+            if (currentEditMode == EditMode.ADD) {
+                updateHeaderTexts(EditMode.ADD, selected)
+                if (selected == "string-array" && arrayValueFields.isEmpty()) buildArrayItemRow("")
+            }
+        }
+
+        val actionButtonPanel = JPanel(FlowLayout(FlowLayout.LEFT, 0, 0)).apply { border = JBUI.Borders.emptyTop(10) }
+        val cancelButton = JButton(KmpResourcesBundle.message("add.panel.button.cancel"))
+
+        mainActionButton.addActionListener { submit() }
+        cancelButton.addActionListener {
+            isVisible = false
+            onCancelRequested?.invoke()
+        }
+
+        val enterAdapter = object : KeyAdapter() {
+            override fun keyPressed(e: KeyEvent) {
+                if (e.keyCode == KeyEvent.VK_ENTER || e.keyCode == KeyEvent.VK_TAB) {
+                    e.consume()
+                    if (e.source == keyField && typeComboBox.selectedItem == "string") stringValueField.requestFocusInWindow()
+                    else if (e.source == stringValueField) submit()
+                }
+            }
+        }
+        keyField.addKeyListener(enterAdapter)
+        stringValueField.addKeyListener(enterAdapter)
+
+        actionButtonPanel.add(mainActionButton)
+        actionButtonPanel.add(Box.createHorizontalStrut(5))
+        actionButtonPanel.add(cancelButton)
+
+        val contentPanel = JPanel(BorderLayout(0, 0))
+        contentPanel.add(controlPanel, BorderLayout.NORTH)
+        contentPanel.add(cardsPanel, BorderLayout.CENTER)
+
+        add(headerPanel, BorderLayout.NORTH)
+        add(contentPanel, BorderLayout.CENTER)
+        add(actionButtonPanel, BorderLayout.SOUTH)
+    }
+
+    private fun buildArrayItemRow(value: String) {
+        val rowPanel = JPanel(FlowLayout(FlowLayout.LEFT, 0, 2))
+        rowPanel.add(Box.createHorizontalStrut(10))
+
+        val indexLabel = JLabel("[${arrayValueFields.size}]").apply { preferredSize = Dimension(35, preferredSize.height) }
+        val field = JBTextField(30).apply { text = value; emptyText.text = KmpResourcesBundle.message("add.panel.array.item.placeholder") }
+
+        val removeBtn = JButton(AllIcons.General.Remove).apply {
+            isBorderPainted = false; isContentAreaFilled = false; isOpaque = false
+            addActionListener {
+                arrayItemsContainer.remove(rowPanel)
+                arrayValueFields.remove(field)
+                updateArrayIndexLabels()
+                arrayItemsContainer.revalidate()
+                arrayItemsContainer.repaint()
+            }
+        }
+
+        arrayValueFields.add(field)
+        rowPanel.add(indexLabel)
+        rowPanel.add(field)
+        rowPanel.add(removeBtn)
+
+        arrayItemsContainer.add(rowPanel)
+        arrayItemsContainer.revalidate()
+        arrayItemsContainer.repaint()
+    }
+
+    private fun updateArrayIndexLabels() {
+        arrayItemsContainer.components.forEachIndexed { index, comp ->
+            if (comp is JPanel) {
+                val label = comp.components.find { it is JLabel } as? JLabel
+                label?.text = "[$index]"
+            }
+        }
+    }
+
+    fun showForAdd() {
+        currentEditMode = EditMode.ADD
+        isUntranslatableState = false
+        updateHeaderTexts(EditMode.ADD, typeComboBox.selectedItem as String)
+        typeComboBox.isEnabled = true
+        keyField.isEnabled = true
+        keyField.text = ""
+        stringValueField.text = ""
+        pluralValueFields.values.forEach { it.text = "" }
+
+        arrayItemsContainer.removeAll()
+        arrayValueFields.clear()
+        if (typeComboBox.selectedItem == "string-array") buildArrayItemRow("")
+
+        mainActionButton.text = KmpResourcesBundle.message("add.panel.button.add")
+        mainActionButton.icon = AllIcons.General.Add
+        mainActionButton.isEnabled = true
+
+        isVisible = true
+        keyField.requestFocusInWindow()
+    }
+
+    fun showForUpdate(resource: XmlResource) {
+        currentEditMode = EditMode.UPDATE
+        isUntranslatableState = resource.isUntranslatable
+        updateHeaderTexts(EditMode.UPDATE, resource.xmlTag)
+
+        typeComboBox.selectedItem = resource.xmlTag
+        typeComboBox.isEnabled = false
+        keyField.text = resource.key
+        keyField.isEnabled = false
+
+        when (resource) {
+            is StringResource -> { stringValueField.text = resource.value; stringValueField.requestFocusInWindow() }
+            is PluralsResource -> validQuantities.forEach { q -> pluralValueFields[q]?.text = resource.items[q] ?: "" }
+            is StringArrayResource -> {
+                arrayItemsContainer.removeAll()
+                arrayValueFields.clear()
+                resource.items.forEach { buildArrayItemRow(it) }
+                if (resource.items.isEmpty()) buildArrayItemRow("") // Mindestens ein leeres Feld
+            }
+        }
+
+        mainActionButton.isEnabled = true
+        mainActionButton.text = KmpResourcesBundle.message("add.panel.button.update")
+        mainActionButton.icon = AllIcons.Actions.Edit
+        isVisible = true
+    }
+
+    private fun submit() {
+        val key = keyField.text.trim()
+        val type = typeComboBox.selectedItem as String
+
+        if (key.isBlank()) {
+            Messages.showErrorDialog(project, KmpResourcesBundle.message("dialog.error.empty.key"), KmpResourcesBundle.message("dialog.error.title"))
+            return
+        }
+
+        val resourceToSave: XmlResource? = when (type) {
+            "string" -> StringResource(key, isUntranslatableState, stringValueField.text)
+            "plurals" -> {
+                val items = pluralValueFields.filterValues { it.text.isNotBlank() }.mapValues { it.value.text }
+                PluralsResource(key, isUntranslatableState, items)
+            }
+            "string-array" -> {
+                val items = arrayValueFields.map { it.text }.filter { it.isNotBlank() }
+                StringArrayResource(key, isUntranslatableState, items)
+            }
+            else -> null
+        }
+
+        if (resourceToSave != null) {
+            onSaveRequested?.invoke(resourceToSave)
+        }
+    }
+
+    private fun updateHeaderTexts(mode: EditMode, type: String) {
+        if (mode == EditMode.ADD) {
+            titleLabel.text = KmpResourcesBundle.message("panel.title.add")
+            descriptionLabel.text = KmpResourcesBundle.message("panel.desc.add")
+        } else {
+            when (type) {
+                "string" -> { titleLabel.text = KmpResourcesBundle.message("panel.title.edit.string"); descriptionLabel.text = KmpResourcesBundle.message("panel.desc.edit.string") }
+                "plurals" -> { titleLabel.text = KmpResourcesBundle.message("panel.title.edit.plural"); descriptionLabel.text = KmpResourcesBundle.message("panel.desc.edit.plural") }
+                else -> { titleLabel.text = KmpResourcesBundle.message("panel.title.edit.array"); descriptionLabel.text = KmpResourcesBundle.message("panel.desc.edit.array") }
+            }
+        }
+    }
+}

@@ -1,135 +1,208 @@
 package dev.robdoes.kmpresources.editor
 
+import com.intellij.find.FindModel
+import com.intellij.find.findInProject.FindInProjectManager
 import com.intellij.icons.AllIcons
-import com.intellij.openapi.diagnostic.Logger
+import com.intellij.openapi.actionSystem.*
+import com.intellij.openapi.actionSystem.ex.ComboBoxAction
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.fileEditor.FileEditor
 import com.intellij.openapi.fileEditor.FileEditorLocation
 import com.intellij.openapi.fileEditor.FileEditorState
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.util.UserDataHolderBase
 import com.intellij.openapi.vfs.VirtualFile
-import com.intellij.ui.components.JBScrollPane
-import com.intellij.ui.table.JBTable
+import com.intellij.psi.search.DelegatingGlobalSearchScope
+import com.intellij.psi.search.GlobalSearchScope
 import dev.robdoes.kmpresources.KmpResourcesBundle
-import org.w3c.dom.Element
-import org.w3c.dom.Node
+import dev.robdoes.kmpresources.data.XmlResourceManager
+import dev.robdoes.kmpresources.domain.model.*
+import dev.robdoes.kmpresources.editor.ui.ResourceEditPanel
+import dev.robdoes.kmpresources.editor.ui.ResourceTablePanel
+import dev.robdoes.kmpresources.service.ResourceScannerService
 import java.awt.BorderLayout
-import java.awt.event.MouseAdapter
-import java.awt.event.MouseEvent
 import java.beans.PropertyChangeListener
-import javax.swing.Icon
 import javax.swing.JComponent
 import javax.swing.JPanel
-import javax.swing.table.DefaultTableModel
-import javax.xml.parsers.DocumentBuilderFactory
 
 class KmpResourceTableEditor(
     private val project: Project,
     private val file: VirtualFile
 ) : UserDataHolderBase(), FileEditor {
 
-    private val panel = JPanel(BorderLayout())
-    private val logger = Logger.getInstance(KmpResourceTableEditor::class.java)
+    private val xmlManager = XmlResourceManager(project, file)
+    private val scannerService = ResourceScannerService(project)
+
+    private val mainPanel = JPanel(BorderLayout())
+    private val tablePanel = ResourceTablePanel(scannerService)
+    private val editPanel = ResourceEditPanel(project)
+
+    private var currentFilter = "ALL"
 
     init {
-        val columnNames = arrayOf(
-            KmpResourcesBundle.message("table.column.key"),
-            KmpResourcesBundle.message("table.column.usage"),
-            KmpResourcesBundle.message("table.column.untranslatable"),
-            KmpResourcesBundle.message("table.column.type"),
-            KmpResourcesBundle.message("table.column.default.value")
-        )
+        setupToolbar()
 
-        val tableModel = object : DefaultTableModel(columnNames, 0) {
-            override fun getColumnClass(columnIndex: Int): Class<*> {
-                return when (columnIndex) {
-                    1 -> Icon::class.java
-                    2 -> Boolean::class.javaObjectType
-                    else -> String::class.java
-                }
-            }
+        mainPanel.add(tablePanel, BorderLayout.CENTER)
+        mainPanel.add(editPanel, BorderLayout.SOUTH)
 
-            override fun isCellEditable(row: Int, column: Int): Boolean {
-                if (column == 2) {
-                    return getValueAt(row, column) != null
-                }
-                return false
-            }
+        wireUpCallbacks()
+        reloadTableData()
+    }
+
+    private fun wireUpCallbacks() {
+        tablePanel.onEditRequested = { key ->
+            val resource = xmlManager.loadResources().find { it.key == key }
+            if (resource != null) editPanel.showForUpdate(resource)
         }
 
-        loadXmlData(file, tableModel)
-
-        val table = JBTable(tableModel)
-
-        table.columnModel.getColumn(0).preferredWidth = 350
-        table.columnModel.getColumn(0).minWidth = 200
-        table.columnModel.getColumn(1).maxWidth = 50
-        table.columnModel.getColumn(2).maxWidth = 100
-
-        table.addMouseListener(object : MouseAdapter() {
-            override fun mouseClicked(e: MouseEvent) {
-                val row = table.rowAtPoint(e.point)
-                val col = table.columnAtPoint(e.point)
-
-                if (col == 1 && row >= 0) {
-                    val keyName = tableModel.getValueAt(row, 0) as String
-                    if (keyName.isNotBlank()) {
-                        println("Usage Search clicked for Item: $keyName in file: ${file.path}")
+        tablePanel.onDeleteRequested = { key, type, isSubItem ->
+            if (isSubItem) {
+                if (type.startsWith("item[")) {
+                    // ARRAY ITEM LÖSCHEN
+                    val indexStr = type.substringAfter("[").substringBefore("]")
+                    if (indexStr != "+") {
+                        val index = indexStr.toIntOrNull() ?: -1
+                        val existingArray = xmlManager.loadResources().find { it.key == key && it is StringArrayResource } as? StringArrayResource
+                        if (existingArray != null && index in existingArray.items.indices) {
+                            val updatedItems = existingArray.items.toMutableList().apply { removeAt(index) }
+                            xmlManager.saveResource(StringArrayResource(key, existingArray.isUntranslatable, updatedItems))
+                            reloadTableData()
+                        }
+                    }
+                } else {
+                    // PLURAL ITEM LÖSCHEN
+                    val existingPlural = xmlManager.loadResources().find { it.key == key && it is PluralsResource } as? PluralsResource
+                    if (existingPlural != null && Messages.showYesNoDialog(project, KmpResourcesBundle.message("dialog.delete.plural.message", type, key), KmpResourcesBundle.message("dialog.delete.plural.title"), Messages.getQuestionIcon()) == Messages.YES) {
+                        val updatedItems = existingPlural.items.toMutableMap().apply { remove(type) }
+                        xmlManager.saveResource(PluralsResource(key, existingPlural.isUntranslatable, updatedItems))
+                        reloadTableData()
+                    }
+                }
+            } else {
+                // ROOT RESOURCE LÖSCHEN
+                if (!scannerService.isResourceUsed(key)) {
+                    if (Messages.showYesNoDialog(project, KmpResourcesBundle.message("dialog.delete.resource.message", key), KmpResourcesBundle.message("dialog.delete.resource.title"), Messages.getQuestionIcon()) == Messages.YES) {
+                        xmlManager.deleteResource(key, type)
+                        reloadTableData()
+                    }
+                } else {
+                    if (Messages.showDialog(project, KmpResourcesBundle.message("dialog.key.in.use.message", key), KmpResourcesBundle.message("dialog.key.in.use.title"), arrayOf(KmpResourcesBundle.message("dialog.button.show.usages"), KmpResourcesBundle.message("dialog.button.cancel")), 0, Messages.getWarningIcon()) == 0) {
+                        triggerNativeFindUsages(key)
                     }
                 }
             }
+        }
+
+        tablePanel.onUsageRequested = { triggerNativeFindUsages(it) }
+
+        tablePanel.onInlineStringEdited = { key, isUn, newValue ->
+            xmlManager.saveResource(StringResource(key, isUn, newValue))
+        }
+
+        tablePanel.onInlinePluralEdited = { key, isUn, quantity, newValue ->
+            val existingPlural = xmlManager.loadResources().find { it.key == key && it is PluralsResource } as? PluralsResource
+            if (existingPlural != null) {
+                val updatedItems = existingPlural.items.toMutableMap()
+                if (newValue.isNotBlank()) updatedItems[quantity] = newValue else updatedItems.remove(quantity)
+                xmlManager.saveResource(PluralsResource(key, isUn, updatedItems))
+            }
+        }
+
+        // NEU: Inline Editing für Arrays
+        tablePanel.onInlineArrayEdited = { key, isUn, index, newValue ->
+            val existingArray = xmlManager.loadResources().find { it.key == key && it is StringArrayResource } as? StringArrayResource
+            if (existingArray != null) {
+                val updatedItems = existingArray.items.toMutableList()
+                if (index == -1 && newValue.isNotBlank()) {
+                    // Neues Element anhängen ("item[+]")
+                    updatedItems.add(newValue)
+                } else if (index in updatedItems.indices) {
+                    // Bestehendes Element ändern oder löschen
+                    if (newValue.isNotBlank()) updatedItems[index] = newValue else updatedItems.removeAt(index)
+                }
+                xmlManager.saveResource(StringArrayResource(key, isUn, updatedItems))
+                ApplicationManager.getApplication().invokeLater { reloadTableData() }
+            }
+        }
+
+        tablePanel.onUntranslatableToggled = { key, isUn -> xmlManager.toggleUntranslatable(key, isUn) }
+
+        editPanel.onSaveRequested = { resourceToSave ->
+            if (editPanel.isVisible && resourceToSave.key.isNotBlank()) {
+                val existing = xmlManager.loadResources().find { it.key == resourceToSave.key }
+                if (existing != null && existing.xmlTag != resourceToSave.xmlTag) {
+                    Messages.showErrorDialog(project, KmpResourcesBundle.message("dialog.error.key.exists", resourceToSave.key), KmpResourcesBundle.message("dialog.error.title"))
+                } else {
+                    xmlManager.saveResource(resourceToSave)
+                    editPanel.isVisible = false
+                    reloadTableData()
+                    tablePanel.scrollToKey(resourceToSave.key)
+                }
+            }
+        }
+    }
+
+    private fun setupToolbar() {
+        val actionGroup = DefaultActionGroup()
+        actionGroup.addAction(object : AnAction(KmpResourcesBundle.message("action.add.key.text"), KmpResourcesBundle.message("action.add.key.description"), AllIcons.General.Add) {
+            override fun actionPerformed(e: AnActionEvent) = editPanel.showForAdd()
         })
+        actionGroup.addAction(object : AnAction(KmpResourcesBundle.message("action.remove.key.text"), KmpResourcesBundle.message("action.remove.key.description"), AllIcons.General.Remove) {
+            override fun actionPerformed(e: AnActionEvent) = tablePanel.triggerDeleteForSelectedRow()
+            override fun update(e: AnActionEvent) { e.presentation.isEnabled = tablePanel.hasSelection() }
+            override fun getActionUpdateThread() = ActionUpdateThread.EDT
+        })
+        actionGroup.addSeparator()
 
-        panel.add(JBScrollPane(table), BorderLayout.CENTER)
-    }
-
-    private fun loadXmlData(file: VirtualFile, tableModel: DefaultTableModel) {
-        try {
-            val document = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(file.inputStream)
-            document.documentElement.normalize()
-
-            val nodeList = document.documentElement.childNodes
-
-            for (i in 0 until nodeList.length) {
-                val node = nodeList.item(i)
-                if (node.nodeType == Node.ELEMENT_NODE) {
-                    val element = node as Element
-                    val name = element.getAttribute("name")
-
-                    val translatableAttr = element.getAttribute("translatable")
-                    val isUntranslatable = translatableAttr == "false"
-
-                    when (element.tagName) {
-                        "string" -> {
-                            val value = element.textContent
-                            tableModel.addRow(arrayOf(name, AllIcons.Actions.Search, isUntranslatable, "string", value))
-                        }
-
-                        "plurals" -> {
-                            tableModel.addRow(arrayOf(name, AllIcons.Actions.Search, isUntranslatable, "plurals", ""))
-
-                            val items = element.getElementsByTagName("item")
-                            for (j in 0 until items.length) {
-                                val itemNode = items.item(j)
-                                if (itemNode.nodeType == Node.ELEMENT_NODE) {
-                                    val itemElement = itemNode as Element
-                                    val quantity = itemElement.getAttribute("quantity")
-                                    val itemValue = itemElement.textContent
-
-                                    tableModel.addRow(arrayOf("", null, null, quantity, itemValue))
-                                }
-                            }
-                        }
-                    }
+        val filterAction = object : ComboBoxAction() {
+            override fun createPopupActionGroup(button: JComponent, dataContext: DataContext): DefaultActionGroup {
+                val group = DefaultActionGroup()
+                group.addAction(createFilterOption("ALL", "action.filter.keys.all"))
+                group.addAction(createFilterOption("STRINGS", "action.filter.keys.strings"))
+                group.addAction(createFilterOption("PLURALS", "action.filter.keys.plurals"))
+                group.addAction(createFilterOption("ARRAYS", "action.filter.keys.arrays")) // NEU
+                return group
+            }
+            override fun update(e: AnActionEvent) {
+                super.update(e)
+                e.presentation.text = when (currentFilter) {
+                    "ALL" -> KmpResourcesBundle.message("action.filter.keys.all")
+                    "STRINGS" -> KmpResourcesBundle.message("action.filter.keys.strings")
+                    "PLURALS" -> KmpResourcesBundle.message("action.filter.keys.plurals")
+                    "ARRAYS" -> KmpResourcesBundle.message("action.filter.keys.arrays")
+                    else -> ""
                 }
             }
-        } catch (e: Exception) {
-            logger.error("Fehler beim Parsen der string.xml: ${file.path}", e)
+            override fun getActionUpdateThread() = ActionUpdateThread.BGT
         }
+        actionGroup.addAction(filterAction)
+
+        val toolbar = ActionManager.getInstance().createActionToolbar("KmpResourceEditorToolbar", actionGroup, true)
+        toolbar.targetComponent = mainPanel
+        mainPanel.add(toolbar.component, BorderLayout.NORTH)
     }
 
-    override fun getComponent(): JComponent = panel
-    override fun getPreferredFocusedComponent(): JComponent = panel
+    private fun createFilterOption(filter: String, bundleKey: String) = object : AnAction(KmpResourcesBundle.message(bundleKey)) {
+        override fun actionPerformed(e: AnActionEvent) { currentFilter = filter; tablePanel.applyFilter(filter) }
+    }
+
+    private fun reloadTableData() {
+        val resources = xmlManager.loadResources()
+        tablePanel.updateData(resources)
+    }
+
+    private fun triggerNativeFindUsages(keyName: String) {
+        val findModel = FindModel().apply { stringToFind = keyName; isCaseSensitive = true; isProjectScope = false; isCustomScope = true }
+        findModel.customScope = object : DelegatingGlobalSearchScope(GlobalSearchScope.projectScope(project)) {
+            override fun contains(file: VirtualFile) = !file.path.contains("/generated/") && !file.path.contains("/build/") && !file.path.endsWith(".cvr") && super.contains(file)
+        }
+        FindInProjectManager.getInstance(project).startFindInProject(findModel)
+    }
+
+    override fun selectNotify() = ApplicationManager.getApplication().invokeLater { reloadTableData() }
+    override fun getComponent(): JComponent = mainPanel
+    override fun getPreferredFocusedComponent(): JComponent = mainPanel
     override fun getName(): String = KmpResourcesBundle.message("editor.tab.name")
     override fun setState(state: FileEditorState) {}
     override fun isModified(): Boolean = false
