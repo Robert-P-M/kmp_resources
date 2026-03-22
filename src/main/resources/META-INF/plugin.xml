@@ -12,6 +12,8 @@
         <treeStructureProvider implementation="dev.robdoes.kmpresources.view.KmpResourcesTreeStructureProvider" />
         <fileEditorProvider implementation="dev.robdoes.kmpresources.editor.KmpResourceEditorProvider" />
         <gotoDeclarationHandler implementation="dev.robdoes.kmpresources.navigation.KmpGotoDeclarationHandler" />
+
+        <lang.documentationProvider language="kotlin" implementationClass="dev.robdoes.kmpresources.documentation.KmpDocumentationProvider" />
     </extensions>
 
     <extensions defaultExtensionNs="org.jetbrains.kotlin">
