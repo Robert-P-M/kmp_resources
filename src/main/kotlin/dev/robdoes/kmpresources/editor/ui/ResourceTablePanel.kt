@@ -21,8 +21,9 @@ data class ResourceStatus(val icon: Icon?, val tooltip: String?)
 class ResourceTablePanel(private val scannerService: ResourceScannerService) : JPanel(BorderLayout()) {
 
     var onInlineStringEdited: ((key: String, isUntranslatable: Boolean, newValue: String) -> Unit)? = null
-    var onInlinePluralEdited: ((key: String, isUntranslatable: Boolean, quantity: String, newValue: String) -> Unit)? = null
-    var onInlineArrayEdited: ((key: String, isUntranslatable: Boolean, index: Int, newValue: String) -> Unit)? = null // NEU
+    var onInlinePluralEdited: ((key: String, isUntranslatable: Boolean, quantity: String, newValue: String) -> Unit)? =
+        null
+    var onInlineArrayEdited: ((key: String, isUntranslatable: Boolean, index: Int, newValue: String) -> Unit)? = null
 
     var onUntranslatableToggled: ((key: String, isUntranslatable: Boolean) -> Unit)? = null
     var onEditRequested: ((key: String) -> Unit)? = null
@@ -74,9 +75,12 @@ class ResourceTablePanel(private val scannerService: ResourceScannerService) : J
                         onInlineStringEdited?.invoke(parentKey, isUn, newValue)
                     } else if (type in validQuantities) {
                         onInlinePluralEdited?.invoke(parentKey, isUn, type, newValue)
-                        if (newValue.isNotBlank() && getValueAt(row, 3) == null) setValueAt(AllIcons.General.Remove, row, 3)
+                        if (newValue.isNotBlank() && getValueAt(row, 3) == null) setValueAt(
+                            AllIcons.General.Remove,
+                            row,
+                            3
+                        )
                     } else if (type.startsWith("item[")) {
-                        // Array Inline Editing
                         val indexStr = type.substringAfter("[").substringBefore("]")
                         val index = if (indexStr == "+") -1 else indexStr.toIntOrNull() ?: -1
                         onInlineArrayEdited?.invoke(parentKey, isUn, index, newValue)
@@ -94,11 +98,22 @@ class ResourceTablePanel(private val scannerService: ResourceScannerService) : J
         table.rowSorter = tableRowSorter
 
         table.columnModel.getColumn(0).cellRenderer = object : DefaultTableCellRenderer() {
-            override fun getTableCellRendererComponent(t: JTable?, value: Any?, isSelected: Boolean, hasFocus: Boolean, row: Int, column: Int): Component {
+            override fun getTableCellRendererComponent(
+                t: JTable?,
+                value: Any?,
+                isSelected: Boolean,
+                hasFocus: Boolean,
+                row: Int,
+                column: Int
+            ): Component {
                 super.getTableCellRendererComponent(t, value, isSelected, hasFocus, row, column)
                 text = ""; horizontalAlignment = SwingConstants.CENTER
-                if (value is ResourceStatus) { icon = value.icon; toolTipText = if (icon == AllIcons.General.Error) "${value.tooltip} (Click to remove)" else value.tooltip }
-                else { icon = null; toolTipText = null }
+                if (value is ResourceStatus) {
+                    icon = value.icon; toolTipText =
+                        if (icon == AllIcons.General.Error) "${value.tooltip} (Click to remove)" else value.tooltip
+                } else {
+                    icon = null; toolTipText = null
+                }
                 return this
             }
         }
@@ -116,12 +131,18 @@ class ResourceTablePanel(private val scannerService: ResourceScannerService) : J
                 val modelRow = table.convertRowIndexToModel(viewRow)
 
                 when (col) {
-                    0 -> if ((tableModel.getValueAt(modelRow, 0) as? ResourceStatus)?.icon == AllIcons.General.Error) triggerDelete(modelRow)
+                    0 -> if ((tableModel.getValueAt(
+                            modelRow,
+                            0
+                        ) as? ResourceStatus)?.icon == AllIcons.General.Error
+                    ) triggerDelete(modelRow)
+
                     1 -> getParentKeyNameForRow(modelRow)?.let { onEditRequested?.invoke(it) }
                     2 -> {
                         val keyName = tableModel.getValueAt(modelRow, 1) as String
                         if (keyName.isNotBlank()) onUsageRequested?.invoke(keyName)
                     }
+
                     3 -> if (tableModel.getValueAt(modelRow, 3) != null) triggerDelete(modelRow)
                 }
             }
@@ -139,14 +160,35 @@ class ResourceTablePanel(private val scannerService: ResourceScannerService) : J
 
     fun updateData(resources: List<XmlResource>) {
         tableModel.rowCount = 0
-        val loadingStatus = ResourceStatus(AllIcons.Actions.Refresh, KmpResourcesBundle.message("status.tooltip.analyzing"))
+        val loadingStatus =
+            ResourceStatus(AllIcons.Actions.Refresh, KmpResourcesBundle.message("status.tooltip.analyzing"))
 
         resources.forEach { res ->
             when (res) {
-                is StringResource -> tableModel.addRow(arrayOf(loadingStatus, res.key, AllIcons.Actions.Search, AllIcons.General.Remove, res.isUntranslatable, "string", res.value))
+                is StringResource -> tableModel.addRow(
+                    arrayOf(
+                        loadingStatus,
+                        res.key,
+                        AllIcons.Actions.Search,
+                        AllIcons.General.Remove,
+                        res.isUntranslatable,
+                        "string",
+                        res.value
+                    )
+                )
 
                 is PluralsResource -> {
-                    tableModel.addRow(arrayOf(loadingStatus, res.key, AllIcons.Actions.Search, AllIcons.General.Remove, res.isUntranslatable, "plurals", ""))
+                    tableModel.addRow(
+                        arrayOf(
+                            loadingStatus,
+                            res.key,
+                            AllIcons.Actions.Search,
+                            AllIcons.General.Remove,
+                            res.isUntranslatable,
+                            "plurals",
+                            ""
+                        )
+                    )
                     validQuantities.forEach { q ->
                         val valueText = res.items[q] ?: ""
                         val deleteIcon = if (res.items.containsKey(q)) AllIcons.General.Remove else null
@@ -155,12 +197,30 @@ class ResourceTablePanel(private val scannerService: ResourceScannerService) : J
                 }
 
                 is StringArrayResource -> {
-                    // ARRAY Render Logic
-                    tableModel.addRow(arrayOf(loadingStatus, res.key, AllIcons.Actions.Search, AllIcons.General.Remove, res.isUntranslatable, "string-array", ""))
+                    tableModel.addRow(
+                        arrayOf(
+                            loadingStatus,
+                            res.key,
+                            AllIcons.Actions.Search,
+                            AllIcons.General.Remove,
+                            res.isUntranslatable,
+                            "string-array",
+                            ""
+                        )
+                    )
                     res.items.forEachIndexed { index, itemValue ->
-                        tableModel.addRow(arrayOf(null, "", null, AllIcons.General.Remove, null, "item[$index]", itemValue))
+                        tableModel.addRow(
+                            arrayOf(
+                                null,
+                                "",
+                                null,
+                                AllIcons.General.Remove,
+                                null,
+                                "item[$index]",
+                                itemValue
+                            )
+                        )
                     }
-                    // Leere Zeile zum direkten Inline-Hinzufügen
                     tableModel.addRow(arrayOf(null, "", null, null, null, "item[+]", ""))
                 }
             }
@@ -174,8 +234,12 @@ class ResourceTablePanel(private val scannerService: ResourceScannerService) : J
                 val isUsed = scannerService.isResourceUsed(keyName)
                 ApplicationManager.getApplication().invokeLater {
                     if (i < tableModel.rowCount && tableModel.getValueAt(i, 1) == keyName) {
-                        val newStatus = if (isUsed) ResourceStatus(null, KmpResourcesBundle.message("status.tooltip.ok"))
-                        else ResourceStatus(AllIcons.General.Error, KmpResourcesBundle.message("status.tooltip.unused"))
+                        val newStatus =
+                            if (isUsed) ResourceStatus(null, KmpResourcesBundle.message("status.tooltip.ok"))
+                            else ResourceStatus(
+                                AllIcons.General.Error,
+                                KmpResourcesBundle.message("status.tooltip.unused")
+                            )
                         tableModel.setValueAt(newStatus, i, 0)
                     }
                 }
@@ -212,11 +276,20 @@ class ResourceTablePanel(private val scannerService: ResourceScannerService) : J
     }
 
     fun scrollToKey(key: String) {
-        for (i in 0 until tableModel.rowCount) {
-            if (tableModel.getValueAt(i, 1) == key) {
-                table.setRowSelectionInterval(i, i)
-                table.scrollRectToVisible(table.getCellRect(i, 0, true))
-                break
+        ApplicationManager.getApplication().invokeLater {
+            table.clearSelection()
+
+            for (i in 0 until tableModel.rowCount) {
+                if (tableModel.getValueAt(i, 1) == key) {
+                    val viewRow = table.convertRowIndexToView(i)
+
+                    if (viewRow >= 0) {
+                        table.setRowSelectionInterval(viewRow, viewRow)
+                        table.scrollRectToVisible(table.getCellRect(viewRow, 0, true))
+                        com.intellij.openapi.wm.IdeFocusManager.findInstance().requestFocus(table, true)
+                    }
+                    break
+                }
             }
         }
     }
