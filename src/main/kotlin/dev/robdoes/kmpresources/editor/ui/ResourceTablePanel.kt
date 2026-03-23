@@ -262,12 +262,6 @@ class ResourceTablePanel(private val scannerService: ResourceScannerService) : J
         }
     }
 
-    fun getSelectedRowKey(): String? {
-        val selectedRow = table.selectedRow
-        if (selectedRow < 0) return null
-        return getParentKeyNameForRow(table.convertRowIndexToModel(selectedRow))
-    }
-
     fun hasSelection() = table.selectedRow >= 0
 
     fun triggerDeleteForSelectedRow() {

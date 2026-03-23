@@ -2,6 +2,7 @@ package dev.robdoes.kmpresources.editor.ui
 
 import com.intellij.icons.AllIcons
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.ui.ComboBox
 import com.intellij.openapi.ui.Messages
 import com.intellij.ui.JBColor
 import com.intellij.ui.components.JBLabel
@@ -15,6 +16,9 @@ import java.awt.*
 import java.awt.event.KeyAdapter
 import java.awt.event.KeyEvent
 import javax.swing.*
+import javax.swing.text.AbstractDocument
+import javax.swing.text.AttributeSet
+import javax.swing.text.DocumentFilter
 
 class ResourceEditPanel(private val project: Project) : JPanel(BorderLayout()) {
 
@@ -27,15 +31,25 @@ class ResourceEditPanel(private val project: Project) : JPanel(BorderLayout()) {
     private var isUntranslatableState = false
 
     private val titleLabel = JBLabel().apply { font = font.deriveFont(Font.BOLD, 14f) }
-    private val descriptionLabel = JBLabel().apply { foreground = UIUtil.getContextHelpForeground(); font = font.deriveFont(11f) }
+    private val descriptionLabel =
+        JBLabel().apply { foreground = UIUtil.getContextHelpForeground(); font = font.deriveFont(11f) }
 
-    private val typeComboBox = com.intellij.openapi.ui.ComboBox(arrayOf("string", "plurals", "string-array"))
-    private val keyField = JBTextField(25).apply { emptyText.text = KmpResourcesBundle.message("add.panel.key.placeholder") }
+    private val typeComboBox = ComboBox(arrayOf("string", "plurals", "string-array"))
+    private val keyField =
+        JBTextField(25).apply { emptyText.text = KmpResourcesBundle.message("add.panel.key.placeholder") }
 
-    private val stringValueField = JBTextField(35).apply { emptyText.text = KmpResourcesBundle.message("add.panel.value.placeholder") }
+    private val saveKeyButton = JButton(AllIcons.Actions.Checked).apply {
+        toolTipText = KmpResourcesBundle.message("action.save.key.text")
+        isBorderPainted = false
+        isContentAreaFilled = false
+        isOpaque = false
+        cursor = Cursor.getPredefinedCursor(Cursor.HAND_CURSOR)
+    }
+
+    private val stringValueField =
+        JBTextField(35).apply { emptyText.text = KmpResourcesBundle.message("add.panel.value.placeholder") }
     private val pluralValueFields = mutableMapOf<String, JBTextField>()
 
-    // Dynamische Array Felder
     private val arrayItemsContainer = JPanel().apply { layout = BoxLayout(this, BoxLayout.Y_AXIS) }
     private val arrayValueFields = mutableListOf<JBTextField>()
 
@@ -46,7 +60,24 @@ class ResourceEditPanel(private val project: Project) : JPanel(BorderLayout()) {
     private val validQuantities = listOf("zero", "one", "two", "few", "many", "other")
 
     init {
-        border = BorderFactory.createCompoundBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, JBColor.border()), JBUI.Borders.empty(5, 10, 10, 10))
+        border = BorderFactory.createCompoundBorder(
+            BorderFactory.createMatteBorder(1, 0, 0, 0, JBColor.border()),
+            JBUI.Borders.empty(5, 10, 10, 10)
+        )
+
+        (keyField.document as AbstractDocument).documentFilter = object : DocumentFilter() {
+            private val regex = "^[a-z0-9_]*$".toRegex()
+
+            override fun insertString(fb: FilterBypass, offset: Int, string: String?, attr: AttributeSet?) {
+                if (string != null && regex.matches(string)) super.insertString(fb, offset, string, attr)
+                else Toolkit.getDefaultToolkit().beep()
+            }
+
+            override fun replace(fb: FilterBypass, offset: Int, length: Int, text: String?, attrs: AttributeSet?) {
+                if (text != null && regex.matches(text)) super.replace(fb, offset, length, text, attrs)
+                else Toolkit.getDefaultToolkit().beep()
+            }
+        }
 
         val headerPanel = JPanel(BorderLayout(0, 2)).apply { border = JBUI.Borders.emptyBottom(5) }
         headerPanel.add(titleLabel, BorderLayout.NORTH)
@@ -56,28 +87,30 @@ class ResourceEditPanel(private val project: Project) : JPanel(BorderLayout()) {
         controlPanel.add(typeComboBox)
         controlPanel.add(Box.createHorizontalStrut(10))
         controlPanel.add(keyField)
+        controlPanel.add(Box.createHorizontalStrut(5))
+        controlPanel.add(saveKeyButton)
 
-        // CARD 1: String
         val stringCard = JPanel(FlowLayout(FlowLayout.LEFT, 0, 0)).apply { add(stringValueField) }
 
-        // CARD 2: Plurals
         val pluralsCard = JPanel().apply { layout = BoxLayout(this, BoxLayout.Y_AXIS) }
         validQuantities.forEach { q ->
             val rowPanel = JPanel(FlowLayout(FlowLayout.LEFT, 0, 2))
             rowPanel.add(Box.createHorizontalStrut(10))
             val label = JLabel(q).apply { preferredSize = Dimension(45, preferredSize.height) }
-            val qValueField = JBTextField(35).apply { emptyText.text = KmpResourcesBundle.message("add.panel.plural.item.placeholder", q) }
+            val qValueField = JBTextField(35).apply {
+                emptyText.text = KmpResourcesBundle.message("add.panel.plural.item.placeholder", q)
+            }
             pluralValueFields[q] = qValueField
             rowPanel.add(label)
             rowPanel.add(qValueField)
             pluralsCard.add(rowPanel)
         }
 
-        // CARD 3: String-Array
         val arrayCard = JPanel(BorderLayout())
-        val addArrayItemBtn = JButton(KmpResourcesBundle.message("add.panel.array.button.add.item"), AllIcons.General.Add).apply {
-            addActionListener { buildArrayItemRow("") }
-        }
+        val addArrayItemBtn =
+            JButton(KmpResourcesBundle.message("add.panel.array.button.add.item"), AllIcons.General.Add).apply {
+                addActionListener { buildArrayItemRow("") }
+            }
         val arrayScroll = JBScrollPane(arrayItemsContainer).apply {
             preferredSize = Dimension(400, 120)
             border = JBUI.Borders.empty()
@@ -103,6 +136,8 @@ class ResourceEditPanel(private val project: Project) : JPanel(BorderLayout()) {
         val cancelButton = JButton(KmpResourcesBundle.message("add.panel.button.cancel"))
 
         mainActionButton.addActionListener { submit() }
+        saveKeyButton.addActionListener { submit() }
+
         cancelButton.addActionListener {
             isVisible = false
             onCancelRequested?.invoke()
@@ -112,8 +147,12 @@ class ResourceEditPanel(private val project: Project) : JPanel(BorderLayout()) {
             override fun keyPressed(e: KeyEvent) {
                 if (e.keyCode == KeyEvent.VK_ENTER || e.keyCode == KeyEvent.VK_TAB) {
                     e.consume()
-                    if (e.source == keyField && typeComboBox.selectedItem == "string") stringValueField.requestFocusInWindow()
-                    else if (e.source == stringValueField) submit()
+                    if (e.source == keyField && typeComboBox.selectedItem == "string") {
+                        if (e.keyCode == KeyEvent.VK_ENTER) submit()
+                        else stringValueField.requestFocusInWindow()
+                    } else if (e.source == stringValueField) {
+                        if (e.keyCode == KeyEvent.VK_ENTER) submit()
+                    }
                 }
             }
         }
@@ -137,8 +176,11 @@ class ResourceEditPanel(private val project: Project) : JPanel(BorderLayout()) {
         val rowPanel = JPanel(FlowLayout(FlowLayout.LEFT, 0, 2))
         rowPanel.add(Box.createHorizontalStrut(10))
 
-        val indexLabel = JLabel("[${arrayValueFields.size}]").apply { preferredSize = Dimension(35, preferredSize.height) }
-        val field = JBTextField(30).apply { text = value; emptyText.text = KmpResourcesBundle.message("add.panel.array.item.placeholder") }
+        val indexLabel =
+            JLabel("[${arrayValueFields.size}]").apply { preferredSize = Dimension(35, preferredSize.height) }
+        val field = JBTextField(30).apply {
+            text = value; emptyText.text = KmpResourcesBundle.message("add.panel.array.item.placeholder")
+        }
 
         val removeBtn = JButton(AllIcons.General.Remove).apply {
             isBorderPainted = false; isContentAreaFilled = false; isOpaque = false
@@ -199,17 +241,21 @@ class ResourceEditPanel(private val project: Project) : JPanel(BorderLayout()) {
 
         typeComboBox.selectedItem = resource.xmlTag
         typeComboBox.isEnabled = false
+
         keyField.text = resource.key
-        keyField.isEnabled = false
+        keyField.isEnabled = true
 
         when (resource) {
-            is StringResource -> { stringValueField.text = resource.value; stringValueField.requestFocusInWindow() }
+            is StringResource -> {
+                stringValueField.text = resource.value; stringValueField.requestFocusInWindow()
+            }
+
             is PluralsResource -> validQuantities.forEach { q -> pluralValueFields[q]?.text = resource.items[q] ?: "" }
             is StringArrayResource -> {
                 arrayItemsContainer.removeAll()
                 arrayValueFields.clear()
                 resource.items.forEach { buildArrayItemRow(it) }
-                if (resource.items.isEmpty()) buildArrayItemRow("") // Mindestens ein leeres Feld
+                if (resource.items.isEmpty()) buildArrayItemRow("")
             }
         }
 
@@ -224,7 +270,11 @@ class ResourceEditPanel(private val project: Project) : JPanel(BorderLayout()) {
         val type = typeComboBox.selectedItem as String
 
         if (key.isBlank()) {
-            Messages.showErrorDialog(project, KmpResourcesBundle.message("dialog.error.empty.key"), KmpResourcesBundle.message("dialog.error.title"))
+            Messages.showErrorDialog(
+                project,
+                KmpResourcesBundle.message("dialog.error.empty.key"),
+                KmpResourcesBundle.message("dialog.error.title")
+            )
             return
         }
 
@@ -234,10 +284,12 @@ class ResourceEditPanel(private val project: Project) : JPanel(BorderLayout()) {
                 val items = pluralValueFields.filterValues { it.text.isNotBlank() }.mapValues { it.value.text }
                 PluralsResource(key, isUntranslatableState, items)
             }
+
             "string-array" -> {
                 val items = arrayValueFields.map { it.text }.filter { it.isNotBlank() }
                 StringArrayResource(key, isUntranslatableState, items)
             }
+
             else -> null
         }
 
@@ -252,9 +304,20 @@ class ResourceEditPanel(private val project: Project) : JPanel(BorderLayout()) {
             descriptionLabel.text = KmpResourcesBundle.message("panel.desc.add")
         } else {
             when (type) {
-                "string" -> { titleLabel.text = KmpResourcesBundle.message("panel.title.edit.string"); descriptionLabel.text = KmpResourcesBundle.message("panel.desc.edit.string") }
-                "plurals" -> { titleLabel.text = KmpResourcesBundle.message("panel.title.edit.plural"); descriptionLabel.text = KmpResourcesBundle.message("panel.desc.edit.plural") }
-                else -> { titleLabel.text = KmpResourcesBundle.message("panel.title.edit.array"); descriptionLabel.text = KmpResourcesBundle.message("panel.desc.edit.array") }
+                "string" -> {
+                    titleLabel.text = KmpResourcesBundle.message("panel.title.edit.string"); descriptionLabel.text =
+                        KmpResourcesBundle.message("panel.desc.edit.string")
+                }
+
+                "plurals" -> {
+                    titleLabel.text = KmpResourcesBundle.message("panel.title.edit.plural"); descriptionLabel.text =
+                        KmpResourcesBundle.message("panel.desc.edit.plural")
+                }
+
+                else -> {
+                    titleLabel.text = KmpResourcesBundle.message("panel.title.edit.array"); descriptionLabel.text =
+                        KmpResourcesBundle.message("panel.desc.edit.array")
+                }
             }
         }
     }
