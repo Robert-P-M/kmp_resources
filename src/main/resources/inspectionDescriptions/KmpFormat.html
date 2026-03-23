@@ -1,0 +1,21 @@
+<html>
+<body>
+Reports missing or mismatched format arguments in Compose Multiplatform resource calls.
+<p>
+    When using <code>stringResource()</code> or <code>pluralStringResource()</code>, this inspection checks the underlying XML definition for format specifiers (like <code>%s</code> or <code>%1$d</code>).
+    If the number of arguments provided in the Kotlin code does not match the required arguments in the XML, an error is highlighted.
+</p>
+<p>
+    <i>Note: Unlike standard Android/Java, Compose Multiplatform strictly supports only the <code>s</code> and <code>d</code> suffixes for formatting.</i>
+</p>
+<p><b>Example:</b></p>
+<p>XML: <code>&lt;string name="welcome"&gt;Hello %1$s, you have %2$d messages&lt;/string&gt;</code></p>
+<p>
+    Incorrect: <code>stringResource(Res.string.welcome, "Rob")</code> <br/>
+    <i>(Error: expects 2 arguments, but 1 was provided)</i>
+</p>
+<p>
+    Correct: <code>stringResource(Res.string.welcome, "Rob", 5)</code>
+</p>
+</body>
+</html>

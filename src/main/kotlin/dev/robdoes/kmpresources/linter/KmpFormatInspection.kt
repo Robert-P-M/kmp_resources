@@ -1,0 +1,62 @@
+package dev.robdoes.kmpresources.linter
+
+import com.intellij.codeInspection.LocalInspectionTool
+import com.intellij.codeInspection.ProblemsHolder
+import com.intellij.psi.PsiElementVisitor
+import org.jetbrains.kotlin.psi.KtCallExpression
+import org.jetbrains.kotlin.psi.KtVisitorVoid
+import dev.robdoes.kmpresources.util.KmpResourceResolver
+
+class KmpFormatInspection : LocalInspectionTool() {
+
+    override fun buildVisitor(holder: ProblemsHolder, isOnTheFly: Boolean): PsiElementVisitor {
+        return object : KtVisitorVoid() {
+
+            override fun visitCallExpression(expression: KtCallExpression) {
+                super.visitCallExpression(expression)
+
+                val functionName = expression.calleeExpression?.text ?: return
+
+                if (functionName != "stringResource" && functionName != "pluralStringResource") return
+
+                val valueArguments = expression.valueArguments
+                if (valueArguments.isEmpty()) return
+
+                val resourceArg = valueArguments[0].getArgumentExpression() ?: return
+
+                val resolved = KmpResourceResolver.resolveReference(resourceArg) ?: return
+                val tags = KmpResourceResolver.findXmlTags(expression.project, resolved)
+                if (tags.isEmpty()) return
+
+                val xmlTag = tags.first()
+
+                val xmlText = if (resolved.xmlTag == "plurals") {
+                    xmlTag.findSubTags("item").find { it.getAttributeValue("quantity") == "other" }?.value?.text ?: ""
+                } else {
+                    xmlTag.value.text
+                }
+
+                val expectedArgsCount = FormatArgumentAnalyzer.countRequiredArguments(xmlText)
+
+                val providedArgsCount = if (functionName == "pluralStringResource") {
+                    valueArguments.size - 2
+                } else {
+                    valueArguments.size - 1
+                }
+
+                val actualProvided = maxOf(0, providedArgsCount)
+
+                if (expectedArgsCount != actualProvided) {
+                    val message = dev.robdoes.kmpresources.KmpResourcesBundle.message(
+                        "inspection.format.args.mismatch",
+                        functionName,
+                        expectedArgsCount,
+                        actualProvided
+                    )
+
+                    holder.registerProblem(expression, message)
+                }
+            }
+        }
+    }
+}
