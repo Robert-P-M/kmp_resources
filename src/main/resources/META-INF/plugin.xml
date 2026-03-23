@@ -14,6 +14,16 @@
         <gotoDeclarationHandler implementation="dev.robdoes.kmpresources.navigation.KmpGotoDeclarationHandler" />
 
         <lang.documentationProvider language="kotlin" implementationClass="dev.robdoes.kmpresources.documentation.KmpDocumentationProvider" />
+        <localInspection
+                language="kotlin"
+                key="inspection.format.args.display.name"
+                groupKey="inspection.format.args.group.name"
+                bundle="messages.KmpResourcesBundle"
+                shortName="KmpFormat"
+                groupPath="Kotlin"
+                enabledByDefault="true"
+                level="ERROR"
+                implementationClass="dev.robdoes.kmpresources.linter.KmpFormatInspection" />
     </extensions>
 
     <extensions defaultExtensionNs="org.jetbrains.kotlin">
