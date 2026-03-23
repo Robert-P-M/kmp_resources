@@ -195,7 +195,7 @@ class KmpResourceTableEditor(
                     }
 
                     if (isRename) {
-                        KmpResourceRefactorService.renameKeyInModule(project, file, type, oldKey!!, resourceToSave.key)
+                        KmpResourceRefactorService.renameKeyInModule(project, file, type, oldKey, resourceToSave.key)
 
                         WriteCommandAction.runWriteCommandAction(project, "Rename XML Key", "KMP Resources", {
                             val psiFile = PsiManager.getInstance(project).findFile(file) as? com.intellij.psi.xml.XmlFile
