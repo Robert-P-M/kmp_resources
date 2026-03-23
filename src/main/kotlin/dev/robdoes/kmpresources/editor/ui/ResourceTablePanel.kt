@@ -2,10 +2,14 @@ package dev.robdoes.kmpresources.editor.ui
 
 import com.intellij.icons.AllIcons
 import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.wm.IdeFocusManager
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.table.JBTable
 import dev.robdoes.kmpresources.KmpResourcesBundle
-import dev.robdoes.kmpresources.domain.model.*
+import dev.robdoes.kmpresources.domain.model.PluralsResource
+import dev.robdoes.kmpresources.domain.model.StringArrayResource
+import dev.robdoes.kmpresources.domain.model.StringResource
+import dev.robdoes.kmpresources.domain.model.XmlResource
 import dev.robdoes.kmpresources.service.ResourceScannerService
 import java.awt.BorderLayout
 import java.awt.Component
@@ -118,10 +122,41 @@ class ResourceTablePanel(private val scannerService: ResourceScannerService) : J
             }
         }
 
-        table.columnModel.getColumn(0).maxWidth = 45
-        table.columnModel.getColumn(1).preferredWidth = 350; table.columnModel.getColumn(1).minWidth = 200
-        table.columnModel.getColumn(2).maxWidth = 50; table.columnModel.getColumn(3).maxWidth = 50
-        table.columnModel.getColumn(4).maxWidth = 100
+        table.autoResizeMode = JTable.AUTO_RESIZE_OFF
+
+        for (i in 0 until table.columnModel.columnCount) {
+            val col = table.columnModel.getColumn(i)
+            when (i) {
+                0 -> {
+                    col.preferredWidth = 45; col.maxWidth = 45; col.minWidth = 45
+                }
+
+                1 -> {
+                    col.preferredWidth = 300; col.minWidth = 150
+                }
+
+                2 -> {
+                    col.preferredWidth = 50; col.maxWidth = 50; col.minWidth = 50
+                }
+
+                3 -> {
+                    col.preferredWidth = 50; col.maxWidth = 50; col.minWidth = 50
+                }
+
+                4 -> {
+                    col.preferredWidth = 110; col.maxWidth = 110; col.minWidth = 110
+                }
+
+                5 -> {
+                    col.preferredWidth = 100; col.minWidth = 80
+                }
+
+                else -> {
+                    col.preferredWidth = 400
+                    col.minWidth = 200
+                }
+            }
+        }
 
         table.addMouseListener(object : MouseAdapter() {
             override fun mouseClicked(e: MouseEvent) {
@@ -235,11 +270,17 @@ class ResourceTablePanel(private val scannerService: ResourceScannerService) : J
                 ApplicationManager.getApplication().invokeLater {
                     if (i < tableModel.rowCount && tableModel.getValueAt(i, 1) == keyName) {
                         val newStatus =
-                            if (isUsed) ResourceStatus(null, KmpResourcesBundle.message("status.tooltip.ok"))
-                            else ResourceStatus(
-                                AllIcons.General.Error,
-                                KmpResourcesBundle.message("status.tooltip.unused")
-                            )
+                            if (isUsed) {
+                                ResourceStatus(
+                                    AllIcons.General.InspectionsOK,
+                                    KmpResourcesBundle.message("status.tooltip.ok")
+                                )
+                            } else {
+                                ResourceStatus(
+                                    AllIcons.General.Error,
+                                    KmpResourcesBundle.message("status.tooltip.unused")
+                                )
+                            }
                         tableModel.setValueAt(newStatus, i, 0)
                     }
                 }
@@ -280,7 +321,7 @@ class ResourceTablePanel(private val scannerService: ResourceScannerService) : J
                     if (viewRow >= 0) {
                         table.setRowSelectionInterval(viewRow, viewRow)
                         table.scrollRectToVisible(table.getCellRect(viewRow, 0, true))
-                        com.intellij.openapi.wm.IdeFocusManager.findInstance().requestFocus(table, true)
+                        IdeFocusManager.findInstance().requestFocus(table, true)
                     }
                     break
                 }
