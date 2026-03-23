@@ -59,6 +59,7 @@ class KmpDocumentationProvider : AbstractDocumentationProvider() {
             "string" -> {
                 sb.append(tag.value.text)
             }
+
             "plurals" -> {
                 val items = tag.findSubTags("item")
                 sb.append("<ul>")
@@ -68,6 +69,7 @@ class KmpDocumentationProvider : AbstractDocumentationProvider() {
                 }
                 sb.append("</ul>")
             }
+
             "string-array" -> {
                 val items = tag.findSubTags("item")
                 sb.append("<ol>")

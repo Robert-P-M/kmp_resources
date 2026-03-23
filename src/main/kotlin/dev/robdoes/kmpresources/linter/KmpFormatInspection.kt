@@ -3,9 +3,9 @@ package dev.robdoes.kmpresources.linter
 import com.intellij.codeInspection.LocalInspectionTool
 import com.intellij.codeInspection.ProblemsHolder
 import com.intellij.psi.PsiElementVisitor
+import dev.robdoes.kmpresources.util.KmpResourceResolver
 import org.jetbrains.kotlin.psi.KtCallExpression
 import org.jetbrains.kotlin.psi.KtVisitorVoid
-import dev.robdoes.kmpresources.util.KmpResourceResolver
 
 class KmpFormatInspection : LocalInspectionTool() {
 

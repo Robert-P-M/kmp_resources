@@ -1,48 +1,44 @@
 package dev.robdoes.kmpresources.service
 
 import com.intellij.openapi.application.ReadAction
-import com.intellij.openapi.progress.ProcessCanceledException
+import com.intellij.openapi.components.Service
 import com.intellij.openapi.project.Project
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.search.PsiSearchHelper
-import com.intellij.psi.search.TextOccurenceProcessor
-import com.intellij.psi.search.UsageSearchContext
+import com.intellij.util.Processor
 
+@Service(Service.Level.PROJECT)
 class ResourceScannerService(private val project: Project) {
 
     fun isResourceUsed(keyName: String): Boolean {
         if (keyName.isBlank()) return false
 
+        val normalizedKey = keyName.replace(".", "_").replace("-", "_")
+
         return try {
-            ReadAction.nonBlocking<Boolean> {
+            ReadAction.compute<Boolean, Throwable> {
                 var found = false
-                val processor = TextOccurenceProcessor { element, _ ->
-                    val currentFile = element.containingFile?.virtualFile ?: return@TextOccurenceProcessor true
-                    val path = currentFile.path.replace("\\", "/")
 
-                    if (path.contains("/build/") || path.contains("/generated/") || path.contains("/.idea/")) return@TextOccurenceProcessor true
-                    if (currentFile.extension == "xml" || path.endsWith(".cvr")) return@TextOccurenceProcessor true
-
-                    found = true
-                    return@TextOccurenceProcessor false
-                }
-
-                PsiSearchHelper.getInstance(project).processElementsWithWord(
-                    processor,
+                PsiSearchHelper.getInstance(project).processAllFilesWithWord(
+                    normalizedKey,
                     GlobalSearchScope.projectScope(project),
-                    keyName,
-                    UsageSearchContext.ANY,
+                    Processor { psiFile ->
+                        val vFile = psiFile.virtualFile ?: return@Processor true
+                        val path = vFile.path.replace("\\", "/")
+
+                        if (!path.contains("/build/") && !path.contains("/generated/") && vFile.extension != "xml") {
+                            found = true
+                            false
+                        } else {
+                            true
+                        }
+                    },
                     true
                 )
-
                 found
             }
-                .inSmartMode(project)
-                .executeSynchronously()
-        } catch (e: ProcessCanceledException) {
-            throw e
         } catch (e: Exception) {
-            false
+            true
         }
     }
 }

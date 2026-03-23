@@ -11,7 +11,10 @@ import com.intellij.ui.components.JBTextField
 import com.intellij.util.ui.JBUI
 import com.intellij.util.ui.UIUtil
 import dev.robdoes.kmpresources.KmpResourcesBundle
-import dev.robdoes.kmpresources.domain.model.*
+import dev.robdoes.kmpresources.domain.model.PluralsResource
+import dev.robdoes.kmpresources.domain.model.StringArrayResource
+import dev.robdoes.kmpresources.domain.model.StringResource
+import dev.robdoes.kmpresources.domain.model.XmlResource
 import java.awt.*
 import java.awt.event.KeyAdapter
 import java.awt.event.KeyEvent
@@ -132,6 +135,13 @@ class ResourceEditPanel(private val project: Project) : JPanel(BorderLayout()) {
             }
         }
 
+
+        val cardsScrollPane = JBScrollPane(cardsPanel).apply {
+            border = JBUI.Borders.empty()
+            preferredSize = Dimension(-1, 140)
+            horizontalScrollBarPolicy = ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER
+        }
+
         val actionButtonPanel = JPanel(FlowLayout(FlowLayout.LEFT, 0, 0)).apply { border = JBUI.Borders.emptyTop(10) }
         val cancelButton = JButton(KmpResourcesBundle.message("add.panel.button.cancel"))
 
@@ -165,7 +175,8 @@ class ResourceEditPanel(private val project: Project) : JPanel(BorderLayout()) {
 
         val contentPanel = JPanel(BorderLayout(0, 0))
         contentPanel.add(controlPanel, BorderLayout.NORTH)
-        contentPanel.add(cardsPanel, BorderLayout.CENTER)
+
+        contentPanel.add(cardsScrollPane, BorderLayout.CENTER)
 
         add(headerPanel, BorderLayout.NORTH)
         add(contentPanel, BorderLayout.CENTER)

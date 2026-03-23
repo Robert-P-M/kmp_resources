@@ -4,6 +4,7 @@ import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.module.ModuleUtilCore
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
+import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.PsiManager
 import com.intellij.psi.search.FileTypeIndex
 import com.intellij.psi.search.GlobalSearchScope
@@ -35,6 +36,10 @@ object KmpResourceRefactorService {
         val fullOldReference = "Res.$ktType.$oldKey"
 
         WriteCommandAction.runWriteCommandAction(project, "Rename KMP Resource Key", "KMP Resources", {
+            val documentManager = PsiDocumentManager.getInstance(project)
+
+            documentManager.commitAllDocuments()
+
             for (vFile in kotlinFiles) {
                 val ktFile = psiManager.findFile(vFile) as? KtFile ?: continue
 
@@ -49,10 +54,13 @@ object KmpResourceRefactorService {
                 val imports = ktFile.importDirectives.filter { it.importedName?.asString() == oldKey }
                 for (import in imports) {
                     val importedRef = import.importedReference ?: continue
-                    val nameExpressions = importedRef.collectDescendantsOfType<KtNameReferenceExpression> { it.text == oldKey }
+                    val nameExpressions =
+                        importedRef.collectDescendantsOfType<KtNameReferenceExpression> { it.text == oldKey }
                     nameExpressions.lastOrNull()?.replace(psiFactory.createNameIdentifier(newKey))
                 }
             }
+
+            documentManager.commitAllDocuments()
         })
     }
 }

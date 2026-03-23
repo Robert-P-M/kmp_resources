@@ -9,7 +9,10 @@ import com.intellij.psi.XmlElementFactory
 import com.intellij.psi.codeStyle.CodeStyleManager
 import com.intellij.psi.xml.XmlFile
 import com.intellij.psi.xml.XmlTag
-import dev.robdoes.kmpresources.domain.model.*
+import dev.robdoes.kmpresources.domain.model.PluralsResource
+import dev.robdoes.kmpresources.domain.model.StringArrayResource
+import dev.robdoes.kmpresources.domain.model.StringResource
+import dev.robdoes.kmpresources.domain.model.XmlResource
 
 class XmlResourceManager(private val project: Project, private val file: VirtualFile) {
 

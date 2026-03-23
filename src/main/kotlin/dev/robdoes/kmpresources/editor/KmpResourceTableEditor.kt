@@ -26,7 +26,9 @@ import com.intellij.psi.search.DelegatingGlobalSearchScope
 import com.intellij.psi.search.GlobalSearchScope
 import dev.robdoes.kmpresources.KmpResourcesBundle
 import dev.robdoes.kmpresources.data.XmlResourceManager
-import dev.robdoes.kmpresources.domain.model.*
+import dev.robdoes.kmpresources.domain.model.PluralsResource
+import dev.robdoes.kmpresources.domain.model.StringArrayResource
+import dev.robdoes.kmpresources.domain.model.StringResource
 import dev.robdoes.kmpresources.editor.ui.ResourceEditPanel
 import dev.robdoes.kmpresources.editor.ui.ResourceTablePanel
 import dev.robdoes.kmpresources.refactoring.KmpResourceRefactorService
@@ -198,7 +200,8 @@ class KmpResourceTableEditor(
                         KmpResourceRefactorService.renameKeyInModule(project, file, type, oldKey, resourceToSave.key)
 
                         WriteCommandAction.runWriteCommandAction(project, "Rename XML Key", "KMP Resources", {
-                            val psiFile = PsiManager.getInstance(project).findFile(file) as? com.intellij.psi.xml.XmlFile
+                            val psiFile =
+                                PsiManager.getInstance(project).findFile(file) as? com.intellij.psi.xml.XmlFile
                             val targetTag = psiFile?.rootTag?.subTags?.find {
                                 it.name == resourceToSave.xmlTag && it.getAttributeValue("name") == oldKey
                             }
@@ -302,21 +305,25 @@ class KmpResourceTableEditor(
     }
 
     private fun triggerNativeFindUsages(keyName: String) {
+        val normalizedKey = keyName.replace(".", "_").replace("-", "_")
+
         val findModel = FindModel().apply {
-            stringToFind = keyName; isCaseSensitive = true; isProjectScope = false; isCustomScope = true
+            stringToFind = normalizedKey
+            isCaseSensitive = true
+            isProjectScope = false
+            isCustomScope = true
+            customScopeName = "KMP Usages"
         }
-        findModel.customScope = object : DelegatingGlobalSearchScope(projectScope(project)) {
-            override fun contains(file: VirtualFile) =
-                !file.path.contains("/generated/") && !file.path.contains("/build/") && !file.path.endsWith(".cvr") && super.contains(
-                    file
-                )
-        }
+
+        findModel.customScope = KmpUsageSearchScope(GlobalSearchScope.projectScope(project))
+
         FindInProjectManager.getInstance(project).startFindInProject(findModel)
     }
 
     private fun triggerGradleSync() {
         val module = ModuleUtilCore.findModuleForFile(file, project) ?: return
         val basePath = ExternalSystemApiUtil.getExternalProjectPath(module) ?: project.basePath ?: return
+        val systemId = ProjectSystemId("GRADLE")
 
         val settings = ExternalSystemTaskExecutionSettings().apply {
             externalProjectPath = basePath
@@ -324,7 +331,18 @@ class KmpResourceTableEditor(
             externalSystemIdString = "GRADLE"
         }
 
-        val systemId = ProjectSystemId("GRADLE")
+        val callback = object : com.intellij.openapi.externalSystem.task.TaskCallback {
+            override fun onSuccess() {
+                val generatedDir = com.intellij.openapi.vfs.LocalFileSystem.getInstance()
+                    .findFileByPath("$basePath/build/generated")
+
+                if (generatedDir != null) {
+                    com.intellij.openapi.vfs.VfsUtil.markDirtyAndRefresh(true, true, true, generatedDir)
+                }
+            }
+
+            override fun onFailure() {}
+        }
 
         val spec = TaskExecutionSpec.create()
             .withProject(project)
@@ -332,6 +350,7 @@ class KmpResourceTableEditor(
             .withExecutorId("Run")
             .withSettings(settings)
             .withProgressExecutionMode(ProgressExecutionMode.IN_BACKGROUND_ASYNC)
+            .withCallback(callback)
             .build()
 
         ExternalSystemUtil.runTask(spec)
@@ -365,4 +384,28 @@ class KmpResourceTableEditor(
 
     override fun dispose() {}
     override fun getFile(): VirtualFile = file
+}
+
+class KmpUsageSearchScope(baseScope: GlobalSearchScope) : DelegatingGlobalSearchScope(baseScope) {
+
+    override fun contains(file: VirtualFile): Boolean {
+        val path = file.path
+        return !path.contains("/generated/") &&
+                !path.contains("/build/") &&
+                !path.endsWith(".cvr") &&
+                super.contains(file)
+    }
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
+        other as KmpUsageSearchScope
+        return myBaseScope == other.myBaseScope
+    }
+
+    override fun hashCode(): Int {
+        return myBaseScope.hashCode() * 31 + javaClass.name.hashCode()
+    }
+
+    override fun toString() = "KMP Usages"
 }

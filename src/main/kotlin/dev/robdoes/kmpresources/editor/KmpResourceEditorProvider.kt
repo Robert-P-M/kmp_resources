@@ -7,7 +7,7 @@ import com.intellij.openapi.project.DumbAware
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
 
-class KmpResourceEditorProvider: FileEditorProvider, DumbAware {
+class KmpResourceEditorProvider : FileEditorProvider, DumbAware {
 
     override fun accept(project: Project, file: VirtualFile): Boolean {
         if (file.name != "string.xml") return false

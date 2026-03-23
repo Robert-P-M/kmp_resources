@@ -20,12 +20,11 @@
     ]]></description>
 
     <extensions defaultExtensionNs="com.intellij">
-        <projectViewPane implementation="dev.robdoes.kmpresources.view.KmpResourcesProjectViewPane"/>
-        <treeStructureProvider implementation="dev.robdoes.kmpresources.view.KmpResourcesTreeStructureProvider" />
-        <fileEditorProvider implementation="dev.robdoes.kmpresources.editor.KmpResourceEditorProvider" />
-        <gotoDeclarationHandler implementation="dev.robdoes.kmpresources.navigation.KmpGotoDeclarationHandler" />
+        <fileEditorProvider implementation="dev.robdoes.kmpresources.editor.KmpResourceEditorProvider"/>
+        <gotoDeclarationHandler implementation="dev.robdoes.kmpresources.navigation.KmpGotoDeclarationHandler"/>
+        <lang.documentationProvider language="kotlin"
+                                    implementationClass="dev.robdoes.kmpresources.documentation.KmpDocumentationProvider"/>
 
-        <lang.documentationProvider language="kotlin" implementationClass="dev.robdoes.kmpresources.documentation.KmpDocumentationProvider" />
         <localInspection
                 language="kotlin"
                 key="inspection.format.args.display.name"
@@ -35,10 +34,17 @@
                 groupPath="Kotlin"
                 enabledByDefault="true"
                 level="ERROR"
-                implementationClass="dev.robdoes.kmpresources.linter.KmpFormatInspection" />
-    </extensions>
+                implementationClass="dev.robdoes.kmpresources.linter.KmpFormatInspection"/>
 
+        <toolWindow id="KMP Resources"
+                    anchor="bottom"
+                    icon="AllIcons.Toolwindows.ToolWindowInspection"
+                    factoryClass="dev.robdoes.kmpresources.toolwindow.KmpResourcesToolWindowFactory"/>
+
+        <projectViewNodeDecorator implementation="dev.robdoes.kmpresources.view.KmpResourceProjectViewDecorator"/>
+
+    </extensions>
     <extensions defaultExtensionNs="org.jetbrains.kotlin">
-        <supportsKotlinPluginMode supportsK1="true" supportsK2="true" />
+        <supportsKotlinPluginMode supportsK1="true" supportsK2="true"/>
     </extensions>
 </idea-plugin>
