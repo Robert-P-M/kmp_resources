@@ -6,13 +6,22 @@ import com.intellij.icons.AllIcons
 import com.intellij.openapi.actionSystem.*
 import com.intellij.openapi.actionSystem.ex.ComboBoxAction
 import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.command.WriteCommandAction
+import com.intellij.openapi.externalSystem.model.ProjectSystemId
+import com.intellij.openapi.externalSystem.model.execution.ExternalSystemTaskExecutionSettings
+import com.intellij.openapi.externalSystem.service.execution.ProgressExecutionMode
+import com.intellij.openapi.externalSystem.util.ExternalSystemApiUtil
+import com.intellij.openapi.externalSystem.util.ExternalSystemUtil
+import com.intellij.openapi.externalSystem.util.task.TaskExecutionSpec
 import com.intellij.openapi.fileEditor.FileEditor
 import com.intellij.openapi.fileEditor.FileEditorLocation
 import com.intellij.openapi.fileEditor.FileEditorState
+import com.intellij.openapi.module.ModuleUtilCore
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.util.UserDataHolderBase
 import com.intellij.openapi.vfs.VirtualFile
+import com.intellij.psi.PsiManager
 import com.intellij.psi.search.DelegatingGlobalSearchScope
 import com.intellij.psi.search.GlobalSearchScope
 import dev.robdoes.kmpresources.KmpResourcesBundle
@@ -20,6 +29,7 @@ import dev.robdoes.kmpresources.data.XmlResourceManager
 import dev.robdoes.kmpresources.domain.model.*
 import dev.robdoes.kmpresources.editor.ui.ResourceEditPanel
 import dev.robdoes.kmpresources.editor.ui.ResourceTablePanel
+import dev.robdoes.kmpresources.refactoring.KmpResourceRefactorService
 import dev.robdoes.kmpresources.service.ResourceScannerService
 import java.awt.BorderLayout
 import java.beans.PropertyChangeListener
@@ -39,8 +49,9 @@ class KmpResourceTableEditor(
     private val editPanel = ResourceEditPanel(project)
 
     private var pendingScrollToKey: String? = null
-
     private var currentFilter = "ALL"
+
+    private var currentEditingOldKey: String? = null
 
     init {
         setupToolbar()
@@ -54,6 +65,7 @@ class KmpResourceTableEditor(
 
     private fun wireUpCallbacks() {
         tablePanel.onEditRequested = { key ->
+            currentEditingOldKey = key
             val resource = xmlManager.loadResources().find { it.key == key }
             if (resource != null) editPanel.showForUpdate(resource)
         }
@@ -76,6 +88,7 @@ class KmpResourceTableEditor(
                                 )
                             )
                             reloadTableData()
+                            triggerGradleSync()
                         }
                     }
                 } else {
@@ -91,6 +104,7 @@ class KmpResourceTableEditor(
                         val updatedItems = existingPlural.items.toMutableMap().apply { remove(type) }
                         xmlManager.saveResource(PluralsResource(key, existingPlural.isUntranslatable, updatedItems))
                         reloadTableData()
+                        triggerGradleSync()
                     }
                 }
             } else {
@@ -104,6 +118,7 @@ class KmpResourceTableEditor(
                     ) {
                         xmlManager.deleteResource(key, type)
                         reloadTableData()
+                        triggerGradleSync()
                     }
                 } else {
                     if (Messages.showDialog(
@@ -128,6 +143,7 @@ class KmpResourceTableEditor(
 
         tablePanel.onInlineStringEdited = { key, isUn, newValue ->
             xmlManager.saveResource(StringResource(key, isUn, newValue))
+            triggerGradleSync()
         }
 
         tablePanel.onInlinePluralEdited = { key, isUn, quantity, newValue ->
@@ -137,6 +153,7 @@ class KmpResourceTableEditor(
                 val updatedItems = existingPlural.items.toMutableMap()
                 if (newValue.isNotBlank()) updatedItems[quantity] = newValue else updatedItems.remove(quantity)
                 xmlManager.saveResource(PluralsResource(key, isUn, updatedItems))
+                triggerGradleSync()
             }
         }
 
@@ -152,6 +169,7 @@ class KmpResourceTableEditor(
                 }
                 xmlManager.saveResource(StringArrayResource(key, isUn, updatedItems))
                 ApplicationManager.getApplication().invokeLater { reloadTableData() }
+                triggerGradleSync()
             }
         }
 
@@ -160,17 +178,43 @@ class KmpResourceTableEditor(
         editPanel.onSaveRequested = { resourceToSave ->
             if (editPanel.isVisible && resourceToSave.key.isNotBlank()) {
                 val existing = xmlManager.loadResources().find { it.key == resourceToSave.key }
-                if (existing != null && existing.xmlTag != resourceToSave.xmlTag) {
+
+                if (existing != null && existing.xmlTag != resourceToSave.xmlTag && currentEditingOldKey != resourceToSave.key) {
                     Messages.showErrorDialog(
                         project,
                         KmpResourcesBundle.message("dialog.error.key.exists", resourceToSave.key),
                         KmpResourcesBundle.message("dialog.error.title")
                     )
                 } else {
+                    val oldKey = currentEditingOldKey
+                    val isRename = oldKey != null && oldKey != resourceToSave.key
+                    val type = when (resourceToSave) {
+                        is StringResource -> "string"
+                        is PluralsResource -> "plurals"
+                        is StringArrayResource -> "string-array"
+                    }
+
+                    if (isRename) {
+                        KmpResourceRefactorService.renameKeyInModule(project, file, type, oldKey!!, resourceToSave.key)
+
+                        WriteCommandAction.runWriteCommandAction(project, "Rename XML Key", "KMP Resources", {
+                            val psiFile = PsiManager.getInstance(project).findFile(file) as? com.intellij.psi.xml.XmlFile
+                            val targetTag = psiFile?.rootTag?.subTags?.find {
+                                it.name == resourceToSave.xmlTag && it.getAttributeValue("name") == oldKey
+                            }
+                            targetTag?.setAttribute("name", resourceToSave.key)
+                        })
+
+                    }
+
                     xmlManager.saveResource(resourceToSave)
+
                     editPanel.isVisible = false
+                    currentEditingOldKey = null
                     reloadTableData()
                     tablePanel.scrollToKey(resourceToSave.key)
+
+                    triggerGradleSync()
                 }
             }
         }
@@ -183,7 +227,10 @@ class KmpResourceTableEditor(
             KmpResourcesBundle.message("action.add.key.description"),
             AllIcons.General.Add
         ) {
-            override fun actionPerformed(e: AnActionEvent) = editPanel.showForAdd()
+            override fun actionPerformed(e: AnActionEvent) {
+                currentEditingOldKey = null
+                editPanel.showForAdd()
+            }
         })
         actionGroup.addAction(object : AnAction(
             KmpResourcesBundle.message("action.remove.key.text"),
@@ -197,6 +244,19 @@ class KmpResourceTableEditor(
 
             override fun getActionUpdateThread() = ActionUpdateThread.EDT
         })
+
+        actionGroup.addSeparator()
+
+        actionGroup.addAction(object : AnAction(
+            KmpResourcesBundle.message("action.sync.gradle.text"),
+            KmpResourcesBundle.message("action.sync.gradle.desc"),
+            AllIcons.Actions.Refresh
+        ) {
+            override fun actionPerformed(e: AnActionEvent) {
+                triggerGradleSync()
+            }
+        })
+
         actionGroup.addSeparator()
 
         val filterAction = object : ComboBoxAction() {
@@ -245,13 +305,36 @@ class KmpResourceTableEditor(
         val findModel = FindModel().apply {
             stringToFind = keyName; isCaseSensitive = true; isProjectScope = false; isCustomScope = true
         }
-        findModel.customScope = object : DelegatingGlobalSearchScope(GlobalSearchScope.projectScope(project)) {
+        findModel.customScope = object : DelegatingGlobalSearchScope(projectScope(project)) {
             override fun contains(file: VirtualFile) =
                 !file.path.contains("/generated/") && !file.path.contains("/build/") && !file.path.endsWith(".cvr") && super.contains(
                     file
                 )
         }
         FindInProjectManager.getInstance(project).startFindInProject(findModel)
+    }
+
+    private fun triggerGradleSync() {
+        val module = ModuleUtilCore.findModuleForFile(file, project) ?: return
+        val basePath = ExternalSystemApiUtil.getExternalProjectPath(module) ?: project.basePath ?: return
+
+        val settings = ExternalSystemTaskExecutionSettings().apply {
+            externalProjectPath = basePath
+            taskNames = listOf("generateResourceAccessorsForCommonMain")
+            externalSystemIdString = "GRADLE"
+        }
+
+        val systemId = ProjectSystemId("GRADLE")
+
+        val spec = TaskExecutionSpec.create()
+            .withProject(project)
+            .withSystemId(systemId)
+            .withExecutorId("Run")
+            .withSettings(settings)
+            .withProgressExecutionMode(ProgressExecutionMode.IN_BACKGROUND_ASYNC)
+            .build()
+
+        ExternalSystemUtil.runTask(spec)
     }
 
     override fun selectNotify() {

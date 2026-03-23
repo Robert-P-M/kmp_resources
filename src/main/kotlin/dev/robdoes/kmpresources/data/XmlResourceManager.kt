@@ -5,6 +5,7 @@ import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiManager
+import com.intellij.psi.XmlElementFactory
 import com.intellij.psi.codeStyle.CodeStyleManager
 import com.intellij.psi.xml.XmlFile
 import com.intellij.psi.xml.XmlTag
@@ -50,7 +51,7 @@ class XmlResourceManager(private val project: Project, private val file: Virtual
         WriteCommandAction.runWriteCommandAction(project, "Save KMP Resource", "KmpResourceEditor", {
             try {
                 val rootTag = getRootTag() ?: return@runWriteCommandAction
-                val factory = com.intellij.psi.XmlElementFactory.getInstance(project)
+                val factory = XmlElementFactory.getInstance(project)
 
                 val translatableAttr = if (resource.isUntranslatable) " translatable=\"false\"" else ""
                 val newTagStr = StringBuilder("<${resource.xmlTag} name=\"${resource.key}\"$translatableAttr>")

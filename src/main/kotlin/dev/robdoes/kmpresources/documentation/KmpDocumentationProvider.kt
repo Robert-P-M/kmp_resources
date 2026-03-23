@@ -4,6 +4,9 @@ import com.intellij.lang.documentation.AbstractDocumentationProvider
 import com.intellij.lang.documentation.DocumentationMarkup
 import com.intellij.openapi.application.ApplicationManager.getApplication
 import com.intellij.openapi.editor.Editor
+import com.intellij.openapi.ui.popup.JBPopupFactory
+import com.intellij.openapi.vfs.LocalFileSystem
+import com.intellij.openapi.wm.WindowManager
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
 import com.intellij.psi.PsiManager
@@ -150,9 +153,9 @@ class KmpDocumentationProvider : AbstractDocumentationProvider() {
         if (link == "kmp_edit") {
             val target = context as? KmpResourceTarget ?: return null
             getApplication().invokeLater {
-                val frame = com.intellij.openapi.wm.WindowManager.getInstance().getFrame(target.project)
+                val frame = WindowManager.getInstance().getFrame(target.project)
                 if (frame != null) {
-                    val popups = com.intellij.openapi.ui.popup.JBPopupFactory.getInstance().getChildPopups(frame)
+                    val popups = JBPopupFactory.getInstance().getChildPopups(frame)
                     popups.forEach { it.cancel() }
                 }
                 target.navigate(true)
@@ -163,7 +166,7 @@ class KmpDocumentationProvider : AbstractDocumentationProvider() {
         if (link.startsWith("locale_")) {
             val targetPath = link.substringAfter("locale_")
             val project = context.project
-            val file = com.intellij.openapi.vfs.LocalFileSystem.getInstance().findFileByPath(targetPath) ?: return null
+            val file = LocalFileSystem.getInstance().findFileByPath(targetPath) ?: return null
             val psiFile = PsiManager.getInstance(project).findFile(file) as? XmlFile ?: return null
 
             val originalTarget = context as? KmpResourceTarget ?: return null
