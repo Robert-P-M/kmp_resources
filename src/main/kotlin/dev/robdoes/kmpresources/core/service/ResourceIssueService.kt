@@ -10,6 +10,7 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.search.FileTypeIndex
 import com.intellij.psi.search.GlobalSearchScope
+import dev.robdoes.kmpresources.data.repository.XmlResourceRepositoryFactory
 import dev.robdoes.kmpresources.data.repository.XmlResourceRepositoryImpl
 import dev.robdoes.kmpresources.domain.repository.ResourceRepository
 import dev.robdoes.kmpresources.domain.usecase.LoadResourcesUseCase
@@ -22,10 +23,11 @@ class ResourceIssueService(private val project: Project) {
     fun countIssues(file: VirtualFile): Int {
         if (!file.isValid) return 0
         val scanner = project.service<ResourceScannerService>()
+        val repositoryFactory = project.service<XmlResourceRepositoryFactory>()
 
         return try {
             val keys = ReadAction.nonBlocking<List<String>> {
-                val repository: ResourceRepository = XmlResourceRepositoryImpl(project, file)
+                val repository = repositoryFactory.create(file)
                 val loadResourcesUseCase = LoadResourcesUseCase(repository)
                 loadResourcesUseCase().map { it.key }
             }.executeSynchronously()
