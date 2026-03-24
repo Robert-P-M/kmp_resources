@@ -2,6 +2,7 @@ package dev.robdoes.kmpresources.core.service
 
 import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.components.Service
+import com.intellij.openapi.progress.ProcessCanceledException
 import com.intellij.openapi.project.Project
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.search.PsiSearchHelper
@@ -35,6 +36,8 @@ class ResourceScannerService(private val project: Project) {
                 )
                 found
             }
+        } catch (e: ProcessCanceledException) {
+            throw e
         } catch (e: Exception) {
             true
         }

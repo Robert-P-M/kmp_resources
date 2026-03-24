@@ -5,6 +5,7 @@ import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.service
 import com.intellij.openapi.diagnostic.Logger
+import com.intellij.openapi.progress.ProcessCanceledException
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.search.FileTypeIndex
@@ -23,11 +24,11 @@ class ResourceIssueService(private val project: Project) {
         val scanner = project.service<ResourceScannerService>()
 
         return try {
-            val keys = ReadAction.compute<List<String>, Throwable> {
+            val keys = ReadAction.nonBlocking<List<String>> {
                 val repository: ResourceRepository = XmlResourceRepositoryImpl(project, file)
                 val loadResourcesUseCase = LoadResourcesUseCase(repository)
                 loadResourcesUseCase().map { it.key }
-            }
+            }.executeSynchronously()
 
             var warnings = 0
             for (key in keys) {
@@ -37,6 +38,8 @@ class ResourceIssueService(private val project: Project) {
                 }
             }
             warnings
+        } catch (e: ProcessCanceledException) {
+            throw e
         } catch (e: Exception) {
             logger.warn("Error scanning file: ${file.path}", e)
             0
@@ -45,7 +48,7 @@ class ResourceIssueService(private val project: Project) {
 
     fun findAllResourceFiles(): List<VirtualFile> {
         return try {
-            ReadAction.compute<List<VirtualFile>, Throwable> {
+            ReadAction.nonBlocking<List<VirtualFile>> {
                 val resourceFiles = mutableListOf<VirtualFile>()
                 val projectScope = GlobalSearchScope.projectScope(project)
 
@@ -57,7 +60,9 @@ class ResourceIssueService(private val project: Project) {
                     }
                 }
                 resourceFiles
-            }
+            }.executeSynchronously()
+        } catch (e: ProcessCanceledException) {
+            throw e
         } catch (e: Exception) {
             logger.warn("Error finding resource files", e)
             emptyList()
