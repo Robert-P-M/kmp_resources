@@ -9,13 +9,17 @@ import com.intellij.psi.XmlElementFactory
 import com.intellij.psi.codeStyle.CodeStyleManager
 import com.intellij.psi.xml.XmlFile
 import com.intellij.psi.xml.XmlTag
-import dev.robdoes.kmpresources.domain.model.*
+import com.intellij.xml.util.XmlStringUtil
+import dev.robdoes.kmpresources.domain.model.PluralsResource
+import dev.robdoes.kmpresources.domain.model.StringArrayResource
+import dev.robdoes.kmpresources.domain.model.StringResource
+import dev.robdoes.kmpresources.domain.model.XmlResource
 import dev.robdoes.kmpresources.domain.repository.ResourceRepository
 
 class XmlResourceRepositoryImpl(
     private val project: Project,
     private val file: VirtualFile
-): ResourceRepository {
+) : ResourceRepository {
 
     private val logger = Logger.getInstance(XmlResourceRepositoryImpl::class.java)
 
@@ -24,26 +28,31 @@ class XmlResourceRepositoryImpl(
         val psiFile = PsiManager.getInstance(project).findFile(file) as? XmlFile ?: return emptyList()
         val rootTag = psiFile.rootTag ?: return emptyList()
 
+        fun getDecodedText(tag: XmlTag): String {
+            val textElements = tag.value.textElements
+            if (textElements.isNotEmpty()) {
+                return textElements.joinToString("") { it.value }
+            }
+            return ""
+        }
+
         for (tag in rootTag.subTags) {
             val name = tag.getAttributeValue("name") ?: continue
             val isUntranslatable = tag.getAttributeValue("translatable") == "false"
 
             when (tag.name) {
-                "string" -> {
-                    resources.add(StringResource(name, isUntranslatable, tag.value.text))
-                }
-
+                "string" -> resources.add(StringResource(name, isUntranslatable, getDecodedText(tag)))
                 "plurals" -> {
                     val items = mutableMapOf<String, String>()
                     tag.findSubTags("item").forEach { itemTag ->
                         val quantity = itemTag.getAttributeValue("quantity")
-                        if (quantity != null) items[quantity] = itemTag.value.text
+                        if (quantity != null) items[quantity] = getDecodedText(itemTag)
                     }
                     resources.add(PluralsResource(name, isUntranslatable, items))
                 }
 
                 "string-array" -> {
-                    val items = tag.findSubTags("item").map { it.value.text }
+                    val items = tag.findSubTags("item").map { getDecodedText(it) }
                     resources.add(StringArrayResource(name, isUntranslatable, items))
                 }
             }
@@ -57,28 +66,43 @@ class XmlResourceRepositoryImpl(
                 val rootTag = getRootTag() ?: return@runWriteCommandAction
                 val factory = XmlElementFactory.getInstance(project)
 
+                val tagBuilder = java.lang.StringBuilder()
+
                 val translatableAttr = if (resource.isUntranslatable) " translatable=\"false\"" else ""
-                val newTagStr = StringBuilder("<${resource.xmlTag} name=\"${resource.key}\"$translatableAttr>")
+                tagBuilder.append("<${resource.xmlTag} name=\"${resource.key}\"$translatableAttr>")
 
                 when (resource) {
-                    is StringResource -> newTagStr.append("${resource.value}</${resource.xmlTag}>")
+                    is StringResource -> {
+                        tagBuilder.append(XmlStringUtil.escapeString(resource.value))
+                        tagBuilder.append("</${resource.xmlTag}>")
+                    }
+
                     is PluralsResource -> {
-                        newTagStr.append("\n")
-                        resource.items.forEach { (q, v) -> newTagStr.append("    <item quantity=\"$q\">$v</item>\n") }
-                        newTagStr.append("</${resource.xmlTag}>")
+                        tagBuilder.append("\n")
+                        resource.items.forEach { (quantity, value) ->
+                            tagBuilder.append("    <item quantity=\"$quantity\">")
+                            tagBuilder.append(XmlStringUtil.escapeString(value))
+                            tagBuilder.append("</item>\n")
+                        }
+                        tagBuilder.append("</${resource.xmlTag}>")
                     }
 
                     is StringArrayResource -> {
-                        newTagStr.append("\n")
-                        resource.items.forEach { v -> newTagStr.append("    <item>$v</item>\n") }
-                        newTagStr.append("</${resource.xmlTag}>")
+                        tagBuilder.append("\n")
+                        resource.items.forEach { value ->
+                            tagBuilder.append("    <item>")
+                            tagBuilder.append(XmlStringUtil.escapeString(value))
+                            tagBuilder.append("</item>\n")
+                        }
+                        tagBuilder.append("</${resource.xmlTag}>")
                     }
                 }
 
-                val newTag = factory.createTagFromText(newTagStr.toString())
+                val newTag = factory.createTagFromText(tagBuilder.toString())
 
-                val existingTag =
-                    rootTag.subTags.find { it.name == resource.xmlTag && it.getAttributeValue("name") == resource.key }
+                val existingTag = rootTag.subTags.find {
+                    it.name == resource.xmlTag && it.getAttributeValue("name") == resource.key
+                }
 
                 if (existingTag != null) {
                     val replacedTag = existingTag.replace(newTag)
@@ -110,8 +134,11 @@ class XmlResourceRepositoryImpl(
             try {
                 val tag =
                     getRootTag()?.subTags?.find { it.getAttributeValue("name") == key } ?: return@runWriteCommandAction
-                if (isUntranslatable) tag.setAttribute("translatable", "false") else tag.getAttribute("translatable")
-                    ?.delete()
+                if (isUntranslatable) {
+                    tag.setAttribute("translatable", "false")
+                } else {
+                    tag.getAttribute("translatable")?.delete()
+                }
                 CodeStyleManager.getInstance(project).reformat(tag)
             } catch (e: Exception) {
                 logger.error("Error toggling translatable for $key", e)
@@ -123,5 +150,4 @@ class XmlResourceRepositoryImpl(
         val psiFile = PsiManager.getInstance(project).findFile(file) as? XmlFile ?: return null
         return psiFile.rootTag
     }
-
 }
