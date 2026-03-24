@@ -1,9 +1,10 @@
-package dev.robdoes.kmpresources.linter
+package dev.robdoes.kmpresources.ide.linter
 
 import com.intellij.codeInspection.LocalInspectionTool
 import com.intellij.codeInspection.ProblemsHolder
 import com.intellij.psi.PsiElementVisitor
-import dev.robdoes.kmpresources.util.KmpResourceResolver
+import dev.robdoes.kmpresources.core.KmpResourcesBundle
+import dev.robdoes.kmpresources.core.util.KmpResourceResolver
 import org.jetbrains.kotlin.psi.KtCallExpression
 import org.jetbrains.kotlin.psi.KtVisitorVoid
 
@@ -47,7 +48,7 @@ class KmpFormatInspection : LocalInspectionTool() {
                 val actualProvided = maxOf(0, providedArgsCount)
 
                 if (expectedArgsCount != actualProvided) {
-                    val message = dev.robdoes.kmpresources.KmpResourcesBundle.message(
+                    val message = KmpResourcesBundle.message(
                         "inspection.format.args.mismatch",
                         functionName,
                         expectedArgsCount,

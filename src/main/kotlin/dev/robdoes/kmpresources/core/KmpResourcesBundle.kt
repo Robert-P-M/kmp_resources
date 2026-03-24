@@ -1,4 +1,4 @@
-package dev.robdoes.kmpresources
+package dev.robdoes.kmpresources.core
 
 import com.intellij.DynamicBundle
 import org.jetbrains.annotations.NonNls

@@ -1,4 +1,4 @@
-package dev.robdoes.kmpresources.navigation
+package dev.robdoes.kmpresources.ide.navigation
 
 import com.intellij.navigation.ItemPresentation
 import com.intellij.openapi.application.ApplicationManager
@@ -6,7 +6,7 @@ import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.psi.PsiElement
 import com.intellij.psi.impl.FakePsiElement
 import com.intellij.psi.xml.XmlTag
-import dev.robdoes.kmpresources.editor.KmpResourceTableEditor
+import dev.robdoes.kmpresources.presentation.editor.KmpResourceTableEditor
 import javax.swing.Icon
 
 class KmpResourceTarget(

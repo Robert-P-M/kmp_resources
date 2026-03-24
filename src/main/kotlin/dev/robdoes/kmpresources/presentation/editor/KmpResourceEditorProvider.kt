@@ -1,4 +1,4 @@
-package dev.robdoes.kmpresources.editor
+package dev.robdoes.kmpresources.presentation.editor
 
 import com.intellij.openapi.fileEditor.FileEditor
 import com.intellij.openapi.fileEditor.FileEditorPolicy

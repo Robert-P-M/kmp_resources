@@ -1,16 +1,16 @@
-package dev.robdoes.kmpresources.editor.ui
+package dev.robdoes.kmpresources.presentation.editor.ui
 
 import com.intellij.icons.AllIcons
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.wm.IdeFocusManager
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.table.JBTable
-import dev.robdoes.kmpresources.KmpResourcesBundle
+import dev.robdoes.kmpresources.core.KmpResourcesBundle
 import dev.robdoes.kmpresources.domain.model.PluralsResource
 import dev.robdoes.kmpresources.domain.model.StringArrayResource
 import dev.robdoes.kmpresources.domain.model.StringResource
 import dev.robdoes.kmpresources.domain.model.XmlResource
-import dev.robdoes.kmpresources.service.ResourceScannerService
+import dev.robdoes.kmpresources.core.service.ResourceScannerService
 import java.awt.BorderLayout
 import java.awt.Component
 import java.awt.event.MouseAdapter
@@ -111,7 +111,7 @@ class ResourceTablePanel(private val scannerService: ResourceScannerService) : J
                 column: Int
             ): Component {
                 super.getTableCellRendererComponent(t, value, isSelected, hasFocus, row, column)
-                text = ""; horizontalAlignment = SwingConstants.CENTER
+                text = ""; horizontalAlignment = CENTER
                 if (value is ResourceStatus) {
                     icon = value.icon; toolTipText =
                         if (icon == AllIcons.General.Error) "${value.tooltip} (Click to remove)" else value.tooltip

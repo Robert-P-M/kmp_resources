@@ -1,8 +1,7 @@
-package dev.robdoes.kmpresources.toolwindow
+package dev.robdoes.kmpresources.presentation.toolwindow
 
 import com.intellij.icons.AllIcons
 import com.intellij.openapi.actionSystem.ActionManager
-import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.DefaultActionGroup
 import com.intellij.openapi.application.ApplicationManager
@@ -14,23 +13,21 @@ import com.intellij.openapi.project.DumbService
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.openapi.wm.ToolWindow
-import com.intellij.ui.ColoredListCellRenderer
 import com.intellij.ui.JBColor
 import com.intellij.ui.LayeredIcon
 import com.intellij.ui.SimpleTextAttributes
 import com.intellij.ui.components.JBList
 import com.intellij.ui.components.JBScrollPane
-import dev.robdoes.kmpresources.KmpResourcesBundle
-import dev.robdoes.kmpresources.service.ResourceIssueService
+import dev.robdoes.kmpresources.core.KmpResourcesBundle
+import dev.robdoes.kmpresources.core.service.ResourceIssueService
 import java.awt.BorderLayout
-import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
 import javax.swing.*
 
 data class ResourceFileItem(val file: VirtualFile, val issueCount: Int = -1)
 
 class KmpResourcesToolWindowPanel(private val project: Project, private val toolWindow: ToolWindow) :
-    JPanel(BorderLayout()) {
+    javax.swing.JPanel(BorderLayout()) {
 
     private val listModel = DefaultListModel<ResourceFileItem>()
     private val issueList = JBList(listModel)
@@ -44,7 +41,7 @@ class KmpResourcesToolWindowPanel(private val project: Project, private val tool
 
     private fun setupToolbar() {
         val actionGroup = DefaultActionGroup()
-        actionGroup.add(object : AnAction(
+        actionGroup.add(object : com.intellij.openapi.actionSystem.AnAction(
             KmpResourcesBundle.message("toolwindow.action.refresh.text"),
             KmpResourcesBundle.message("toolwindow.action.refresh.desc"),
             AllIcons.Actions.Refresh
@@ -63,7 +60,7 @@ class KmpResourcesToolWindowPanel(private val project: Project, private val tool
         issueList.emptyText.text = KmpResourcesBundle.message("status.tooltip.analyzing")
         issueList.selectionMode = ListSelectionModel.SINGLE_SELECTION
 
-        issueList.cellRenderer = object : ColoredListCellRenderer<ResourceFileItem>() {
+        issueList.cellRenderer = object : com.intellij.ui.ColoredListCellRenderer<ResourceFileItem>() {
             override fun customizeCellRenderer(
                 list: JList<out ResourceFileItem>,
                 value: ResourceFileItem,
@@ -98,7 +95,7 @@ class KmpResourcesToolWindowPanel(private val project: Project, private val tool
             }
         }
 
-        issueList.addMouseListener(object : MouseAdapter() {
+        issueList.addMouseListener(object : java.awt.event.MouseAdapter() {
             override fun mouseClicked(e: MouseEvent) {
                 if (e.clickCount == 1) {
                     val index = issueList.locationToIndex(e.point)
