@@ -296,8 +296,7 @@ class KmpResourceTableEditor(
     private fun triggerGradleSyncBackground() {
         ReadAction.nonBlocking<Unit> {
             val module = ModuleUtilCore.findModuleForFile(file, project) ?: return@nonBlocking
-            val basePath =
-                ExternalSystemApiUtil.getExternalProjectPath(module) ?: project.basePath ?: return@nonBlocking
+            val basePath = ExternalSystemApiUtil.getExternalProjectPath(module) ?: project.basePath ?: return@nonBlocking
 
             val settings = ExternalSystemTaskExecutionSettings().apply {
                 externalProjectPath = basePath
@@ -316,9 +315,14 @@ class KmpResourceTableEditor(
         }.submit(AppExecutorUtil.getAppExecutorService())
     }
 
+    fun scrollToKey(key: String) {
+        tablePanel.scrollToKey(key)
+    }
+
     override fun getComponent(): JComponent = mainPanel
     override fun getPreferredFocusedComponent(): JComponent = tablePanel
-    override fun getName(): String = "KMP Resources"
+    override fun getName(): String = KmpResourcesBundle.message("ui.toolwindow.pane.title")
+    override fun getFile(): VirtualFile = file
     override fun setState(state: FileEditorState) {}
     override fun isModified(): Boolean = false
     override fun isValid(): Boolean = true
