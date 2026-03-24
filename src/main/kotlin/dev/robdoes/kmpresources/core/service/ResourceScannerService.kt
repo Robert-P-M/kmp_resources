@@ -12,13 +12,11 @@ class ResourceScannerService(private val project: Project) {
 
     fun isResourceUsed(keyName: String): Boolean {
         if (keyName.isBlank()) return false
-
         val normalizedKey = keyName.replace(".", "_").replace("-", "_")
 
         return try {
             ReadAction.compute<Boolean, Throwable> {
                 var found = false
-
                 PsiSearchHelper.getInstance(project).processAllFilesWithWord(
                     normalizedKey,
                     GlobalSearchScope.projectScope(project),

@@ -6,19 +6,23 @@ import com.intellij.openapi.wm.IdeFocusManager
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.table.JBTable
 import dev.robdoes.kmpresources.core.KmpResourcesBundle
+import dev.robdoes.kmpresources.core.service.ResourceScannerService
 import dev.robdoes.kmpresources.domain.model.PluralsResource
 import dev.robdoes.kmpresources.domain.model.StringArrayResource
 import dev.robdoes.kmpresources.domain.model.StringResource
 import dev.robdoes.kmpresources.domain.model.XmlResource
-import dev.robdoes.kmpresources.core.service.ResourceScannerService
 import java.awt.BorderLayout
 import java.awt.Component
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
-import javax.swing.*
+import javax.swing.Icon
+import javax.swing.JPanel
+import javax.swing.JTable
+import javax.swing.RowFilter
 import javax.swing.table.DefaultTableCellRenderer
 import javax.swing.table.DefaultTableModel
 import javax.swing.table.TableRowSorter
+
 
 data class ResourceStatus(val icon: Icon?, val tooltip: String?)
 
@@ -193,6 +197,7 @@ class ResourceTablePanel(private val scannerService: ResourceScannerService) : J
         onDeleteRequested?.invoke(parentKey, type, isSubItem)
     }
 
+
     fun updateData(resources: List<XmlResource>) {
         tableModel.rowCount = 0
         val loadingStatus =
@@ -263,24 +268,27 @@ class ResourceTablePanel(private val scannerService: ResourceScannerService) : J
 
         ApplicationManager.getApplication().executeOnPooledThread {
             for (i in 0 until tableModel.rowCount) {
-                val keyName = tableModel.getValueAt(i, 1) as? String
+                var keyName: String? = null
+                ApplicationManager.getApplication().invokeAndWait {
+                    if (i < tableModel.rowCount) {
+                        keyName = tableModel.getValueAt(i, 1) as? String
+                    }
+                }
+
                 if (keyName.isNullOrBlank()) continue
 
-                val isUsed = scannerService.isResourceUsed(keyName)
+                val isUsed = scannerService.isResourceUsed(keyName!!)
+
                 ApplicationManager.getApplication().invokeLater {
                     if (i < tableModel.rowCount && tableModel.getValueAt(i, 1) == keyName) {
-                        val newStatus =
-                            if (isUsed) {
-                                ResourceStatus(
-                                    AllIcons.General.InspectionsOK,
-                                    KmpResourcesBundle.message("status.tooltip.ok")
-                                )
-                            } else {
-                                ResourceStatus(
-                                    AllIcons.General.Error,
-                                    KmpResourcesBundle.message("status.tooltip.unused")
-                                )
-                            }
+                        val newStatus = if (isUsed) {
+                            ResourceStatus(
+                                AllIcons.General.InspectionsOK,
+                                KmpResourcesBundle.message("status.tooltip.ok")
+                            )
+                        } else {
+                            ResourceStatus(AllIcons.General.Error, KmpResourcesBundle.message("status.tooltip.unused"))
+                        }
                         tableModel.setValueAt(newStatus, i, 0)
                     }
                 }
