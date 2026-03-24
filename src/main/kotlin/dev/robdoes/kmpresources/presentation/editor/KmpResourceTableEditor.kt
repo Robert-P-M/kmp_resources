@@ -36,6 +36,10 @@ import dev.robdoes.kmpresources.domain.model.StringResource
 import dev.robdoes.kmpresources.domain.repository.ResourceRepository
 import dev.robdoes.kmpresources.domain.usecase.DeleteResourceUseCase
 import dev.robdoes.kmpresources.domain.usecase.LoadResourcesUseCase
+import dev.robdoes.kmpresources.domain.usecase.SaveResourceUseCase
+import dev.robdoes.kmpresources.domain.usecase.UpdateInlineArrayUseCase
+import dev.robdoes.kmpresources.domain.usecase.UpdateInlinePluralUseCase
+import dev.robdoes.kmpresources.domain.usecase.UpdateInlineStringUseCase
 import dev.robdoes.kmpresources.ide.refactoring.KmpResourceRefactorService
 import dev.robdoes.kmpresources.presentation.editor.ui.ResourceEditPanel
 import dev.robdoes.kmpresources.presentation.editor.ui.ResourceTablePanel
@@ -55,6 +59,10 @@ class KmpResourceTableEditor(
     private val loadResourcesUseCase = LoadResourcesUseCase(repository)
 
     private val deleteResourceUseCase = DeleteResourceUseCase(repository, loadResourcesUseCase)
+    private val saveResourceUseCase = SaveResourceUseCase(repository)
+    private val updateInlineStringUseCase = UpdateInlineStringUseCase(repository)
+    private val updateInlinePluralUseCase = UpdateInlinePluralUseCase(repository, loadResourcesUseCase)
+    private val updateInlineArrayUseCase = UpdateInlineArrayUseCase(repository, loadResourcesUseCase)
 
     private val mainPanel = JPanel(BorderLayout())
     private val tablePanel = ResourceTablePanel(scannerService)
@@ -138,35 +146,19 @@ class KmpResourceTableEditor(
         tablePanel.onUsageRequested = { triggerNativeFindUsages(it) }
 
         tablePanel.onInlineStringEdited = { key, isUn, newValue ->
-            repository.saveResource(StringResource(key, isUn, newValue))
+            updateInlineStringUseCase(key, isUn, newValue)
             triggerGradleSync()
         }
 
         tablePanel.onInlinePluralEdited = { key, isUn, quantity, newValue ->
-            val existingPlural =
-                loadResourcesUseCase().find { it.key == key && it is PluralsResource } as? PluralsResource
-            if (existingPlural != null) {
-                val updatedItems = existingPlural.items.toMutableMap()
-                if (newValue.isNotBlank()) updatedItems[quantity] = newValue else updatedItems.remove(quantity)
-                repository.saveResource(PluralsResource(key, isUn, updatedItems))
-                triggerGradleSync()
-            }
+            updateInlinePluralUseCase(key, isUn, quantity, newValue)
+            triggerGradleSync()
         }
 
         tablePanel.onInlineArrayEdited = { key, isUn, index, newValue ->
-            val existingArray =
-                loadResourcesUseCase().find { it.key == key && it is StringArrayResource } as? StringArrayResource
-            if (existingArray != null) {
-                val updatedItems = existingArray.items.toMutableList()
-                if (index == -1 && newValue.isNotBlank()) {
-                    updatedItems.add(newValue)
-                } else if (index in updatedItems.indices) {
-                    if (newValue.isNotBlank()) updatedItems[index] = newValue else updatedItems.removeAt(index)
-                }
-                repository.saveResource(StringArrayResource(key, isUn, updatedItems))
-                ApplicationManager.getApplication().invokeLater { reloadTableData() }
-                triggerGradleSync()
-            }
+            updateInlineArrayUseCase(key, isUn, index, newValue)
+            ApplicationManager.getApplication().invokeLater { reloadTableData() }
+            triggerGradleSync()
         }
 
         tablePanel.onUntranslatableToggled = { key, isUn -> repository.toggleUntranslatable(key, isUn) }
@@ -204,7 +196,7 @@ class KmpResourceTableEditor(
 
                     }
 
-                    repository.saveResource(resourceToSave)
+                    saveResourceUseCase(resourceToSave)
 
                     editPanel.isVisible = false
                     currentEditingOldKey = null
