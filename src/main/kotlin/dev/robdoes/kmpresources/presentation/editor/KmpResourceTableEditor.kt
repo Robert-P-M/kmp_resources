@@ -29,14 +29,14 @@ import com.intellij.psi.search.DelegatingGlobalSearchScope
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.xml.XmlFile
 import dev.robdoes.kmpresources.core.KmpResourcesBundle
-import dev.robdoes.kmpresources.data.XmlResourceManager
+import dev.robdoes.kmpresources.core.service.ResourceScannerService
 import dev.robdoes.kmpresources.domain.model.PluralsResource
 import dev.robdoes.kmpresources.domain.model.StringArrayResource
 import dev.robdoes.kmpresources.domain.model.StringResource
+import dev.robdoes.kmpresources.domain.repository.ResourceRepository
+import dev.robdoes.kmpresources.ide.refactoring.KmpResourceRefactorService
 import dev.robdoes.kmpresources.presentation.editor.ui.ResourceEditPanel
 import dev.robdoes.kmpresources.presentation.editor.ui.ResourceTablePanel
-import dev.robdoes.kmpresources.ide.refactoring.KmpResourceRefactorService
-import dev.robdoes.kmpresources.core.service.ResourceScannerService
 import java.awt.BorderLayout
 import java.beans.PropertyChangeListener
 import javax.swing.JComponent
@@ -44,10 +44,10 @@ import javax.swing.JPanel
 
 class KmpResourceTableEditor(
     private val project: Project,
-    private val file: VirtualFile
+    private val file: VirtualFile,
+    private val repository: ResourceRepository
 ) : UserDataHolderBase(), FileEditor {
 
-    private val xmlManager = XmlResourceManager(project, file)
     private val scannerService = ResourceScannerService(project)
 
     private val mainPanel = JPanel(BorderLayout())
@@ -72,7 +72,7 @@ class KmpResourceTableEditor(
     private fun wireUpCallbacks() {
         tablePanel.onEditRequested = { key ->
             currentEditingOldKey = key
-            val resource = xmlManager.loadResources().find { it.key == key }
+            val resource = repository.loadResources().find { it.key == key }
             if (resource != null) editPanel.showForUpdate(resource)
         }
 
@@ -82,11 +82,11 @@ class KmpResourceTableEditor(
                     val indexStr = type.substringAfter("[").substringBefore("]")
                     if (indexStr != "+") {
                         val index = indexStr.toIntOrNull() ?: -1
-                        val existingArray = xmlManager.loadResources()
+                        val existingArray = repository.loadResources()
                             .find { it.key == key && it is StringArrayResource } as? StringArrayResource
                         if (existingArray != null && index in existingArray.items.indices) {
                             val updatedItems = existingArray.items.toMutableList().apply { removeAt(index) }
-                            xmlManager.saveResource(
+                            repository.saveResource(
                                 StringArrayResource(
                                     key,
                                     existingArray.isUntranslatable,
@@ -99,7 +99,7 @@ class KmpResourceTableEditor(
                     }
                 } else {
                     val existingPlural =
-                        xmlManager.loadResources().find { it.key == key && it is PluralsResource } as? PluralsResource
+                        repository.loadResources().find { it.key == key && it is PluralsResource } as? PluralsResource
                     if (existingPlural != null && Messages.showYesNoDialog(
                             project,
                             KmpResourcesBundle.message("dialog.delete.plural.message", type, key),
@@ -108,7 +108,7 @@ class KmpResourceTableEditor(
                         ) == Messages.YES
                     ) {
                         val updatedItems = existingPlural.items.toMutableMap().apply { remove(type) }
-                        xmlManager.saveResource(PluralsResource(key, existingPlural.isUntranslatable, updatedItems))
+                        repository.saveResource(PluralsResource(key, existingPlural.isUntranslatable, updatedItems))
                         reloadTableData()
                         triggerGradleSync()
                     }
@@ -122,7 +122,7 @@ class KmpResourceTableEditor(
                             Messages.getQuestionIcon()
                         ) == Messages.YES
                     ) {
-                        xmlManager.deleteResource(key, type)
+                        repository.deleteResource(key, type)
                         reloadTableData()
                         triggerGradleSync()
                     }
@@ -148,24 +148,24 @@ class KmpResourceTableEditor(
         tablePanel.onUsageRequested = { triggerNativeFindUsages(it) }
 
         tablePanel.onInlineStringEdited = { key, isUn, newValue ->
-            xmlManager.saveResource(StringResource(key, isUn, newValue))
+            repository.saveResource(StringResource(key, isUn, newValue))
             triggerGradleSync()
         }
 
         tablePanel.onInlinePluralEdited = { key, isUn, quantity, newValue ->
             val existingPlural =
-                xmlManager.loadResources().find { it.key == key && it is PluralsResource } as? PluralsResource
+                repository.loadResources().find { it.key == key && it is PluralsResource } as? PluralsResource
             if (existingPlural != null) {
                 val updatedItems = existingPlural.items.toMutableMap()
                 if (newValue.isNotBlank()) updatedItems[quantity] = newValue else updatedItems.remove(quantity)
-                xmlManager.saveResource(PluralsResource(key, isUn, updatedItems))
+                repository.saveResource(PluralsResource(key, isUn, updatedItems))
                 triggerGradleSync()
             }
         }
 
         tablePanel.onInlineArrayEdited = { key, isUn, index, newValue ->
             val existingArray =
-                xmlManager.loadResources().find { it.key == key && it is StringArrayResource } as? StringArrayResource
+                repository.loadResources().find { it.key == key && it is StringArrayResource } as? StringArrayResource
             if (existingArray != null) {
                 val updatedItems = existingArray.items.toMutableList()
                 if (index == -1 && newValue.isNotBlank()) {
@@ -173,17 +173,17 @@ class KmpResourceTableEditor(
                 } else if (index in updatedItems.indices) {
                     if (newValue.isNotBlank()) updatedItems[index] = newValue else updatedItems.removeAt(index)
                 }
-                xmlManager.saveResource(StringArrayResource(key, isUn, updatedItems))
+                repository.saveResource(StringArrayResource(key, isUn, updatedItems))
                 ApplicationManager.getApplication().invokeLater { reloadTableData() }
                 triggerGradleSync()
             }
         }
 
-        tablePanel.onUntranslatableToggled = { key, isUn -> xmlManager.toggleUntranslatable(key, isUn) }
+        tablePanel.onUntranslatableToggled = { key, isUn -> repository.toggleUntranslatable(key, isUn) }
 
         editPanel.onSaveRequested = { resourceToSave ->
             if (editPanel.isVisible && resourceToSave.key.isNotBlank()) {
-                val existing = xmlManager.loadResources().find { it.key == resourceToSave.key }
+                val existing = repository.loadResources().find { it.key == resourceToSave.key }
 
                 if (existing != null && existing.xmlTag != resourceToSave.xmlTag && currentEditingOldKey != resourceToSave.key) {
                     Messages.showErrorDialog(
@@ -214,7 +214,7 @@ class KmpResourceTableEditor(
 
                     }
 
-                    xmlManager.saveResource(resourceToSave)
+                    repository.saveResource(resourceToSave)
 
                     editPanel.isVisible = false
                     currentEditingOldKey = null
@@ -304,7 +304,7 @@ class KmpResourceTableEditor(
         }
 
     private fun reloadTableData() {
-        val resources = xmlManager.loadResources()
+        val resources = repository.loadResources()
         tablePanel.updateData(resources)
     }
 

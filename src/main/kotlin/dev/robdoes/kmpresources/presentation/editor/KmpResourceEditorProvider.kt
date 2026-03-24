@@ -6,6 +6,7 @@ import com.intellij.openapi.fileEditor.FileEditorProvider
 import com.intellij.openapi.project.DumbAware
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
+import dev.robdoes.kmpresources.data.repository.XmlResourceRepositoryImpl
 
 class KmpResourceEditorProvider : FileEditorProvider, DumbAware {
 
@@ -15,7 +16,10 @@ class KmpResourceEditorProvider : FileEditorProvider, DumbAware {
     }
 
     override fun createEditor(project: Project, file: VirtualFile): FileEditor {
-        return KmpResourceTableEditor(project, file)
+        val repository = XmlResourceRepositoryImpl(
+            project = project, file = file
+        )
+        return KmpResourceTableEditor(project = project, file = file, repository = repository)
     }
 
     override fun getEditorTypeId(): String = "KmpResourceTableEditor"
