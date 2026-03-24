@@ -31,7 +31,8 @@ class ResourceIssueService(private val project: Project) {
 
             var warnings = 0
             for (key in keys) {
-                if (!scanner.isResourceUsed(key)) {
+                val isUsed = scanner.isResourceUsed(key)
+                if (!isUsed) {
                     warnings++
                 }
             }

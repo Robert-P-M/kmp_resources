@@ -6,7 +6,9 @@ import com.intellij.icons.AllIcons
 import com.intellij.openapi.actionSystem.*
 import com.intellij.openapi.actionSystem.ex.ComboBoxAction
 import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.command.WriteCommandAction
+import com.intellij.openapi.components.service
 import com.intellij.openapi.externalSystem.model.ProjectSystemId
 import com.intellij.openapi.externalSystem.model.execution.ExternalSystemTaskExecutionSettings
 import com.intellij.openapi.externalSystem.service.execution.ProgressExecutionMode
@@ -28,19 +30,14 @@ import com.intellij.psi.PsiManager
 import com.intellij.psi.search.DelegatingGlobalSearchScope
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.xml.XmlFile
+import com.intellij.util.concurrency.AppExecutorUtil
 import dev.robdoes.kmpresources.core.KmpResourcesBundle
 import dev.robdoes.kmpresources.core.service.ResourceScannerService
 import dev.robdoes.kmpresources.domain.model.PluralsResource
 import dev.robdoes.kmpresources.domain.model.StringArrayResource
 import dev.robdoes.kmpresources.domain.model.StringResource
 import dev.robdoes.kmpresources.domain.repository.ResourceRepository
-import dev.robdoes.kmpresources.domain.usecase.DeleteResourceUseCase
-import dev.robdoes.kmpresources.domain.usecase.LoadResourcesUseCase
-import dev.robdoes.kmpresources.domain.usecase.SaveResourceUseCase
-import dev.robdoes.kmpresources.domain.usecase.ToggleUntranslatableUseCase
-import dev.robdoes.kmpresources.domain.usecase.UpdateInlineArrayUseCase
-import dev.robdoes.kmpresources.domain.usecase.UpdateInlinePluralUseCase
-import dev.robdoes.kmpresources.domain.usecase.UpdateInlineStringUseCase
+import dev.robdoes.kmpresources.domain.usecase.*
 import dev.robdoes.kmpresources.ide.refactoring.KmpResourceRefactorService
 import dev.robdoes.kmpresources.presentation.editor.ui.ResourceEditPanel
 import dev.robdoes.kmpresources.presentation.editor.ui.ResourceTablePanel
@@ -55,7 +52,8 @@ class KmpResourceTableEditor(
     private val repository: ResourceRepository
 ) : UserDataHolderBase(), FileEditor {
 
-    private val scannerService = ResourceScannerService(project)
+    private val scannerService = project.service<ResourceScannerService>()
+
 
     private val loadResourcesUseCase = LoadResourcesUseCase(repository)
 
@@ -111,38 +109,43 @@ class KmpResourceTableEditor(
                 if (proceed) {
                     deleteResourceUseCase(key, type, isSubItem)
                     reloadTableData()
-                    triggerGradleSync()
+                    triggerGradleSyncBackground()
                 }
-
             } else {
-                if (!scannerService.isResourceUsed(key)) {
-                    if (Messages.showYesNoDialog(
-                            project,
-                            KmpResourcesBundle.message("dialog.delete.resource.message", key),
-                            KmpResourcesBundle.message("dialog.delete.resource.title"),
-                            Messages.getQuestionIcon()
-                        ) == Messages.YES
-                    ) {
-                        deleteResourceUseCase(key, type, isSubItem)
-                        reloadTableData()
-                        triggerGradleSync()
-                    }
-                } else {
-                    if (Messages.showDialog(
-                            project,
-                            KmpResourcesBundle.message("dialog.key.in.use.message", key),
-                            KmpResourcesBundle.message("dialog.key.in.use.title"),
-                            arrayOf(
-                                KmpResourcesBundle.message("dialog.button.show.usages"),
-                                KmpResourcesBundle.message("dialog.button.cancel")
-                            ),
-                            0,
-                            Messages.getWarningIcon()
-                        ) == 0
-                    ) {
-                        triggerNativeFindUsages(key)
-                    }
+                ReadAction.nonBlocking<Boolean> {
+                    scannerService.isResourceUsed(key)
                 }
+                    .finishOnUiThread(com.intellij.openapi.application.ModalityState.defaultModalityState()) { isUsed ->
+                        if (!isUsed) {
+                            if (Messages.showYesNoDialog(
+                                    project,
+                                    KmpResourcesBundle.message("dialog.delete.resource.message", key),
+                                    KmpResourcesBundle.message("dialog.delete.resource.title"),
+                                    Messages.getQuestionIcon()
+                                ) == Messages.YES
+                            ) {
+                                deleteResourceUseCase(key, type, isSubItem)
+                                reloadTableData()
+                                triggerGradleSyncBackground()
+                            }
+                        } else {
+                            if (Messages.showDialog(
+                                    project,
+                                    KmpResourcesBundle.message("dialog.key.in.use.message", key),
+                                    KmpResourcesBundle.message("dialog.key.in.use.title"),
+                                    arrayOf(
+                                        KmpResourcesBundle.message("dialog.button.show.usages"),
+                                        KmpResourcesBundle.message("dialog.button.cancel")
+                                    ),
+                                    0,
+                                    Messages.getWarningIcon()
+                                ) == 0
+                            ) {
+                                triggerNativeFindUsages(key)
+                            }
+                        }
+                    }
+                    .submit(AppExecutorUtil.getAppExecutorService())
             }
         }
 
@@ -150,18 +153,18 @@ class KmpResourceTableEditor(
 
         tablePanel.onInlineStringEdited = { key, isUn, newValue ->
             updateInlineStringUseCase(key, isUn, newValue)
-            triggerGradleSync()
+            triggerGradleSyncBackground()
         }
 
         tablePanel.onInlinePluralEdited = { key, isUn, quantity, newValue ->
             updateInlinePluralUseCase(key, isUn, quantity, newValue)
-            triggerGradleSync()
+            triggerGradleSyncBackground()
         }
 
         tablePanel.onInlineArrayEdited = { key, isUn, index, newValue ->
             updateInlineArrayUseCase(key, isUn, index, newValue)
             ApplicationManager.getApplication().invokeLater { reloadTableData() }
-            triggerGradleSync()
+            triggerGradleSyncBackground()
         }
 
         tablePanel.onUntranslatableToggled = { key, isUn -> toggleUntranslatableUseCase(key, isUn) }
@@ -196,7 +199,6 @@ class KmpResourceTableEditor(
                             }
                             targetTag?.setAttribute("name", resourceToSave.key)
                         })
-
                     }
 
                     saveResourceUseCase(resourceToSave)
@@ -206,7 +208,7 @@ class KmpResourceTableEditor(
                     reloadTableData()
                     tablePanel.scrollToKey(resourceToSave.key)
 
-                    triggerGradleSync()
+                    triggerGradleSyncBackground()
                 }
             }
         }
@@ -245,7 +247,7 @@ class KmpResourceTableEditor(
             AllIcons.Actions.Refresh
         ) {
             override fun actionPerformed(e: AnActionEvent) {
-                triggerGradleSync()
+                triggerGradleSyncBackground()
             }
         })
 
@@ -309,40 +311,47 @@ class KmpResourceTableEditor(
         FindInProjectManager.getInstance(project).startFindInProject(findModel)
     }
 
-    private fun triggerGradleSync() {
-        val module = ModuleUtilCore.findModuleForFile(file, project) ?: return
-        val basePath = ExternalSystemApiUtil.getExternalProjectPath(module) ?: project.basePath ?: return
-        val systemId = ProjectSystemId("GRADLE")
+    private fun triggerGradleSyncBackground() {
+        ReadAction.nonBlocking<Unit> {
+            val module = ModuleUtilCore.findModuleForFile(file, project) ?: return@nonBlocking
+            val basePath =
+                ExternalSystemApiUtil.getExternalProjectPath(module) ?: project.basePath ?: return@nonBlocking
+            val systemId = ProjectSystemId("GRADLE")
 
-        val settings = ExternalSystemTaskExecutionSettings().apply {
-            externalProjectPath = basePath
-            taskNames = listOf("generateResourceAccessorsForCommonMain")
-            externalSystemIdString = "GRADLE"
-        }
-
-        val callback = object : TaskCallback {
-            override fun onSuccess() {
-                val generatedDir = LocalFileSystem.getInstance()
-                    .findFileByPath("$basePath/build/generated")
-
-                if (generatedDir != null) {
-                    VfsUtil.markDirtyAndRefresh(true, true, true, generatedDir)
-                }
+            val settings = ExternalSystemTaskExecutionSettings().apply {
+                externalProjectPath = basePath
+                taskNames = listOf("generateResourceAccessorsForCommonMain")
+                externalSystemIdString = "GRADLE"
             }
 
-            override fun onFailure() {}
-        }
+            val callback = object : TaskCallback {
+                override fun onSuccess() {
+                    val generatedDir = LocalFileSystem.getInstance()
+                        .findFileByPath("$basePath/build/generated")
 
-        val spec = TaskExecutionSpec.create()
-            .withProject(project)
-            .withSystemId(systemId)
-            .withExecutorId("Run")
-            .withSettings(settings)
-            .withProgressExecutionMode(ProgressExecutionMode.IN_BACKGROUND_ASYNC)
-            .withCallback(callback)
-            .build()
+                    if (generatedDir != null) {
+                        ApplicationManager.getApplication().invokeLater {
+                            VfsUtil.markDirtyAndRefresh(true, true, true, generatedDir)
+                        }
+                    }
+                }
 
-        ExternalSystemUtil.runTask(spec)
+                override fun onFailure() {}
+            }
+
+            val spec = TaskExecutionSpec.create()
+                .withProject(project)
+                .withSystemId(systemId)
+                .withExecutorId("Run")
+                .withSettings(settings)
+                .withProgressExecutionMode(ProgressExecutionMode.IN_BACKGROUND_ASYNC)
+                .withCallback(callback)
+                .build()
+
+            ApplicationManager.getApplication().invokeLater {
+                ExternalSystemUtil.runTask(spec)
+            }
+        }.submit(AppExecutorUtil.getAppExecutorService())
     }
 
     override fun selectNotify() {
