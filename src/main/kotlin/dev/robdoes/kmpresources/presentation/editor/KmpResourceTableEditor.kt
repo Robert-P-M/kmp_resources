@@ -60,7 +60,7 @@ class KmpResourceTableEditor(
     private val toggleUntranslatableUseCase = ToggleUntranslatableUseCase(repository)
 
     private val mainPanel = JPanel(BorderLayout())
-    private val tablePanel = ResourceTablePanel(scannerService)
+    private val tablePanel = ResourceTablePanel(project, scannerService) // <-- Projekt übergeben
     private val editPanel = ResourceEditPanel(project)
 
     private var currentFilter = "ALL"

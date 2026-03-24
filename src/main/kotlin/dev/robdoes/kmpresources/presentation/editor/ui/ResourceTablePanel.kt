@@ -2,9 +2,13 @@ package dev.robdoes.kmpresources.presentation.editor.ui
 
 import com.intellij.icons.AllIcons
 import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.application.ModalityState
+import com.intellij.openapi.application.ReadAction
+import com.intellij.openapi.project.Project
 import com.intellij.openapi.wm.IdeFocusManager
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.table.JBTable
+import com.intellij.util.concurrency.AppExecutorUtil
 import dev.robdoes.kmpresources.core.KmpResourcesBundle
 import dev.robdoes.kmpresources.core.service.ResourceScannerService
 import dev.robdoes.kmpresources.domain.model.PluralsResource
@@ -36,7 +40,7 @@ enum class ResourceColumn(val index: Int, val titleKey: String) {
     }
 }
 
-class ResourceTablePanel(private val scannerService: ResourceScannerService) : JPanel(BorderLayout()) {
+class ResourceTablePanel(private val project: Project, private val scannerService: ResourceScannerService) : JPanel(BorderLayout()) {
 
     var onInlineStringEdited: ((key: String, isUntranslatable: Boolean, newValue: String) -> Unit)? = null
     var onInlinePluralEdited: ((key: String, isUntranslatable: Boolean, quantity: String, newValue: String) -> Unit)? = null
@@ -213,18 +217,19 @@ class ResourceTablePanel(private val scannerService: ResourceScannerService) : J
             }
         }
 
-        // Clean Background Threading
+        // Modern, safe Background Threading
         val keysToEvaluate = (0 until tableModel.rowCount).mapNotNull { row ->
             val key = tableModel.getValueAt(row, ResourceColumn.KEY.index) as? String
             if (key.isNullOrBlank()) null else row to key
         }
 
-        ApplicationManager.getApplication().executeOnPooledThread {
-            val evaluatedResults = keysToEvaluate.map { (row, key) ->
+        ReadAction.nonBlocking<List<Pair<Int, Pair<String, Boolean>>>> {
+            keysToEvaluate.map { (row, key) ->
                 row to (key to scannerService.isResourceUsed(key))
             }
-
-            ApplicationManager.getApplication().invokeLater {
+        }
+            .inSmartMode(project)
+            .finishOnUiThread(ModalityState.defaultModalityState()) { evaluatedResults ->
                 evaluatedResults.forEach { (row, pair) ->
                     val (key, isUsed) = pair
                     if (row < tableModel.rowCount && tableModel.getValueAt(row, ResourceColumn.KEY.index) == key) {
@@ -237,7 +242,7 @@ class ResourceTablePanel(private val scannerService: ResourceScannerService) : J
                     }
                 }
             }
-        }
+            .submit(AppExecutorUtil.getAppExecutorService())
     }
 
     fun applyFilter(filter: String) {
