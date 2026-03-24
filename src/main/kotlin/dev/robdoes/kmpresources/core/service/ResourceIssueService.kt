@@ -9,7 +9,8 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.search.FileTypeIndex
 import com.intellij.psi.search.GlobalSearchScope
-import dev.robdoes.kmpresources.data.XmlResourceManager
+import dev.robdoes.kmpresources.data.repository.XmlResourceRepositoryImpl
+import dev.robdoes.kmpresources.domain.repository.ResourceRepository
 
 @Service(Service.Level.PROJECT)
 class ResourceIssueService(private val project: Project) {
@@ -22,7 +23,8 @@ class ResourceIssueService(private val project: Project) {
 
         return try {
             val keys = ReadAction.compute<List<String>, Throwable> {
-                XmlResourceManager(project, file).loadResources().map { it.key }
+                val repository: ResourceRepository = XmlResourceRepositoryImpl(project, file)
+                repository.loadResources().map { it.key }
             }
 
             var warnings = 0
