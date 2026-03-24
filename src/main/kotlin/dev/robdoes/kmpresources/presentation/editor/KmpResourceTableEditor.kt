@@ -1,4 +1,4 @@
-package dev.robdoes.kmpresources.editor
+package dev.robdoes.kmpresources.presentation.editor
 
 import com.intellij.find.FindModel
 import com.intellij.find.findInProject.FindInProjectManager
@@ -10,6 +10,7 @@ import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.externalSystem.model.ProjectSystemId
 import com.intellij.openapi.externalSystem.model.execution.ExternalSystemTaskExecutionSettings
 import com.intellij.openapi.externalSystem.service.execution.ProgressExecutionMode
+import com.intellij.openapi.externalSystem.task.TaskCallback
 import com.intellij.openapi.externalSystem.util.ExternalSystemApiUtil
 import com.intellij.openapi.externalSystem.util.ExternalSystemUtil
 import com.intellij.openapi.externalSystem.util.task.TaskExecutionSpec
@@ -20,19 +21,22 @@ import com.intellij.openapi.module.ModuleUtilCore
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.util.UserDataHolderBase
+import com.intellij.openapi.vfs.LocalFileSystem
+import com.intellij.openapi.vfs.VfsUtil
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiManager
 import com.intellij.psi.search.DelegatingGlobalSearchScope
 import com.intellij.psi.search.GlobalSearchScope
-import dev.robdoes.kmpresources.KmpResourcesBundle
+import com.intellij.psi.xml.XmlFile
+import dev.robdoes.kmpresources.core.KmpResourcesBundle
 import dev.robdoes.kmpresources.data.XmlResourceManager
 import dev.robdoes.kmpresources.domain.model.PluralsResource
 import dev.robdoes.kmpresources.domain.model.StringArrayResource
 import dev.robdoes.kmpresources.domain.model.StringResource
-import dev.robdoes.kmpresources.editor.ui.ResourceEditPanel
-import dev.robdoes.kmpresources.editor.ui.ResourceTablePanel
-import dev.robdoes.kmpresources.refactoring.KmpResourceRefactorService
-import dev.robdoes.kmpresources.service.ResourceScannerService
+import dev.robdoes.kmpresources.presentation.editor.ui.ResourceEditPanel
+import dev.robdoes.kmpresources.presentation.editor.ui.ResourceTablePanel
+import dev.robdoes.kmpresources.ide.refactoring.KmpResourceRefactorService
+import dev.robdoes.kmpresources.core.service.ResourceScannerService
 import java.awt.BorderLayout
 import java.beans.PropertyChangeListener
 import javax.swing.JComponent
@@ -201,7 +205,7 @@ class KmpResourceTableEditor(
 
                         WriteCommandAction.runWriteCommandAction(project, "Rename XML Key", "KMP Resources", {
                             val psiFile =
-                                PsiManager.getInstance(project).findFile(file) as? com.intellij.psi.xml.XmlFile
+                                PsiManager.getInstance(project).findFile(file) as? XmlFile
                             val targetTag = psiFile?.rootTag?.subTags?.find {
                                 it.name == resourceToSave.xmlTag && it.getAttributeValue("name") == oldKey
                             }
@@ -331,13 +335,13 @@ class KmpResourceTableEditor(
             externalSystemIdString = "GRADLE"
         }
 
-        val callback = object : com.intellij.openapi.externalSystem.task.TaskCallback {
+        val callback = object : TaskCallback {
             override fun onSuccess() {
-                val generatedDir = com.intellij.openapi.vfs.LocalFileSystem.getInstance()
+                val generatedDir = LocalFileSystem.getInstance()
                     .findFileByPath("$basePath/build/generated")
 
                 if (generatedDir != null) {
-                    com.intellij.openapi.vfs.VfsUtil.markDirtyAndRefresh(true, true, true, generatedDir)
+                    VfsUtil.markDirtyAndRefresh(true, true, true, generatedDir)
                 }
             }
 

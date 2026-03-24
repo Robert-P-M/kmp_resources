@@ -1,4 +1,4 @@
-package dev.robdoes.kmpresources.toolwindow
+package dev.robdoes.kmpresources.presentation.toolwindow
 
 import com.intellij.openapi.project.DumbAware
 import com.intellij.openapi.project.Project

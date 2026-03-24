@@ -1,4 +1,4 @@
-package dev.robdoes.kmpresources.linter
+package dev.robdoes.kmpresources.ide.linter
 
 object FormatArgumentAnalyzer {
 

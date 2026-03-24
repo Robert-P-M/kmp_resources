@@ -1,4 +1,4 @@
-package dev.robdoes.kmpresources.service
+package dev.robdoes.kmpresources.core.service
 
 import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.components.Service

@@ -1,4 +1,4 @@
-package dev.robdoes.kmpresources.util
+package dev.robdoes.kmpresources.core.util
 
 import com.intellij.ide.highlighter.XmlFileType
 import com.intellij.openapi.project.Project
@@ -11,6 +11,7 @@ import com.intellij.psi.xml.XmlTag
 import org.jetbrains.kotlin.psi.KtDotQualifiedExpression
 import org.jetbrains.kotlin.psi.KtNameReferenceExpression
 import org.jetbrains.kotlin.psi.psiUtil.getQualifiedExpressionForSelector
+import kotlin.collections.iterator
 
 object KmpResourceResolver {
 

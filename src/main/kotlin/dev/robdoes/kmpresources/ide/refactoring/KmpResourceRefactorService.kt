@@ -1,4 +1,4 @@
-package dev.robdoes.kmpresources.refactoring
+package dev.robdoes.kmpresources.ide.refactoring
 
 import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.module.ModuleUtilCore

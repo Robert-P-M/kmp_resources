@@ -1,4 +1,4 @@
-package dev.robdoes.kmpresources.documentation
+package dev.robdoes.kmpresources.ide.documentation
 
 import com.intellij.lang.documentation.AbstractDocumentationProvider
 import com.intellij.lang.documentation.DocumentationMarkup
@@ -12,9 +12,9 @@ import com.intellij.psi.PsiFile
 import com.intellij.psi.PsiManager
 import com.intellij.psi.xml.XmlFile
 import com.intellij.psi.xml.XmlTag
-import dev.robdoes.kmpresources.KmpResourcesBundle
-import dev.robdoes.kmpresources.navigation.KmpResourceTarget
-import dev.robdoes.kmpresources.util.KmpResourceResolver
+import dev.robdoes.kmpresources.core.KmpResourcesBundle
+import dev.robdoes.kmpresources.ide.navigation.KmpResourceTarget
+import dev.robdoes.kmpresources.core.util.KmpResourceResolver
 
 class KmpDocumentationProvider : AbstractDocumentationProvider() {
 

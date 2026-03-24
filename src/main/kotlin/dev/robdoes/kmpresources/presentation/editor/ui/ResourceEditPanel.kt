@@ -1,4 +1,4 @@
-package dev.robdoes.kmpresources.editor.ui
+package dev.robdoes.kmpresources.presentation.editor.ui
 
 import com.intellij.icons.AllIcons
 import com.intellij.openapi.project.Project
@@ -10,7 +10,7 @@ import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.components.JBTextField
 import com.intellij.util.ui.JBUI
 import com.intellij.util.ui.UIUtil
-import dev.robdoes.kmpresources.KmpResourcesBundle
+import dev.robdoes.kmpresources.core.KmpResourcesBundle
 import dev.robdoes.kmpresources.domain.model.PluralsResource
 import dev.robdoes.kmpresources.domain.model.StringArrayResource
 import dev.robdoes.kmpresources.domain.model.StringResource
