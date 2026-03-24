@@ -11,6 +11,7 @@ import com.intellij.psi.search.FileTypeIndex
 import com.intellij.psi.search.GlobalSearchScope
 import dev.robdoes.kmpresources.data.repository.XmlResourceRepositoryImpl
 import dev.robdoes.kmpresources.domain.repository.ResourceRepository
+import dev.robdoes.kmpresources.domain.usecase.LoadResourcesUseCase
 
 @Service(Service.Level.PROJECT)
 class ResourceIssueService(private val project: Project) {
@@ -24,7 +25,8 @@ class ResourceIssueService(private val project: Project) {
         return try {
             val keys = ReadAction.compute<List<String>, Throwable> {
                 val repository: ResourceRepository = XmlResourceRepositoryImpl(project, file)
-                repository.loadResources().map { it.key }
+                val loadResourcesUseCase = LoadResourcesUseCase(repository)
+                loadResourcesUseCase().map { it.key }
             }
 
             var warnings = 0
