@@ -34,6 +34,7 @@ import dev.robdoes.kmpresources.domain.model.PluralsResource
 import dev.robdoes.kmpresources.domain.model.StringArrayResource
 import dev.robdoes.kmpresources.domain.model.StringResource
 import dev.robdoes.kmpresources.domain.repository.ResourceRepository
+import dev.robdoes.kmpresources.domain.usecase.LoadResourcesUseCase
 import dev.robdoes.kmpresources.ide.refactoring.KmpResourceRefactorService
 import dev.robdoes.kmpresources.presentation.editor.ui.ResourceEditPanel
 import dev.robdoes.kmpresources.presentation.editor.ui.ResourceTablePanel
@@ -49,6 +50,9 @@ class KmpResourceTableEditor(
 ) : UserDataHolderBase(), FileEditor {
 
     private val scannerService = ResourceScannerService(project)
+
+    private val loadResourcesUseCase = LoadResourcesUseCase(repository)
+
 
     private val mainPanel = JPanel(BorderLayout())
     private val tablePanel = ResourceTablePanel(scannerService)
@@ -72,7 +76,7 @@ class KmpResourceTableEditor(
     private fun wireUpCallbacks() {
         tablePanel.onEditRequested = { key ->
             currentEditingOldKey = key
-            val resource = repository.loadResources().find { it.key == key }
+            val resource = loadResourcesUseCase().find { it.key == key }
             if (resource != null) editPanel.showForUpdate(resource)
         }
 
@@ -82,7 +86,7 @@ class KmpResourceTableEditor(
                     val indexStr = type.substringAfter("[").substringBefore("]")
                     if (indexStr != "+") {
                         val index = indexStr.toIntOrNull() ?: -1
-                        val existingArray = repository.loadResources()
+                        val existingArray = loadResourcesUseCase()
                             .find { it.key == key && it is StringArrayResource } as? StringArrayResource
                         if (existingArray != null && index in existingArray.items.indices) {
                             val updatedItems = existingArray.items.toMutableList().apply { removeAt(index) }
@@ -99,7 +103,7 @@ class KmpResourceTableEditor(
                     }
                 } else {
                     val existingPlural =
-                        repository.loadResources().find { it.key == key && it is PluralsResource } as? PluralsResource
+                        loadResourcesUseCase().find { it.key == key && it is PluralsResource } as? PluralsResource
                     if (existingPlural != null && Messages.showYesNoDialog(
                             project,
                             KmpResourcesBundle.message("dialog.delete.plural.message", type, key),
@@ -154,7 +158,7 @@ class KmpResourceTableEditor(
 
         tablePanel.onInlinePluralEdited = { key, isUn, quantity, newValue ->
             val existingPlural =
-                repository.loadResources().find { it.key == key && it is PluralsResource } as? PluralsResource
+                loadResourcesUseCase().find { it.key == key && it is PluralsResource } as? PluralsResource
             if (existingPlural != null) {
                 val updatedItems = existingPlural.items.toMutableMap()
                 if (newValue.isNotBlank()) updatedItems[quantity] = newValue else updatedItems.remove(quantity)
@@ -165,7 +169,7 @@ class KmpResourceTableEditor(
 
         tablePanel.onInlineArrayEdited = { key, isUn, index, newValue ->
             val existingArray =
-                repository.loadResources().find { it.key == key && it is StringArrayResource } as? StringArrayResource
+                loadResourcesUseCase().find { it.key == key && it is StringArrayResource } as? StringArrayResource
             if (existingArray != null) {
                 val updatedItems = existingArray.items.toMutableList()
                 if (index == -1 && newValue.isNotBlank()) {
@@ -183,7 +187,7 @@ class KmpResourceTableEditor(
 
         editPanel.onSaveRequested = { resourceToSave ->
             if (editPanel.isVisible && resourceToSave.key.isNotBlank()) {
-                val existing = repository.loadResources().find { it.key == resourceToSave.key }
+                val existing = loadResourcesUseCase().find { it.key == resourceToSave.key }
 
                 if (existing != null && existing.xmlTag != resourceToSave.xmlTag && currentEditingOldKey != resourceToSave.key) {
                     Messages.showErrorDialog(
@@ -304,7 +308,7 @@ class KmpResourceTableEditor(
         }
 
     private fun reloadTableData() {
-        val resources = repository.loadResources()
+        val resources = loadResourcesUseCase()
         tablePanel.updateData(resources)
     }
 
