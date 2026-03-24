@@ -22,6 +22,7 @@ import javax.swing.*
 import javax.swing.text.AbstractDocument
 import javax.swing.text.AttributeSet
 import javax.swing.text.DocumentFilter
+import dev.robdoes.kmpresources.domain.usecase.ResourceKeyValidator
 
 class ResourceEditPanel(private val project: Project) : JPanel(BorderLayout()) {
 
@@ -69,16 +70,20 @@ class ResourceEditPanel(private val project: Project) : JPanel(BorderLayout()) {
         )
 
         (keyField.document as AbstractDocument).documentFilter = object : DocumentFilter() {
-            private val regex = "^[a-z0-9_]*$".toRegex()
-
             override fun insertString(fb: FilterBypass, offset: Int, string: String?, attr: AttributeSet?) {
-                if (string != null && regex.matches(string)) super.insertString(fb, offset, string, attr)
-                else Toolkit.getDefaultToolkit().beep()
+                if (string != null && ResourceKeyValidator.isValid(string)) {
+                    super.insertString(fb, offset, string, attr)
+                } else {
+                    Toolkit.getDefaultToolkit().beep()
+                }
             }
 
             override fun replace(fb: FilterBypass, offset: Int, length: Int, text: String?, attrs: AttributeSet?) {
-                if (text != null && regex.matches(text)) super.replace(fb, offset, length, text, attrs)
-                else Toolkit.getDefaultToolkit().beep()
+                if (text != null && ResourceKeyValidator.isValid(text)) {
+                    super.replace(fb, offset, length, text, attrs)
+                } else {
+                    Toolkit.getDefaultToolkit().beep()
+                }
             }
         }
 
@@ -284,6 +289,15 @@ class ResourceEditPanel(private val project: Project) : JPanel(BorderLayout()) {
             Messages.showErrorDialog(
                 project,
                 KmpResourcesBundle.message("dialog.error.empty.key"),
+                KmpResourcesBundle.message("dialog.error.title")
+            )
+            return
+        }
+
+        if (!ResourceKeyValidator.isValid(key)) {
+            Messages.showErrorDialog(
+                project,
+                KmpResourcesBundle.message("dialog.error.validation.key"),
                 KmpResourcesBundle.message("dialog.error.title")
             )
             return
