@@ -34,6 +34,7 @@ import dev.robdoes.kmpresources.domain.model.PluralsResource
 import dev.robdoes.kmpresources.domain.model.StringArrayResource
 import dev.robdoes.kmpresources.domain.model.StringResource
 import dev.robdoes.kmpresources.domain.repository.ResourceRepository
+import dev.robdoes.kmpresources.domain.usecase.DeleteResourceUseCase
 import dev.robdoes.kmpresources.domain.usecase.LoadResourcesUseCase
 import dev.robdoes.kmpresources.ide.refactoring.KmpResourceRefactorService
 import dev.robdoes.kmpresources.presentation.editor.ui.ResourceEditPanel
@@ -53,6 +54,7 @@ class KmpResourceTableEditor(
 
     private val loadResourcesUseCase = LoadResourcesUseCase(repository)
 
+    private val deleteResourceUseCase = DeleteResourceUseCase(repository, loadResourcesUseCase)
 
     private val mainPanel = JPanel(BorderLayout())
     private val tablePanel = ResourceTablePanel(scannerService)
@@ -82,41 +84,25 @@ class KmpResourceTableEditor(
 
         tablePanel.onDeleteRequested = { key, type, isSubItem ->
             if (isSubItem) {
-                if (type.startsWith("item[")) {
-                    val indexStr = type.substringAfter("[").substringBefore("]")
-                    if (indexStr != "+") {
-                        val index = indexStr.toIntOrNull() ?: -1
-                        val existingArray = loadResourcesUseCase()
-                            .find { it.key == key && it is StringArrayResource } as? StringArrayResource
-                        if (existingArray != null && index in existingArray.items.indices) {
-                            val updatedItems = existingArray.items.toMutableList().apply { removeAt(index) }
-                            repository.saveResource(
-                                StringArrayResource(
-                                    key,
-                                    existingArray.isUntranslatable,
-                                    updatedItems
-                                )
-                            )
-                            reloadTableData()
-                            triggerGradleSync()
-                        }
-                    }
+                val isPlural = !type.startsWith("item[")
+
+                val proceed = if (isPlural) {
+                    Messages.showYesNoDialog(
+                        project,
+                        KmpResourcesBundle.message("dialog.delete.plural.message", type, key),
+                        KmpResourcesBundle.message("dialog.delete.plural.title"),
+                        Messages.getQuestionIcon()
+                    ) == Messages.YES
                 } else {
-                    val existingPlural =
-                        loadResourcesUseCase().find { it.key == key && it is PluralsResource } as? PluralsResource
-                    if (existingPlural != null && Messages.showYesNoDialog(
-                            project,
-                            KmpResourcesBundle.message("dialog.delete.plural.message", type, key),
-                            KmpResourcesBundle.message("dialog.delete.plural.title"),
-                            Messages.getQuestionIcon()
-                        ) == Messages.YES
-                    ) {
-                        val updatedItems = existingPlural.items.toMutableMap().apply { remove(type) }
-                        repository.saveResource(PluralsResource(key, existingPlural.isUntranslatable, updatedItems))
-                        reloadTableData()
-                        triggerGradleSync()
-                    }
+                    true
                 }
+
+                if (proceed) {
+                    deleteResourceUseCase(key, type, isSubItem)
+                    reloadTableData()
+                    triggerGradleSync()
+                }
+
             } else {
                 if (!scannerService.isResourceUsed(key)) {
                     if (Messages.showYesNoDialog(
@@ -126,7 +112,7 @@ class KmpResourceTableEditor(
                             Messages.getQuestionIcon()
                         ) == Messages.YES
                     ) {
-                        repository.deleteResource(key, type)
+                        deleteResourceUseCase(key, type, isSubItem)
                         reloadTableData()
                         triggerGradleSync()
                     }
