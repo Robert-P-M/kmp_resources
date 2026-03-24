@@ -131,11 +131,11 @@ class KmpResourceTableEditor(
                         } else {
                             if (Messages.showDialog(
                                     project,
-                                    KmpResourcesBundle.message("dialog.key.in.use.message", key),
-                                    KmpResourcesBundle.message("dialog.key.in.use.title"),
+                                    KmpResourcesBundle.message("dialog.warning.in_use.message", key),
+                                    KmpResourcesBundle.message("dialog.warning.in_use.title"),
                                     arrayOf(
-                                        KmpResourcesBundle.message("dialog.button.show.usages"),
-                                        KmpResourcesBundle.message("dialog.button.cancel")
+                                        KmpResourcesBundle.message("dialog.btn.show_usages"),
+                                        KmpResourcesBundle.message("dialog.btn.cancel")
                                     ),
                                     0,
                                     Messages.getWarningIcon()
@@ -217,8 +217,8 @@ class KmpResourceTableEditor(
     private fun setupToolbar() {
         val actionGroup = DefaultActionGroup()
         actionGroup.addAction(object : AnAction(
-            KmpResourcesBundle.message("action.add.key.text"),
-            KmpResourcesBundle.message("action.add.key.description"),
+            KmpResourcesBundle.message("action.table.add.key.text"),
+            KmpResourcesBundle.message("action.table.add.key.desc"),
             AllIcons.General.Add
         ) {
             override fun actionPerformed(e: AnActionEvent) {
@@ -227,8 +227,8 @@ class KmpResourceTableEditor(
             }
         })
         actionGroup.addAction(object : AnAction(
-            KmpResourcesBundle.message("action.remove.key.text"),
-            KmpResourcesBundle.message("action.remove.key.description"),
+            KmpResourcesBundle.message("action.table.remove.key.text"),
+            KmpResourcesBundle.message("action.table.remove.key.desc"),
             AllIcons.General.Remove
         ) {
             override fun actionPerformed(e: AnActionEvent) = tablePanel.triggerDeleteForSelectedRow()
@@ -266,10 +266,10 @@ class KmpResourceTableEditor(
             override fun update(e: AnActionEvent) {
                 super.update(e)
                 e.presentation.text = when (currentFilter) {
-                    "ALL" -> KmpResourcesBundle.message("action.filter.keys.all")
-                    "STRINGS" -> KmpResourcesBundle.message("action.filter.keys.strings")
-                    "PLURALS" -> KmpResourcesBundle.message("action.filter.keys.plurals")
-                    "ARRAYS" -> KmpResourcesBundle.message("action.filter.keys.arrays")
+                    "ALL" -> KmpResourcesBundle.message("action.table.filter.all")
+                    "STRINGS" -> KmpResourcesBundle.message("action.table.filter.strings")
+                    "PLURALS" -> KmpResourcesBundle.message("action.table.filter.plurals")
+                    "ARRAYS" -> KmpResourcesBundle.message("action.table.filter.arrays")
                     else -> ""
                 }
             }
@@ -367,7 +367,7 @@ class KmpResourceTableEditor(
 
     override fun getComponent(): JComponent = mainPanel
     override fun getPreferredFocusedComponent(): JComponent = mainPanel
-    override fun getName(): String = KmpResourcesBundle.message("editor.tab.name")
+    override fun getName(): String = KmpResourcesBundle.message("ui.editor.tab.name")
     override fun setState(state: FileEditorState) {}
     override fun isModified(): Boolean = false
     override fun isValid(): Boolean = true
@@ -405,5 +405,5 @@ class KmpUsageSearchScope(baseScope: GlobalSearchScope) : DelegatingGlobalSearch
         return myBaseScope.hashCode() * 31 + javaClass.name.hashCode()
     }
 
-    override fun toString() = "KMP Usages"
+    override fun toString() = KmpResourcesBundle.message("search.scope.name")
 }

@@ -45,13 +45,13 @@ class ResourceTablePanel(private val scannerService: ResourceScannerService) : J
 
     init {
         val columnNames = arrayOf(
-            KmpResourcesBundle.message("table.column.status"),
-            KmpResourcesBundle.message("table.column.key"),
-            KmpResourcesBundle.message("table.column.usage"),
-            KmpResourcesBundle.message("table.column.delete"),
-            KmpResourcesBundle.message("table.column.untranslatable"),
-            KmpResourcesBundle.message("table.column.type"),
-            KmpResourcesBundle.message("table.column.default.value")
+            KmpResourcesBundle.message("ui.table.column.status"),
+            KmpResourcesBundle.message("ui.table.column.key"),
+            KmpResourcesBundle.message("ui.table.column.usage"),
+            KmpResourcesBundle.message("ui.table.column.delete"),
+            KmpResourcesBundle.message("ui.table.column.untranslatable"),
+            KmpResourcesBundle.message("ui.table.column.type"),
+            KmpResourcesBundle.message("ui.table.column.default.value")
         )
 
         tableModel = object : DefaultTableModel(columnNames, 0) {
@@ -201,7 +201,7 @@ class ResourceTablePanel(private val scannerService: ResourceScannerService) : J
     fun updateData(resources: List<XmlResource>) {
         tableModel.rowCount = 0
         val loadingStatus =
-            ResourceStatus(AllIcons.Actions.Refresh, KmpResourcesBundle.message("status.tooltip.analyzing"))
+            ResourceStatus(AllIcons.Actions.Refresh, KmpResourcesBundle.message("ui.table.status.tooltip.analyzing"))
 
         resources.forEach { res ->
             when (res) {
@@ -284,10 +284,10 @@ class ResourceTablePanel(private val scannerService: ResourceScannerService) : J
                         val newStatus = if (isUsed) {
                             ResourceStatus(
                                 AllIcons.General.InspectionsOK,
-                                KmpResourcesBundle.message("status.tooltip.ok")
+                                KmpResourcesBundle.message("ui.table.status.tooltip.ok")
                             )
                         } else {
-                            ResourceStatus(AllIcons.General.Error, KmpResourcesBundle.message("status.tooltip.unused"))
+                            ResourceStatus(AllIcons.General.Error, KmpResourcesBundle.message("ui.table.status.tooltip.unused"))
                         }
                         tableModel.setValueAt(newStatus, i, 0)
                     }

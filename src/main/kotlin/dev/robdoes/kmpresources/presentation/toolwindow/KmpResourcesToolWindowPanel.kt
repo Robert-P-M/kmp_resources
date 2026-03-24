@@ -42,8 +42,8 @@ class KmpResourcesToolWindowPanel(private val project: Project, private val tool
     private fun setupToolbar() {
         val actionGroup = DefaultActionGroup()
         actionGroup.add(object : com.intellij.openapi.actionSystem.AnAction(
-            KmpResourcesBundle.message("toolwindow.action.refresh.text"),
-            KmpResourcesBundle.message("toolwindow.action.refresh.desc"),
+            KmpResourcesBundle.message("action.toolwindow.refresh.text"),
+            KmpResourcesBundle.message("action.toolwindow.refresh.desc"),
             AllIcons.Actions.Refresh
         ) {
             override fun actionPerformed(e: AnActionEvent) {
@@ -57,7 +57,7 @@ class KmpResourcesToolWindowPanel(private val project: Project, private val tool
     }
 
     private fun setupList() {
-        issueList.emptyText.text = KmpResourcesBundle.message("status.tooltip.analyzing")
+        issueList.emptyText.text = KmpResourcesBundle.message("ui.toolwindow.status.scanning")
         issueList.selectionMode = ListSelectionModel.SINGLE_SELECTION
 
         issueList.cellRenderer = object : com.intellij.ui.ColoredListCellRenderer<ResourceFileItem>() {
@@ -78,17 +78,17 @@ class KmpResourcesToolWindowPanel(private val project: Project, private val tool
 
                 if (count == -1) {
                     append(
-                        " (${KmpResourcesBundle.message("toolwindow.status.scanning")})",
+                        " (${KmpResourcesBundle.message("ui.toolwindow.status.scanning")})",
                         SimpleTextAttributes.GRAY_ITALIC_ATTRIBUTES
                     )
                 } else if (count > 0) {
                     append(
-                        " ($count ${KmpResourcesBundle.message("toolwindow.issue.suffix.issues")})",
+                        " ($count ${KmpResourcesBundle.message("ui.toolwindow.issue.suffix.issues")})",
                         SimpleTextAttributes.ERROR_ATTRIBUTES
                     )
                 } else {
                     append(
-                        " (${KmpResourcesBundle.message("toolwindow.issue.suffix.ok")})",
+                        " (${KmpResourcesBundle.message("ui.toolwindow.issue.suffix.ok")})",
                         SimpleTextAttributes(SimpleTextAttributes.STYLE_PLAIN, JBColor.GREEN)
                     )
                 }
@@ -113,7 +113,7 @@ class KmpResourcesToolWindowPanel(private val project: Project, private val tool
 
     fun refreshData() {
         listModel.clear()
-        issueList.emptyText.text = KmpResourcesBundle.message("toolwindow.status.waiting_indexing")
+        issueList.emptyText.text = KmpResourcesBundle.message("ui.toolwindow.status.waiting_indexing")
 
         ApplicationManager.getApplication().invokeLater {
             toolWindow.setIcon(AllIcons.Toolwindows.ToolWindowInspection)
@@ -123,19 +123,19 @@ class KmpResourcesToolWindowPanel(private val project: Project, private val tool
             com.intellij.openapi.progress.ProgressManager.getInstance().run(
                 object : Task.Backgroundable(
                     project,
-                    KmpResourcesBundle.message("toolwindow.task.scanning_title"),
+                    KmpResourcesBundle.message("ui.toolwindow.task.scanning_title"),
                     true
                 ) {
 
                     override fun run(indicator: ProgressIndicator) {
                         val issueService = project.service<ResourceIssueService>()
 
-                        indicator.text = KmpResourcesBundle.message("toolwindow.task.finding_files")
+                        indicator.text = KmpResourcesBundle.message("ui.toolwindow.task.finding_files")
                         val files = issueService.findAllResourceFiles()
 
                         if (files.isEmpty()) {
                             ApplicationManager.getApplication().invokeLater {
-                                issueList.emptyText.text = KmpResourcesBundle.message("toolwindow.empty.no_files")
+                                issueList.emptyText.text = KmpResourcesBundle.message("ui.toolwindow.empty.no_files")
                             }
                             return
                         }
@@ -150,7 +150,7 @@ class KmpResourcesToolWindowPanel(private val project: Project, private val tool
                             if (indicator.isCanceled) break
 
                             val file = files[i]
-                            indicator.text = KmpResourcesBundle.message("toolwindow.task.analyzing_file", file.name)
+                            indicator.text = KmpResourcesBundle.message("ui.toolwindow.task.analyzing_file", file.name)
                             val count = issueService.countIssues(file)
                             totalIssues += count
 
