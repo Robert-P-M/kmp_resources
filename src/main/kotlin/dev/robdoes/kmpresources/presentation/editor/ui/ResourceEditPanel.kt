@@ -39,10 +39,10 @@ class ResourceEditPanel(private val project: Project) : JPanel(BorderLayout()) {
 
     private val typeComboBox = ComboBox(arrayOf("string", "plurals", "string-array"))
     private val keyField =
-        JBTextField(25).apply { emptyText.text = KmpResourcesBundle.message("add.panel.key.placeholder") }
+        JBTextField(25).apply { emptyText.text = KmpResourcesBundle.message("ui.panel.add.key.placeholder") }
 
     private val saveKeyButton = JButton(AllIcons.Actions.Checked).apply {
-        toolTipText = KmpResourcesBundle.message("action.save.key.text")
+        toolTipText = KmpResourcesBundle.message("action.table.save.key.text")
         isBorderPainted = false
         isContentAreaFilled = false
         isOpaque = false
@@ -50,13 +50,13 @@ class ResourceEditPanel(private val project: Project) : JPanel(BorderLayout()) {
     }
 
     private val stringValueField =
-        JBTextField(35).apply { emptyText.text = KmpResourcesBundle.message("add.panel.value.placeholder") }
+        JBTextField(35).apply { emptyText.text = KmpResourcesBundle.message("ui.panel.add.value.placeholder") }
     private val pluralValueFields = mutableMapOf<String, JBTextField>()
 
     private val arrayItemsContainer = JPanel().apply { layout = BoxLayout(this, BoxLayout.Y_AXIS) }
     private val arrayValueFields = mutableListOf<JBTextField>()
 
-    private val mainActionButton = JButton(KmpResourcesBundle.message("add.panel.button.add"), AllIcons.General.Add)
+    private val mainActionButton = JButton(KmpResourcesBundle.message("ui.panel.btn.add"), AllIcons.General.Add)
     private val cardLayout = CardLayout()
     private val cardsPanel = JPanel(cardLayout)
 
@@ -101,7 +101,7 @@ class ResourceEditPanel(private val project: Project) : JPanel(BorderLayout()) {
             rowPanel.add(Box.createHorizontalStrut(10))
             val label = JLabel(q).apply { preferredSize = Dimension(45, preferredSize.height) }
             val qValueField = JBTextField(35).apply {
-                emptyText.text = KmpResourcesBundle.message("add.panel.plural.item.placeholder", q)
+                emptyText.text = KmpResourcesBundle.message("ui.panel.add.plural.placeholder", q)
             }
             pluralValueFields[q] = qValueField
             rowPanel.add(label)
@@ -111,7 +111,7 @@ class ResourceEditPanel(private val project: Project) : JPanel(BorderLayout()) {
 
         val arrayCard = JPanel(BorderLayout())
         val addArrayItemBtn =
-            JButton(KmpResourcesBundle.message("add.panel.array.button.add.item"), AllIcons.General.Add).apply {
+            JButton(KmpResourcesBundle.message("ui.panel.add.array.btn.add"), AllIcons.General.Add).apply {
                 addActionListener { buildArrayItemRow("") }
             }
         val arrayScroll = JBScrollPane(arrayItemsContainer).apply {
@@ -143,7 +143,7 @@ class ResourceEditPanel(private val project: Project) : JPanel(BorderLayout()) {
         }
 
         val actionButtonPanel = JPanel(FlowLayout(FlowLayout.LEFT, 0, 0)).apply { border = JBUI.Borders.emptyTop(10) }
-        val cancelButton = JButton(KmpResourcesBundle.message("add.panel.button.cancel"))
+        val cancelButton = JButton(KmpResourcesBundle.message("ui.panel.btn.cancel"))
 
         mainActionButton.addActionListener { submit() }
         saveKeyButton.addActionListener { submit() }
@@ -190,7 +190,7 @@ class ResourceEditPanel(private val project: Project) : JPanel(BorderLayout()) {
         val indexLabel =
             JLabel("[${arrayValueFields.size}]").apply { preferredSize = Dimension(35, preferredSize.height) }
         val field = JBTextField(30).apply {
-            text = value; emptyText.text = KmpResourcesBundle.message("add.panel.array.item.placeholder")
+            text = value; emptyText.text = KmpResourcesBundle.message("ui.panel.add.array.placeholder")
         }
 
         val removeBtn = JButton(AllIcons.General.Remove).apply {
@@ -237,7 +237,7 @@ class ResourceEditPanel(private val project: Project) : JPanel(BorderLayout()) {
         arrayValueFields.clear()
         if (typeComboBox.selectedItem == "string-array") buildArrayItemRow("")
 
-        mainActionButton.text = KmpResourcesBundle.message("add.panel.button.add")
+        mainActionButton.text = KmpResourcesBundle.message("ui.panel.btn.add")
         mainActionButton.icon = AllIcons.General.Add
         mainActionButton.isEnabled = true
 
@@ -271,7 +271,7 @@ class ResourceEditPanel(private val project: Project) : JPanel(BorderLayout()) {
         }
 
         mainActionButton.isEnabled = true
-        mainActionButton.text = KmpResourcesBundle.message("add.panel.button.update")
+        mainActionButton.text = KmpResourcesBundle.message("ui.panel.btn.update")
         mainActionButton.icon = AllIcons.Actions.Edit
         isVisible = true
     }
@@ -311,23 +311,23 @@ class ResourceEditPanel(private val project: Project) : JPanel(BorderLayout()) {
 
     private fun updateHeaderTexts(mode: EditMode, type: String) {
         if (mode == EditMode.ADD) {
-            titleLabel.text = KmpResourcesBundle.message("panel.title.add")
-            descriptionLabel.text = KmpResourcesBundle.message("panel.desc.add")
+            titleLabel.text = KmpResourcesBundle.message("ui.panel.title.add")
+            descriptionLabel.text = KmpResourcesBundle.message("ui.panel.desc.add")
         } else {
             when (type) {
                 "string" -> {
-                    titleLabel.text = KmpResourcesBundle.message("panel.title.edit.string"); descriptionLabel.text =
-                        KmpResourcesBundle.message("panel.desc.edit.string")
+                    titleLabel.text = KmpResourcesBundle.message("ui.panel.title.edit.string"); descriptionLabel.text =
+                        KmpResourcesBundle.message("ui.panel.desc.edit.string")
                 }
 
                 "plurals" -> {
-                    titleLabel.text = KmpResourcesBundle.message("panel.title.edit.plural"); descriptionLabel.text =
-                        KmpResourcesBundle.message("panel.desc.edit.plural")
+                    titleLabel.text = KmpResourcesBundle.message("ui.panel.title.edit.plural"); descriptionLabel.text =
+                        KmpResourcesBundle.message("ui.panel.desc.edit.plural")
                 }
 
                 else -> {
-                    titleLabel.text = KmpResourcesBundle.message("panel.title.edit.array"); descriptionLabel.text =
-                        KmpResourcesBundle.message("panel.desc.edit.array")
+                    titleLabel.text = KmpResourcesBundle.message("ui.panel.title.edit.array"); descriptionLabel.text =
+                        KmpResourcesBundle.message("ui.panel.desc.edit.array")
                 }
             }
         }

@@ -27,8 +27,8 @@
 
         <localInspection
                 language="kotlin"
-                key="inspection.format.args.display.name"
-                groupKey="inspection.format.args.group.name"
+                key="inspection.format.args.display_name"
+                groupKey="inspection.format.args.group_name"
                 bundle="messages.KmpResourcesBundle"
                 shortName="KmpFormat"
                 groupPath="Kotlin"
