@@ -37,6 +37,7 @@ import dev.robdoes.kmpresources.domain.repository.ResourceRepository
 import dev.robdoes.kmpresources.domain.usecase.DeleteResourceUseCase
 import dev.robdoes.kmpresources.domain.usecase.LoadResourcesUseCase
 import dev.robdoes.kmpresources.domain.usecase.SaveResourceUseCase
+import dev.robdoes.kmpresources.domain.usecase.ToggleUntranslatableUseCase
 import dev.robdoes.kmpresources.domain.usecase.UpdateInlineArrayUseCase
 import dev.robdoes.kmpresources.domain.usecase.UpdateInlinePluralUseCase
 import dev.robdoes.kmpresources.domain.usecase.UpdateInlineStringUseCase
@@ -63,6 +64,8 @@ class KmpResourceTableEditor(
     private val updateInlineStringUseCase = UpdateInlineStringUseCase(repository)
     private val updateInlinePluralUseCase = UpdateInlinePluralUseCase(repository, loadResourcesUseCase)
     private val updateInlineArrayUseCase = UpdateInlineArrayUseCase(repository, loadResourcesUseCase)
+    private val toggleUntranslatableUseCase = ToggleUntranslatableUseCase(repository)
+
 
     private val mainPanel = JPanel(BorderLayout())
     private val tablePanel = ResourceTablePanel(scannerService)
@@ -161,7 +164,7 @@ class KmpResourceTableEditor(
             triggerGradleSync()
         }
 
-        tablePanel.onUntranslatableToggled = { key, isUn -> repository.toggleUntranslatable(key, isUn) }
+        tablePanel.onUntranslatableToggled = { key, isUn -> toggleUntranslatableUseCase(key, isUn) }
 
         editPanel.onSaveRequested = { resourceToSave ->
             if (editPanel.isVisible && resourceToSave.key.isNotBlank()) {
