@@ -40,19 +40,23 @@ object KmpResourceRefactorService {
             val documentManager = PsiDocumentManager.getInstance(project)
             documentManager.commitAllDocuments()
 
-            // 1. Rename the XML tag attribute
             val psiXmlFile = psiManager.findFile(xmlFile) as? XmlFile
             val targetTag = psiXmlFile?.rootTag?.subTags?.find {
                 it.name == resourceType && it.getAttributeValue("name") == oldKey
             }
             targetTag?.setAttribute("name", newKey)
 
-            // 2. Rename Kotlin references
             for (vFile in kotlinFiles) {
                 val ktFile = psiManager.findFile(vFile) as? KtFile ?: continue
 
+                val isImported = ktFile.importDirectives.any { it.importedName?.asString() == oldKey }
+
                 val references = ktFile.collectDescendantsOfType<KtNameReferenceExpression> {
-                    it.text == oldKey && it.parent.text == fullOldReference
+                    if (it.text != oldKey) return@collectDescendantsOfType false
+
+                    if (it.parent is org.jetbrains.kotlin.psi.KtImportDirective) return@collectDescendantsOfType false
+
+                    it.parent.text == fullOldReference || isImported
                 }
 
                 for (ref in references) {

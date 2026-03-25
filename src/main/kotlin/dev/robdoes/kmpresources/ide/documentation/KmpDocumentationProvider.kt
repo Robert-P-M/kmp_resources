@@ -6,6 +6,7 @@ import com.intellij.openapi.application.ApplicationManager.getApplication
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.ui.popup.JBPopupFactory
 import com.intellij.openapi.vfs.LocalFileSystem
+import com.intellij.openapi.vfs.VirtualFileManager
 import com.intellij.openapi.wm.WindowManager
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
@@ -96,9 +97,9 @@ class KmpDocumentationProvider : AbstractDocumentationProvider() {
                     dirName.substringAfter("values-")
                 }
 
-                val targetPath = localeTag.containingFile.virtualFile?.path
-                if (targetPath != null) {
-                    sb.append("<a href='psi_element://locale_$targetPath'>[$displayLocale]</a>&nbsp;&nbsp;")
+                val targetUrl = localeTag.containingFile.virtualFile?.url
+                if (targetUrl != null) {
+                    sb.append("<a href='psi_element://locale_$targetUrl'>[$displayLocale]</a>&nbsp;&nbsp;")
                 }
             }
             sb.append(DocumentationMarkup.SECTION_END)
@@ -166,9 +167,9 @@ class KmpDocumentationProvider : AbstractDocumentationProvider() {
         }
 
         if (link.startsWith("locale_")) {
-            val targetPath = link.substringAfter("locale_")
+            val targetUrl = link.substringAfter("locale_")
             val project = context.project
-            val file = LocalFileSystem.getInstance().findFileByPath(targetPath) ?: return null
+            val file = VirtualFileManager.getInstance().findFileByUrl(targetUrl) ?: return null
             val psiFile = PsiManager.getInstance(project).findFile(file) as? XmlFile ?: return null
 
             val originalTarget = context as? KmpResourceTarget ?: return null
