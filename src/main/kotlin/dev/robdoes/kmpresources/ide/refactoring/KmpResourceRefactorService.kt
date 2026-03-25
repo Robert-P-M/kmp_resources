@@ -1,13 +1,14 @@
 package dev.robdoes.kmpresources.ide.refactoring
 
+import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.module.ModuleUtilCore
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.PsiManager
-import com.intellij.psi.search.FileTypeIndex
 import com.intellij.psi.search.GlobalSearchScope
+import com.intellij.psi.search.PsiSearchHelper
 import com.intellij.psi.xml.XmlFile
 import org.jetbrains.kotlin.idea.KotlinFileType
 import org.jetbrains.kotlin.psi.KtFile
@@ -27,12 +28,27 @@ object KmpResourceRefactorService {
         if (oldKey == newKey) return
 
         val module = ModuleUtilCore.findModuleForFile(xmlFile, project) ?: return
-        val scope = GlobalSearchScope.moduleScope(module)
+        val moduleScope = GlobalSearchScope.moduleScope(module)
 
-        val kotlinFiles = FileTypeIndex.getFiles(KotlinFileType.INSTANCE, scope)
+        val normalizedOldKey = oldKey.replace(".", "_").replace("-", "_")
+        val affectedFiles = mutableSetOf<VirtualFile>()
+
+        ReadAction.run<RuntimeException> {
+            PsiSearchHelper.getInstance(project).processAllFilesWithWord(
+                normalizedOldKey,
+                moduleScope,
+                { psiFile ->
+                    if (psiFile.fileType == KotlinFileType.INSTANCE) {
+                        affectedFiles.add(psiFile.virtualFile)
+                    }
+                    true
+                },
+                true
+            )
+        }
+
         val psiManager = PsiManager.getInstance(project)
         val psiFactory = KtPsiFactory(project)
-
         val ktType = if (resourceType == "string-array") "array" else resourceType
         val fullOldReference = "Res.$ktType.$oldKey"
 
@@ -46,7 +62,7 @@ object KmpResourceRefactorService {
             }
             targetTag?.setAttribute("name", newKey)
 
-            for (vFile in kotlinFiles) {
+            for (vFile in affectedFiles) {
                 val ktFile = psiManager.findFile(vFile) as? KtFile ?: continue
 
                 val isImported = ktFile.importDirectives.any { it.importedName?.asString() == oldKey }
