@@ -1,6 +1,7 @@
 package dev.robdoes.kmpresources.domain.usecase
 
 import dev.robdoes.kmpresources.domain.model.StringArrayResource
+import dev.robdoes.kmpresources.domain.model.findResource
 import dev.robdoes.kmpresources.domain.repository.ResourceRepository
 
 class UpdateInlineArrayUseCase(
@@ -9,7 +10,7 @@ class UpdateInlineArrayUseCase(
 ) {
     operator fun invoke(key: String, isUntranslatable: Boolean, index: Int, newValue: String) {
         val existingArray =
-            loadResourcesUseCase().find { it.key == key && it is StringArrayResource } as? StringArrayResource
+            loadResourcesUseCase().findResource<StringArrayResource>(key)
         if (existingArray != null) {
             val updatedItems = existingArray.items.toMutableList()
             if (index == -1 && newValue.isNotBlank()) {

@@ -1,6 +1,7 @@
 package dev.robdoes.kmpresources.domain.usecase
 
 import dev.robdoes.kmpresources.domain.model.PluralsResource
+import dev.robdoes.kmpresources.domain.model.findResource
 import dev.robdoes.kmpresources.domain.repository.ResourceRepository
 
 class UpdateInlinePluralUseCase(
@@ -8,7 +9,7 @@ class UpdateInlinePluralUseCase(
     private val loadResourcesUseCase: LoadResourcesUseCase
 ) {
     operator fun invoke(key: String, isUntranslatable: Boolean, quantity: String, newValue: String) {
-        val existingPlural = loadResourcesUseCase().find { it.key == key && it is PluralsResource } as? PluralsResource
+        val existingPlural = loadResourcesUseCase().findResource<PluralsResource>(key)
         if (existingPlural != null) {
             val updatedItems = existingPlural.items.toMutableMap()
             if (newValue.isNotBlank()) {

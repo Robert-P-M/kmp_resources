@@ -2,6 +2,7 @@ package dev.robdoes.kmpresources.domain.usecase
 
 import dev.robdoes.kmpresources.domain.model.PluralsResource
 import dev.robdoes.kmpresources.domain.model.StringArrayResource
+import dev.robdoes.kmpresources.domain.model.findResource
 import dev.robdoes.kmpresources.domain.repository.ResourceRepository
 
 class DeleteResourceUseCase(
@@ -27,8 +28,7 @@ class DeleteResourceUseCase(
             val indexStr = type.substringAfter("[").substringBefore("]")
             if (indexStr != "+") {
                 val index = indexStr.toIntOrNull() ?: -1
-                val existingArray = loadResourcesUseCase()
-                    .find { it.key == key && it is StringArrayResource } as? StringArrayResource
+                val existingArray = loadResourcesUseCase().findResource<StringArrayResource>(key)
 
                 if (existingArray != null && index in existingArray.items.indices) {
                     val updatedItems = existingArray.items.toMutableList().apply { removeAt(index) }
@@ -42,8 +42,7 @@ class DeleteResourceUseCase(
                 }
             }
         } else {
-            val existingPlural = loadResourcesUseCase()
-                .find { it.key == key && it is PluralsResource } as? PluralsResource
+            val existingPlural = loadResourcesUseCase().findResource<PluralsResource>(key)
 
             if (existingPlural != null) {
                 val updatedItems = existingPlural.items.toMutableMap().apply { remove(type) }
