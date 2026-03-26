@@ -1,12 +1,13 @@
 package dev.robdoes.kmpresources.ide.refactoring
 
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import kotlinx.coroutines.runBlocking
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class KmpResourceRefactorServiceTest : BasePlatformTestCase() {
 
-    fun testRenameKeyUpdatesXmlAndKotlinReferencesAndImports() {
+    fun testRenameKeyUpdatesXmlAndKotlinReferencesAndImports() = runBlocking {
         // Arrange: 1. The XML File
         val xmlContent = """
             <resources>

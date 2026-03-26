@@ -2,10 +2,11 @@ package dev.robdoes.kmpresources.core.service
 
 import com.intellij.openapi.components.service
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import kotlinx.coroutines.runBlocking
 
 class ResourceScannerServiceTest : BasePlatformTestCase() {
 
-    fun testIsResourceUsedReturnsTrueWhenKeyExistsInKotlinFile() {
+    fun testIsResourceUsedReturnsTrueWhenKeyExistsInKotlinFile() = runBlocking {
         // Arrange
         myFixture.addFileToProject(
             "src/commonMain/kotlin/MainScreen.kt",
@@ -30,7 +31,7 @@ class ResourceScannerServiceTest : BasePlatformTestCase() {
         )
     }
 
-    fun testIsResourceUsedReturnsFalseWhenKeyIsUnused() {
+    fun testIsResourceUsedReturnsFalseWhenKeyIsUnused() = runBlocking {
         // Arrange
         myFixture.addFileToProject(
             "src/commonMain/kotlin/MainScreen.kt",
@@ -46,9 +47,8 @@ class ResourceScannerServiceTest : BasePlatformTestCase() {
         )
     }
 
-    fun testIsResourceUsedNormalizesKeyNames() {
+    fun testIsResourceUsedNormalizesKeyNames() = runBlocking {
         // Arrange
-        // KMP generates XML keys with dots/dashes as underscores in Kotlin
         myFixture.addFileToProject(
             "src/commonMain/kotlin/MainScreen.kt",
             "val text = Res.string.my_weird_key"

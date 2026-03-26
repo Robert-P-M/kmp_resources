@@ -1,7 +1,7 @@
 package dev.robdoes.kmpresources.core.service
 
 import com.intellij.ide.highlighter.XmlFileType
-import com.intellij.openapi.application.ReadAction
+import com.intellij.openapi.application.readAction
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.service
 import com.intellij.openapi.diagnostic.Logger
@@ -11,8 +11,6 @@ import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.search.FileTypeIndex
 import com.intellij.psi.search.GlobalSearchScope
 import dev.robdoes.kmpresources.data.repository.XmlResourceRepositoryFactory
-import dev.robdoes.kmpresources.data.repository.XmlResourceRepositoryImpl
-import dev.robdoes.kmpresources.domain.repository.ResourceRepository
 import dev.robdoes.kmpresources.domain.usecase.LoadResourcesUseCase
 
 @Service(Service.Level.PROJECT)
@@ -20,17 +18,17 @@ class ResourceIssueService(private val project: Project) {
 
     private val logger = Logger.getInstance(ResourceIssueService::class.java)
 
-    fun countIssues(file: VirtualFile): Int {
+    suspend fun countIssues(file: VirtualFile): Int {
         if (!file.isValid) return 0
         val scanner = project.service<ResourceScannerService>()
         val repositoryFactory = project.service<XmlResourceRepositoryFactory>()
 
         return try {
-            val keys = ReadAction.nonBlocking<List<String>> {
+            val keys = readAction {
                 val repository = repositoryFactory.create(file)
                 val loadResourcesUseCase = LoadResourcesUseCase(repository)
                 loadResourcesUseCase().map { it.key }
-            }.executeSynchronously()
+            }
 
             var warnings = 0
             for (key in keys) {
@@ -48,9 +46,9 @@ class ResourceIssueService(private val project: Project) {
         }
     }
 
-    fun findAllResourceFiles(): List<VirtualFile> {
+    suspend fun findAllResourceFiles(): List<VirtualFile> {
         return try {
-            ReadAction.nonBlocking<List<VirtualFile>> {
+            readAction {
                 val resourceFiles = mutableListOf<VirtualFile>()
                 val projectScope = GlobalSearchScope.projectScope(project)
 
@@ -62,7 +60,7 @@ class ResourceIssueService(private val project: Project) {
                     }
                 }
                 resourceFiles
-            }.executeSynchronously()
+            }
         } catch (e: ProcessCanceledException) {
             throw e
         } catch (e: Exception) {

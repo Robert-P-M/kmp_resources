@@ -2,12 +2,11 @@ package dev.robdoes.kmpresources.ide.refactoring
 
 import com.intellij.testFramework.LightVirtualFile
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
-import kotlin.test.assertFalse
-import kotlin.test.assertTrue
+import kotlinx.coroutines.runBlocking
 
 class KmpResourceRefactorServiceCoverageTest : BasePlatformTestCase() {
 
-    fun testCoverageSameKeyReturnsEarly() {
+    fun testCoverageSameKeyReturnsEarly() = runBlocking {
         // Hits: if (oldKey == newKey) return
         val file = LightVirtualFile("test.xml", "<resources></resources>")
 
@@ -15,7 +14,7 @@ class KmpResourceRefactorServiceCoverageTest : BasePlatformTestCase() {
         KmpResourceRefactorService.renameKeyInModule(project, file, "string", "same", "same")
     }
 
-    fun testCoverageModuleNullReturnsEarly() {
+    fun testCoverageModuleNullReturnsEarly() = runBlocking {
         // Hits: val module = ModuleUtilCore.findModuleForFile(xmlFile, project) ?: return
         // A LightVirtualFile is not attached to the module's file system, so finding the module returns null.
         val file = LightVirtualFile("out_of_project.xml", "<resources></resources>")
@@ -24,7 +23,7 @@ class KmpResourceRefactorServiceCoverageTest : BasePlatformTestCase() {
         KmpResourceRefactorService.renameKeyInModule(project, file, "string", "old", "new")
     }
 
-    fun testCoverageTargetTagNullAndNotImported() {
+    fun testCoverageTargetTagNullAndNotImported() = runBlocking {
         // Hits: targetTag?.setAttribute("name", newKey) (null branch)
         // Hits: val isImported = ...any... (false branch)
         // Hits: if (resourceType == "string-array") "array" else resourceType (true branch)
@@ -51,7 +50,7 @@ class KmpResourceRefactorServiceCoverageTest : BasePlatformTestCase() {
         assertFalse(xmlFile.text.contains("new_key"))
     }
 
-    fun testCoverageImportDirectiveReplacement() {
+    fun testCoverageImportDirectiveReplacement() = runBlocking {
         // Hits: if (it.parent is org.jetbrains.kotlin.psi.KtImportDirective) return false (true branch)
         // Hits: for (import in imports) { ... } inside body
 

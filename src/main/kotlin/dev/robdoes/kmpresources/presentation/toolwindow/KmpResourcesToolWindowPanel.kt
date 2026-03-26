@@ -1,16 +1,11 @@
 package dev.robdoes.kmpresources.presentation.toolwindow
 
 import com.intellij.icons.AllIcons
-import com.intellij.openapi.actionSystem.ActionManager
-import com.intellij.openapi.actionSystem.ActionUpdateThread
-import com.intellij.openapi.actionSystem.AnAction
-import com.intellij.openapi.actionSystem.AnActionEvent
-import com.intellij.openapi.actionSystem.DefaultActionGroup
-import com.intellij.openapi.application.ApplicationManager
+import com.intellij.ide.projectView.ProjectView
+import com.intellij.openapi.actionSystem.*
+import com.intellij.openapi.application.EDT
 import com.intellij.openapi.components.service
 import com.intellij.openapi.fileEditor.FileEditorManager
-import com.intellij.openapi.progress.ProgressIndicator
-import com.intellij.openapi.progress.Task
 import com.intellij.openapi.project.DumbService
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
@@ -22,15 +17,16 @@ import com.intellij.ui.SimpleTextAttributes
 import com.intellij.ui.components.JBList
 import com.intellij.ui.components.JBScrollPane
 import dev.robdoes.kmpresources.core.KmpResourcesBundle
+import dev.robdoes.kmpresources.core.coroutines.KmpProjectScopeService
 import dev.robdoes.kmpresources.core.service.ResourceIssueService
+import dev.robdoes.kmpresources.presentation.view.invalidateProjectViewCache
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.awt.BorderLayout
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
-import javax.swing.DefaultListModel
-import javax.swing.JList
-import javax.swing.JPanel
-import javax.swing.ListSelectionModel
-import javax.swing.SwingConstants
+import javax.swing.*
 
 data class ResourceFileItem(val file: VirtualFile, val issueCount: Int = -1)
 
@@ -46,6 +42,16 @@ class KmpResourcesToolWindowPanel(
         setupToolbar()
         setupList()
         add(JBScrollPane(issueList), BorderLayout.CENTER)
+        project.messageBus.connect(toolWindow.disposable).subscribe(
+            DumbService.DUMB_MODE,
+            object : DumbService.DumbModeListener {
+                override fun exitDumbMode() {
+                    invalidateProjectViewCache()
+                    ProjectView.getInstance(project).refresh()
+                    refreshData()
+                }
+            }
+        )
         refreshData()
     }
 
@@ -56,14 +62,22 @@ class KmpResourcesToolWindowPanel(
                 KmpResourcesBundle.message("action.toolwindow.refresh.desc"),
                 AllIcons.Actions.Refresh
             ) {
-                override fun actionPerformed(e: AnActionEvent) = refreshData()
+                override fun actionPerformed(e: AnActionEvent) {
+                    invalidateProjectViewCache()
+
+                    ProjectView.getInstance(project).refresh()
+
+                    refreshData()
+                }
+
                 override fun getActionUpdateThread() = ActionUpdateThread.BGT
             })
         }
 
-        val toolbar = ActionManager.getInstance().createActionToolbar("KmpResourcesToolWindow", actionGroup, true).apply {
-            targetComponent = this@KmpResourcesToolWindowPanel
-        }
+        val toolbar =
+            ActionManager.getInstance().createActionToolbar("KmpResourcesToolWindow", actionGroup, true).apply {
+                targetComponent = this@KmpResourcesToolWindowPanel
+            }
         add(toolbar.component, BorderLayout.NORTH)
     }
 
@@ -101,10 +115,12 @@ class KmpResourcesToolWindowPanel(
                     " (${KmpResourcesBundle.message("ui.toolwindow.status.scanning")})",
                     SimpleTextAttributes.GRAY_ITALIC_ATTRIBUTES
                 )
+
                 value.issueCount > 0 -> append(
                     " (${value.issueCount} ${KmpResourcesBundle.message("ui.toolwindow.issue.suffix.issues")})",
                     SimpleTextAttributes.ERROR_ATTRIBUTES
                 )
+
                 else -> append(
                     " (${KmpResourcesBundle.message("ui.toolwindow.issue.suffix.ok")})",
                     SimpleTextAttributes(SimpleTextAttributes.STYLE_PLAIN, JBColor.GREEN)
@@ -127,57 +143,43 @@ class KmpResourcesToolWindowPanel(
         issueList.emptyText.text = KmpResourcesBundle.message("ui.toolwindow.status.waiting_indexing")
         toolWindow.setIcon(AllIcons.Toolwindows.ToolWindowInspection)
 
-        DumbService.getInstance(project).runWhenSmart {
-            com.intellij.openapi.progress.ProgressManager.getInstance().run(
-                object : Task.Backgroundable(
-                    project,
-                    KmpResourcesBundle.message("ui.toolwindow.task.scanning_title"),
-                    true
-                ) {
-                    override fun run(indicator: ProgressIndicator) {
-                        val issueService = project.service<ResourceIssueService>()
+        project.service<KmpProjectScopeService>().coroutineScope.launch {
 
-                        indicator.text = KmpResourcesBundle.message("ui.toolwindow.task.finding_files")
-                        val files = issueService.findAllResourceFiles()
+            DumbService.getInstance(project).waitForSmartMode()
 
-                        if (files.isEmpty()) {
-                            ApplicationManager.getApplication().invokeLater {
-                                issueList.emptyText.text = KmpResourcesBundle.message("ui.toolwindow.empty.no_files")
-                            }
-                            return
-                        }
+            val issueService = project.service<ResourceIssueService>()
+            val files = issueService.findAllResourceFiles()
 
-                        var totalIssues = 0
-                        // Batch processing: process all files before updating the UI
-                        val evaluatedItems = files.mapNotNull { file ->
-                            if (indicator.isCanceled) return@mapNotNull null
-
-                            indicator.text = KmpResourcesBundle.message("ui.toolwindow.task.analyzing_file", file.name)
-                            val count = issueService.countIssues(file)
-                            totalIssues += count
-                            ResourceFileItem(file, count)
-                        }
-
-                        if (indicator.isCanceled) return
-
-                        // Single UI update block
-                        ApplicationManager.getApplication().invokeLater {
-                            listModel.clear()
-                            evaluatedItems.forEach { listModel.addElement(it) }
-
-                            if (totalIssues > 0) {
-                                val errorIcon = LayeredIcon(2).apply {
-                                    setIcon(AllIcons.Toolwindows.ToolWindowInspection, 0)
-                                    setIcon(AllIcons.Nodes.ErrorMark, 1, SwingConstants.SOUTH_EAST)
-                                }
-                                toolWindow.setIcon(errorIcon)
-                            } else {
-                                toolWindow.setIcon(AllIcons.General.InspectionsOK)
-                            }
-                        }
-                    }
+            if (files.isEmpty()) {
+                withContext(Dispatchers.EDT) {
+                    issueList.emptyText.text = KmpResourcesBundle.message("ui.toolwindow.empty.no_files")
                 }
-            )
+                return@launch
+            }
+
+            var totalIssues = 0
+            val evaluatedItems = mutableListOf<ResourceFileItem>()
+
+            for (file in files) {
+                val count = issueService.countIssues(file)
+                totalIssues += count
+                evaluatedItems.add(ResourceFileItem(file, count))
+            }
+
+            withContext(Dispatchers.EDT) {
+                listModel.clear()
+                evaluatedItems.forEach { listModel.addElement(it) }
+
+                if (totalIssues > 0) {
+                    val errorIcon = LayeredIcon(2).apply {
+                        setIcon(AllIcons.Toolwindows.ToolWindowInspection, 0)
+                        setIcon(AllIcons.Nodes.ErrorMark, 1, SwingConstants.SOUTH_EAST)
+                    }
+                    toolWindow.setIcon(errorIcon)
+                } else {
+                    toolWindow.setIcon(AllIcons.General.InspectionsOK)
+                }
+            }
         }
     }
 }

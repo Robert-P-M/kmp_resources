@@ -2,17 +2,15 @@ package dev.robdoes.kmpresources.core.service
 
 import com.intellij.openapi.components.service
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
-import kotlin.test.assertEquals
+import kotlinx.coroutines.runBlocking
+import kotlin.test.DefaultAsserter.assertEquals
 
 class ResourceIssueServiceTest : BasePlatformTestCase() {
 
-    fun testFindAllResourceFilesFindsOnlyValidKmpStringsFiles() {
+    fun testFindAllResourceFilesFindsOnlyValidKmpStringsFiles() = runBlocking {
         // Arrange
-        // 1. Valid file
         val validFile = myFixture.addFileToProject("composeResources/values/strings.xml", "<resources></resources>")
-        // 2. Invalid name (colors.xml instead of strings.xml)
         myFixture.addFileToProject("composeResources/values/colors.xml", "<resources></resources>")
-        // 3. Invalid path (not inside composeResources)
         myFixture.addFileToProject("androidApp/src/main/res/values/strings.xml", "<resources></resources>")
 
         val issueService = project.service<ResourceIssueService>()
@@ -33,7 +31,7 @@ class ResourceIssueServiceTest : BasePlatformTestCase() {
         )
     }
 
-    fun testCountIssuesCorrectlyIdentifiesUnusedKeys() {
+    fun testCountIssuesCorrectlyIdentifiesUnusedKeys() = runBlocking {
         // Arrange
         val xmlContent = """
             <resources>
@@ -44,7 +42,6 @@ class ResourceIssueServiceTest : BasePlatformTestCase() {
         """.trimIndent()
         val xmlFile = myFixture.addFileToProject("composeResources/values/strings.xml", xmlContent)
 
-        // We only use ONE of the 3 keys in our code
         myFixture.addFileToProject(
             "src/commonMain/kotlin/App.kt",
             "val text = Res.string.used_key"

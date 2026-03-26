@@ -1,20 +1,23 @@
 package dev.robdoes.kmpresources.presentation.editor.ui
 
 import com.intellij.icons.AllIcons
-import com.intellij.openapi.application.ApplicationManager
-import com.intellij.openapi.application.ModalityState
-import com.intellij.openapi.application.ReadAction
+import com.intellij.openapi.application.EDT
+import com.intellij.openapi.components.service
+import com.intellij.openapi.project.DumbService
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.wm.IdeFocusManager
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.table.JBTable
-import com.intellij.util.concurrency.AppExecutorUtil
 import dev.robdoes.kmpresources.core.KmpResourcesBundle
+import dev.robdoes.kmpresources.core.coroutines.KmpProjectScopeService
 import dev.robdoes.kmpresources.core.service.ResourceScannerService
 import dev.robdoes.kmpresources.domain.model.PluralsResource
 import dev.robdoes.kmpresources.domain.model.StringArrayResource
 import dev.robdoes.kmpresources.domain.model.StringResource
 import dev.robdoes.kmpresources.domain.model.XmlResource
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.awt.BorderLayout
 import java.awt.Component
 import java.awt.event.MouseAdapter
@@ -40,10 +43,12 @@ enum class ResourceColumn(val index: Int, val titleKey: String) {
     }
 }
 
-class ResourceTablePanel(private val project: Project, private val scannerService: ResourceScannerService) : JPanel(BorderLayout()) {
+class ResourceTablePanel(private val project: Project, private val scannerService: ResourceScannerService) :
+    JPanel(BorderLayout()) {
 
     var onInlineStringEdited: ((key: String, isUntranslatable: Boolean, newValue: String) -> Unit)? = null
-    var onInlinePluralEdited: ((key: String, isUntranslatable: Boolean, quantity: String, newValue: String) -> Unit)? = null
+    var onInlinePluralEdited: ((key: String, isUntranslatable: Boolean, quantity: String, newValue: String) -> Unit)? =
+        null
     var onInlineArrayEdited: ((key: String, isUntranslatable: Boolean, index: Int, newValue: String) -> Unit)? = null
 
     var onUntranslatableToggled: ((key: String, isUntranslatable: Boolean) -> Unit)? = null
@@ -96,6 +101,7 @@ class ResourceTablePanel(private val project: Project, private val scannerServic
                                     setValueAt(AllIcons.General.Remove, row, ResourceColumn.DELETE.index)
                                 }
                             }
+
                             type.startsWith("item[") -> {
                                 val indexStr = type.substringAfter("[").substringBefore("]")
                                 val index = if (indexStr == "+") -1 else indexStr.toIntOrNull() ?: -1
@@ -103,9 +109,11 @@ class ResourceTablePanel(private val project: Project, private val scannerServic
                             }
                         }
                     }
+
                     ResourceColumn.UNTRANSLATABLE -> {
                         onUntranslatableToggled?.invoke(parentKey, aValue as? Boolean ?: false)
                     }
+
                     else -> Unit
                 }
             }
@@ -132,7 +140,8 @@ class ResourceTablePanel(private val project: Project, private val scannerServic
                         horizontalAlignment = SwingConstants.CENTER
                         val status = value as? ResourceStatus
                         icon = status?.icon
-                        toolTipText = if (icon == AllIcons.General.Error) "${status?.tooltip} (Click to remove)" else status?.tooltip
+                        toolTipText =
+                            if (icon == AllIcons.General.Error) "${status?.tooltip} (Click to remove)" else status?.tooltip
                     }
                 }
             }
@@ -143,7 +152,10 @@ class ResourceTablePanel(private val project: Project, private val scannerServic
             when (colEnum) {
                 ResourceColumn.STATUS -> col.apply { preferredWidth = 45; maxWidth = 45; minWidth = 45 }
                 ResourceColumn.KEY -> col.apply { preferredWidth = 300; minWidth = 150 }
-                ResourceColumn.USAGE, ResourceColumn.DELETE -> col.apply { preferredWidth = 50; maxWidth = 50; minWidth = 50 }
+                ResourceColumn.USAGE, ResourceColumn.DELETE -> col.apply {
+                    preferredWidth = 50; maxWidth = 50; minWidth = 50
+                }
+
                 ResourceColumn.UNTRANSLATABLE -> col.apply { preferredWidth = 110; maxWidth = 110; minWidth = 110 }
                 ResourceColumn.TYPE -> col.apply { preferredWidth = 100; minWidth = 80 }
                 ResourceColumn.DEFAULT_VALUE -> col.apply { preferredWidth = 400; minWidth = 200 }
@@ -161,18 +173,29 @@ class ResourceTablePanel(private val project: Project, private val scannerServic
 
                 when (ResourceColumn.fromIndex(colIndex)) {
                     ResourceColumn.STATUS -> {
-                        if ((tableModel.getValueAt(modelRow, ResourceColumn.STATUS.index) as? ResourceStatus)?.icon == AllIcons.General.Error) {
+                        if ((tableModel.getValueAt(
+                                modelRow,
+                                ResourceColumn.STATUS.index
+                            ) as? ResourceStatus)?.icon == AllIcons.General.Error
+                        ) {
                             triggerDelete(modelRow)
                         }
                     }
+
                     ResourceColumn.KEY -> getParentKeyNameForRow(modelRow)?.let { onEditRequested?.invoke(it) }
                     ResourceColumn.USAGE -> {
                         val keyName = tableModel.getValueAt(modelRow, ResourceColumn.KEY.index) as String
                         if (keyName.isNotBlank()) onUsageRequested?.invoke(keyName)
                     }
+
                     ResourceColumn.DELETE -> {
-                        if (tableModel.getValueAt(modelRow, ResourceColumn.DELETE.index) != null) triggerDelete(modelRow)
+                        if (tableModel.getValueAt(
+                                modelRow,
+                                ResourceColumn.DELETE.index
+                            ) != null
+                        ) triggerDelete(modelRow)
                     }
+
                     else -> Unit
                 }
             }
@@ -188,16 +211,34 @@ class ResourceTablePanel(private val project: Project, private val scannerServic
 
     fun updateData(resources: List<XmlResource>) {
         tableModel.rowCount = 0
-        val loadingStatus = ResourceStatus(AllIcons.Actions.Refresh, KmpResourcesBundle.message("ui.table.status.tooltip.analyzing"))
+        val loadingStatus =
+            ResourceStatus(AllIcons.Actions.Refresh, KmpResourcesBundle.message("ui.table.status.tooltip.analyzing"))
 
         resources.forEach { res ->
             when (res) {
                 is StringResource -> tableModel.addRow(
-                    arrayOf(loadingStatus, res.key, AllIcons.Actions.Search, AllIcons.General.Remove, res.isUntranslatable, "string", res.value)
+                    arrayOf(
+                        loadingStatus,
+                        res.key,
+                        AllIcons.Actions.Search,
+                        AllIcons.General.Remove,
+                        res.isUntranslatable,
+                        "string",
+                        res.value
+                    )
                 )
+
                 is PluralsResource -> {
                     tableModel.addRow(
-                        arrayOf(loadingStatus, res.key, AllIcons.Actions.Search, AllIcons.General.Remove, res.isUntranslatable, "plurals", "")
+                        arrayOf(
+                            loadingStatus,
+                            res.key,
+                            AllIcons.Actions.Search,
+                            AllIcons.General.Remove,
+                            res.isUntranslatable,
+                            "plurals",
+                            ""
+                        )
                     )
                     validQuantities.forEach { q ->
                         val valueText = res.items[q] ?: ""
@@ -205,44 +246,69 @@ class ResourceTablePanel(private val project: Project, private val scannerServic
                         tableModel.addRow(arrayOf(null, "", null, deleteIcon, null, q, valueText))
                     }
                 }
+
                 is StringArrayResource -> {
                     tableModel.addRow(
-                        arrayOf(loadingStatus, res.key, AllIcons.Actions.Search, AllIcons.General.Remove, res.isUntranslatable, "string-array", "")
+                        arrayOf(
+                            loadingStatus,
+                            res.key,
+                            AllIcons.Actions.Search,
+                            AllIcons.General.Remove,
+                            res.isUntranslatable,
+                            "string-array",
+                            ""
+                        )
                     )
                     res.items.forEachIndexed { index, itemValue ->
-                        tableModel.addRow(arrayOf(null, "", null, AllIcons.General.Remove, null, "item[$index]", itemValue))
+                        tableModel.addRow(
+                            arrayOf(
+                                null,
+                                "",
+                                null,
+                                AllIcons.General.Remove,
+                                null,
+                                "item[$index]",
+                                itemValue
+                            )
+                        )
                     }
                     tableModel.addRow(arrayOf(null, "", null, null, null, "item[+]", ""))
                 }
             }
         }
 
-        // Modern, safe Background Threading
         val keysToEvaluate = (0 until tableModel.rowCount).mapNotNull { row ->
             val key = tableModel.getValueAt(row, ResourceColumn.KEY.index) as? String
             if (key.isNullOrBlank()) null else row to key
         }
 
-        ReadAction.nonBlocking<List<Pair<Int, Pair<String, Boolean>>>> {
-            keysToEvaluate.map { (row, key) ->
+        project.service<KmpProjectScopeService>().coroutineScope.launch {
+            DumbService.getInstance(project).waitForSmartMode()
+
+            val evaluatedResults = keysToEvaluate.map { (row, key) ->
                 row to (key to scannerService.isResourceUsed(key))
             }
-        }
-            .inSmartMode(project)
-            .finishOnUiThread(ModalityState.defaultModalityState()) { evaluatedResults ->
+
+            withContext(Dispatchers.EDT) {
                 evaluatedResults.forEach { (row, pair) ->
                     val (key, isUsed) = pair
                     if (row < tableModel.rowCount && tableModel.getValueAt(row, ResourceColumn.KEY.index) == key) {
                         val newStatus = if (isUsed) {
-                            ResourceStatus(AllIcons.General.InspectionsOK, KmpResourcesBundle.message("ui.table.status.tooltip.ok"))
+                            ResourceStatus(
+                                AllIcons.General.InspectionsOK,
+                                KmpResourcesBundle.message("ui.table.status.tooltip.ok")
+                            )
                         } else {
-                            ResourceStatus(AllIcons.General.Error, KmpResourcesBundle.message("ui.table.status.tooltip.unused"))
+                            ResourceStatus(
+                                AllIcons.General.Error,
+                                KmpResourcesBundle.message("ui.table.status.tooltip.unused")
+                            )
                         }
                         tableModel.setValueAt(newStatus, row, ResourceColumn.STATUS.index)
                     }
                 }
             }
-            .submit(AppExecutorUtil.getAppExecutorService())
+        }
     }
 
     fun applyFilter(filter: String) {
@@ -268,7 +334,7 @@ class ResourceTablePanel(private val project: Project, private val scannerServic
     }
 
     fun scrollToKey(key: String) {
-        ApplicationManager.getApplication().invokeLater {
+        project.service<KmpProjectScopeService>().coroutineScope.launch(Dispatchers.EDT) {
             table.clearSelection()
 
             for (i in 0 until tableModel.rowCount) {

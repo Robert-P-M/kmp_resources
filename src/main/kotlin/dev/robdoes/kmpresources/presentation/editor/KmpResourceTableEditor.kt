@@ -6,9 +6,8 @@ import com.intellij.find.findInProject.FindInProjectManager
 import com.intellij.icons.AllIcons
 import com.intellij.openapi.actionSystem.*
 import com.intellij.openapi.actionSystem.ex.ComboBoxAction
-import com.intellij.openapi.application.ApplicationManager
-import com.intellij.openapi.application.ModalityState
-import com.intellij.openapi.application.ReadAction
+import com.intellij.openapi.application.EDT
+import com.intellij.openapi.application.readAction
 import com.intellij.openapi.components.service
 import com.intellij.openapi.externalSystem.model.ProjectSystemId
 import com.intellij.openapi.externalSystem.model.execution.ExternalSystemTaskExecutionSettings
@@ -20,14 +19,15 @@ import com.intellij.openapi.fileEditor.FileEditor
 import com.intellij.openapi.fileEditor.FileEditorLocation
 import com.intellij.openapi.fileEditor.FileEditorState
 import com.intellij.openapi.module.ModuleUtilCore
+import com.intellij.openapi.project.DumbService
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.util.UserDataHolderBase
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.search.DelegatingGlobalSearchScope
 import com.intellij.psi.search.GlobalSearchScope
-import com.intellij.util.concurrency.AppExecutorUtil
 import dev.robdoes.kmpresources.core.KmpResourcesBundle
+import dev.robdoes.kmpresources.core.coroutines.KmpProjectScopeService
 import dev.robdoes.kmpresources.core.service.ResourceScannerService
 import dev.robdoes.kmpresources.domain.model.PluralsResource
 import dev.robdoes.kmpresources.domain.model.StringArrayResource
@@ -38,6 +38,9 @@ import dev.robdoes.kmpresources.domain.usecase.*
 import dev.robdoes.kmpresources.ide.refactoring.KmpResourceRefactorService
 import dev.robdoes.kmpresources.presentation.editor.ui.ResourceEditPanel
 import dev.robdoes.kmpresources.presentation.editor.ui.ResourceTablePanel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.awt.BorderLayout
 import java.beans.PropertyChangeListener
 import javax.swing.JComponent
@@ -60,7 +63,7 @@ class KmpResourceTableEditor(
     private val toggleUntranslatableUseCase = ToggleUntranslatableUseCase(repository)
 
     private val mainPanel = JPanel(BorderLayout())
-    private val tablePanel = ResourceTablePanel(project, scannerService) // <-- Projekt übergeben
+    private val tablePanel = ResourceTablePanel(project, scannerService)
     private val editPanel = ResourceEditPanel(project)
 
     private var currentFilter = "ALL"
@@ -72,6 +75,16 @@ class KmpResourceTableEditor(
         mainPanel.add(editPanel, BorderLayout.SOUTH)
 
         wireUpCallbacks()
+
+        project.messageBus.connect(this).subscribe(
+            DumbService.DUMB_MODE,
+            object : DumbService.DumbModeListener {
+                override fun exitDumbMode() {
+                    reloadTableData()
+                }
+            }
+        )
+
         reloadTableData()
     }
 
@@ -103,7 +116,11 @@ class KmpResourceTableEditor(
 
         tablePanel.onInlineArrayEdited = { key, isUn, index, newValue ->
             updateInlineArrayUseCase(key, isUn, index, newValue)
-            ApplicationManager.getApplication().invokeLater { reloadTableData() }
+
+            project.service<KmpProjectScopeService>().coroutineScope.launch(Dispatchers.EDT) {
+                reloadTableData()
+            }
+
             triggerGradleSyncBackground()
         }
 
@@ -135,8 +152,11 @@ class KmpResourceTableEditor(
     }
 
     private fun handleMainResourceDeletion(key: String, type: String) {
-        ReadAction.nonBlocking<Boolean> { scannerService.isResourceUsed(key) }
-            .finishOnUiThread(ModalityState.defaultModalityState()) { isUsed ->
+        project.service<KmpProjectScopeService>().coroutineScope.launch {
+
+            val isUsed = scannerService.isResourceUsed(key)
+
+            withContext(Dispatchers.EDT) {
                 if (!isUsed) {
                     if (Messages.showYesNoDialog(
                             project,
@@ -166,7 +186,7 @@ class KmpResourceTableEditor(
                     }
                 }
             }
-            .submit(AppExecutorUtil.getAppExecutorService())
+        }
     }
 
     private fun handleResourceSave(resourceToSave: XmlResource) {
@@ -182,21 +202,29 @@ class KmpResourceTableEditor(
         }
 
         val oldKey = currentEditingOldKey
-        if (oldKey != null && oldKey != resourceToSave.key) {
-            val type = when (resourceToSave) {
-                is StringResource -> "string"
-                is PluralsResource -> "plurals"
-                is StringArrayResource -> "string-array"
-            }
-            KmpResourceRefactorService.renameKeyInModule(project, file, type, oldKey, resourceToSave.key)
+        val type = when (resourceToSave) {
+            is StringResource -> "string"
+            is PluralsResource -> "plurals"
+            is StringArrayResource -> "string-array"
+            else -> "string"
         }
 
-        saveResourceUseCase(resourceToSave)
-        editPanel.isVisible = false
-        currentEditingOldKey = null
-        reloadTableData()
-        tablePanel.scrollToKey(resourceToSave.key)
-        triggerGradleSyncBackground()
+        project.service<KmpProjectScopeService>().coroutineScope.launch {
+
+            if (oldKey != null && oldKey != resourceToSave.key) {
+                KmpResourceRefactorService.renameKeyInModule(project, file, type, oldKey, resourceToSave.key)
+            }
+
+            withContext(Dispatchers.EDT) {
+                saveResourceUseCase(resourceToSave)
+                editPanel.isVisible = false
+                currentEditingOldKey = null
+                reloadTableData()
+                tablePanel.scrollToKey(resourceToSave.key)
+            }
+
+            triggerGradleSyncBackground()
+        }
     }
 
     private fun setupToolbar() {
@@ -294,9 +322,11 @@ class KmpResourceTableEditor(
     }
 
     private fun triggerGradleSyncBackground() {
-        ReadAction.nonBlocking<Unit> {
-            val module = ModuleUtilCore.findModuleForFile(file, project) ?: return@nonBlocking
-            val basePath = ExternalSystemApiUtil.getExternalProjectPath(module) ?: project.basePath ?: return@nonBlocking
+        project.service<KmpProjectScopeService>().coroutineScope.launch {
+
+            val module = readAction { ModuleUtilCore.findModuleForFile(file, project) } ?: return@launch
+            val basePath =
+                readAction { ExternalSystemApiUtil.getExternalProjectPath(module) ?: project.basePath } ?: return@launch
 
             val settings = ExternalSystemTaskExecutionSettings().apply {
                 externalProjectPath = basePath
@@ -304,15 +334,17 @@ class KmpResourceTableEditor(
                 externalSystemIdString = "GRADLE"
             }
 
-            ExternalSystemUtil.runTask(
-                settings, DefaultRunExecutor.EXECUTOR_ID, project, ProjectSystemId("GRADLE"),
-                object : TaskCallback {
-                    override fun onSuccess() {}
-                    override fun onFailure() {}
-                },
-                ProgressExecutionMode.IN_BACKGROUND_ASYNC, false
-            )
-        }.submit(AppExecutorUtil.getAppExecutorService())
+            withContext(Dispatchers.EDT) {
+                ExternalSystemUtil.runTask(
+                    settings, DefaultRunExecutor.EXECUTOR_ID, project, ProjectSystemId("GRADLE"),
+                    object : TaskCallback {
+                        override fun onSuccess() {}
+                        override fun onFailure() {}
+                    },
+                    ProgressExecutionMode.IN_BACKGROUND_ASYNC, false
+                )
+            }
+        }
     }
 
     fun scrollToKey(key: String) {

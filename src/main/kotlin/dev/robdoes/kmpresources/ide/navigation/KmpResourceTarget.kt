@@ -1,12 +1,16 @@
 package dev.robdoes.kmpresources.ide.navigation
 
 import com.intellij.navigation.ItemPresentation
-import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.application.EDT
+import com.intellij.openapi.components.service
 import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.psi.PsiElement
 import com.intellij.psi.impl.FakePsiElement
 import com.intellij.psi.xml.XmlTag
+import dev.robdoes.kmpresources.core.coroutines.KmpProjectScopeService
 import dev.robdoes.kmpresources.presentation.editor.KmpResourceTableEditor
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import javax.swing.Icon
 
 class KmpResourceTarget(
@@ -30,11 +34,11 @@ class KmpResourceTarget(
         val fileEditorManager = FileEditorManager.getInstance(project)
 
         fileEditorManager.openFile(virtualFile, requestFocus)
-
         fileEditorManager.setSelectedEditor(virtualFile, "KmpResourceTableEditor")
 
         val rawXmlName = xmlTag.getAttributeValue("name") ?: kotlinKeyName
-        ApplicationManager.getApplication().invokeLater {
+
+        project.service<KmpProjectScopeService>().coroutineScope.launch(Dispatchers.EDT) {
             val editors = fileEditorManager.getEditors(virtualFile)
             val tableEditor = editors.find { it is KmpResourceTableEditor } as? KmpResourceTableEditor
             tableEditor?.scrollToKey(rawXmlName)
