@@ -2,10 +2,10 @@ package dev.robdoes.kmpresources.ide.documentation
 
 import com.intellij.lang.documentation.AbstractDocumentationProvider
 import com.intellij.lang.documentation.DocumentationMarkup
-import com.intellij.openapi.application.ApplicationManager.getApplication
+import com.intellij.openapi.application.EDT
+import com.intellij.openapi.components.service
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.ui.popup.JBPopupFactory
-import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VirtualFileManager
 import com.intellij.openapi.wm.WindowManager
 import com.intellij.psi.PsiElement
@@ -14,8 +14,11 @@ import com.intellij.psi.PsiManager
 import com.intellij.psi.xml.XmlFile
 import com.intellij.psi.xml.XmlTag
 import dev.robdoes.kmpresources.core.KmpResourcesBundle
-import dev.robdoes.kmpresources.ide.navigation.KmpResourceTarget
+import dev.robdoes.kmpresources.core.coroutines.KmpProjectScopeService
 import dev.robdoes.kmpresources.core.util.KmpResourceResolver
+import dev.robdoes.kmpresources.ide.navigation.KmpResourceTarget
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class KmpDocumentationProvider : AbstractDocumentationProvider() {
 
@@ -155,7 +158,8 @@ class KmpDocumentationProvider : AbstractDocumentationProvider() {
 
         if (link == "kmp_edit") {
             val target = context as? KmpResourceTarget ?: return null
-            getApplication().invokeLater {
+
+            target.project.service<KmpProjectScopeService>().coroutineScope.launch(Dispatchers.EDT) {
                 val frame = WindowManager.getInstance().getFrame(target.project)
                 if (frame != null) {
                     val popups = JBPopupFactory.getInstance().getChildPopups(frame)

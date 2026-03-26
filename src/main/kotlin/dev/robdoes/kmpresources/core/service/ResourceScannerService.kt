@@ -1,6 +1,6 @@
 package dev.robdoes.kmpresources.core.service
 
-import com.intellij.openapi.application.ReadAction
+import com.intellij.openapi.application.readAction
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.progress.ProcessCanceledException
 import com.intellij.openapi.project.Project
@@ -11,13 +11,13 @@ import org.jetbrains.kotlin.idea.base.util.allScope
 @Service(Service.Level.PROJECT)
 class ResourceScannerService(private val project: Project) {
 
-    fun isResourceUsed(keyName: String): Boolean {
+    suspend fun isResourceUsed(keyName: String): Boolean {
         if (keyName.isBlank()) return false
 
         val normalizedKey = keyName.replace(".", "_").replace("-", "_")
 
         return try {
-            ReadAction.compute<Boolean, Throwable> {
+            readAction {
                 val index = FileBasedIndex.getInstance()
 
                 var found = false
