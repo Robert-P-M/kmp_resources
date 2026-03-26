@@ -1,0 +1,1 @@
+val greeting = Res.string.my_new_key
