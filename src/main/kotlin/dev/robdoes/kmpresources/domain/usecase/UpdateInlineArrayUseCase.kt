@@ -8,7 +8,8 @@ class UpdateInlineArrayUseCase(
     private val loadResourcesUseCase: LoadResourcesUseCase
 ) {
     operator fun invoke(key: String, isUntranslatable: Boolean, index: Int, newValue: String) {
-        val existingArray = loadResourcesUseCase().find { it.key == key && it is StringArrayResource } as? StringArrayResource
+        val existingArray =
+            loadResourcesUseCase().find { it.key == key && it is StringArrayResource } as? StringArrayResource
         if (existingArray != null) {
             val updatedItems = existingArray.items.toMutableList()
             if (index == -1 && newValue.isNotBlank()) {

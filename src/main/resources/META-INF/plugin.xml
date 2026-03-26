@@ -58,7 +58,8 @@
                     icon="AllIcons.Toolwindows.ToolWindowInspection"
                     factoryClass="dev.robdoes.kmpresources.presentation.toolwindow.KmpResourcesToolWindowFactory"/>
 
-        <projectViewNodeDecorator implementation="dev.robdoes.kmpresources.presentation.view.KmpResourceProjectViewDecorator"/>
+        <projectViewNodeDecorator
+                implementation="dev.robdoes.kmpresources.presentation.view.KmpResourceProjectViewDecorator"/>
 
     </extensions>
     <extensions defaultExtensionNs="org.jetbrains.kotlin">

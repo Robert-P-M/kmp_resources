@@ -210,13 +210,14 @@ class ResourceTablePanel(private val project: Project, private val scannerServic
     }
 
     fun updateData(resources: List<XmlResource>) {
-        tableModel.rowCount = 0
         val loadingStatus =
             ResourceStatus(AllIcons.Actions.Refresh, KmpResourcesBundle.message("ui.table.status.tooltip.analyzing"))
 
+        val newRows = mutableListOf<Array<Any?>>()
+
         resources.forEach { res ->
             when (res) {
-                is StringResource -> tableModel.addRow(
+                is StringResource -> newRows.add(
                     arrayOf(
                         loadingStatus,
                         res.key,
@@ -229,7 +230,7 @@ class ResourceTablePanel(private val project: Project, private val scannerServic
                 )
 
                 is PluralsResource -> {
-                    tableModel.addRow(
+                    newRows.add(
                         arrayOf(
                             loadingStatus,
                             res.key,
@@ -243,12 +244,12 @@ class ResourceTablePanel(private val project: Project, private val scannerServic
                     validQuantities.forEach { q ->
                         val valueText = res.items[q] ?: ""
                         val deleteIcon = if (res.items.containsKey(q)) AllIcons.General.Remove else null
-                        tableModel.addRow(arrayOf(null, "", null, deleteIcon, null, q, valueText))
+                        newRows.add(arrayOf(null, "", null, deleteIcon, null, q, valueText))
                     }
                 }
 
                 is StringArrayResource -> {
-                    tableModel.addRow(
+                    newRows.add(
                         arrayOf(
                             loadingStatus,
                             res.key,
@@ -260,25 +261,21 @@ class ResourceTablePanel(private val project: Project, private val scannerServic
                         )
                     )
                     res.items.forEachIndexed { index, itemValue ->
-                        tableModel.addRow(
-                            arrayOf(
-                                null,
-                                "",
-                                null,
-                                AllIcons.General.Remove,
-                                null,
-                                "item[$index]",
-                                itemValue
-                            )
+                        newRows.add(
+                            arrayOf(null, "", null, AllIcons.General.Remove, null, "item[$index]", itemValue)
                         )
                     }
-                    tableModel.addRow(arrayOf(null, "", null, null, null, "item[+]", ""))
+                    newRows.add(arrayOf(null, "", null, null, null, "item[+]", ""))
                 }
             }
         }
 
-        val keysToEvaluate = (0 until tableModel.rowCount).mapNotNull { row ->
-            val key = tableModel.getValueAt(row, ResourceColumn.KEY.index) as? String
+        val columnNames = ResourceColumn.entries.map { KmpResourcesBundle.message(it.titleKey) }.toTypedArray()
+        tableModel.setDataVector(newRows.toTypedArray(), columnNames)
+        setupColumns()
+
+        val keysToEvaluate = newRows.mapIndexedNotNull { row, rowData ->
+            val key = rowData[ResourceColumn.KEY.index] as? String
             if (key.isNullOrBlank()) null else row to key
         }
 

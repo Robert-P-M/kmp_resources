@@ -1,17 +1,24 @@
 package dev.robdoes.kmpresources.core.util
 
 import com.intellij.ide.highlighter.XmlFileType
+import com.intellij.openapi.progress.ProcessCanceledException
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.util.Key
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiManager
+import com.intellij.psi.SmartPointerManager
+import com.intellij.psi.SmartPsiElementPointer
 import com.intellij.psi.search.FileTypeIndex
 import com.intellij.psi.search.GlobalSearchScope
+import com.intellij.psi.util.CachedValue
+import com.intellij.psi.util.CachedValueProvider
+import com.intellij.psi.util.CachedValuesManager
+import com.intellij.psi.util.PsiModificationTracker
 import com.intellij.psi.xml.XmlFile
 import com.intellij.psi.xml.XmlTag
 import org.jetbrains.kotlin.psi.KtDotQualifiedExpression
 import org.jetbrains.kotlin.psi.KtNameReferenceExpression
 import org.jetbrains.kotlin.psi.psiUtil.getQualifiedExpressionForSelector
-import kotlin.collections.iterator
 
 object KmpResourceResolver {
 
@@ -22,6 +29,9 @@ object KmpResourceResolver {
     )
 
     data class ResolvedResource(val key: String, val xmlTag: String)
+
+    private val RESOURCE_CACHE_KEY =
+        Key.create<CachedValue<Map<ResolvedResource, List<SmartPsiElementPointer<XmlTag>>>>>("KmpResourceCache")
 
     fun resolveReference(element: PsiElement): ResolvedResource? {
         var dotQualified: KtDotQualifiedExpression? = null
@@ -48,19 +58,44 @@ object KmpResourceResolver {
     }
 
     fun findXmlTags(project: Project, resolved: ResolvedResource): List<XmlTag> {
-        val scope = GlobalSearchScope.projectScope(project)
-        val xmlFiles = FileTypeIndex.getFiles(XmlFileType.INSTANCE, scope)
+        return try {
+            val cachedMap = CachedValuesManager.getManager(project).getCachedValue(project, RESOURCE_CACHE_KEY, {
+                val map = mutableMapOf<ResolvedResource, MutableList<SmartPsiElementPointer<XmlTag>>>()
+                val pointerManager = SmartPointerManager.getInstance(project)
 
-        return xmlFiles.asSequence()
-            .filter { it.path.contains("/composeResources/") }
-            .mapNotNull { PsiManager.getInstance(project).findFile(it) as? XmlFile }
-            .mapNotNull { it.rootTag }
-            .flatMap { it.findSubTags(resolved.xmlTag).asSequence() }
-            .filter { tag ->
-                val rawXmlName = tag.getAttributeValue("name") ?: ""
-                val normalizedName = rawXmlName.replace(".", "_").replace("-", "_")
-                normalizedName == resolved.key
+                val scope = GlobalSearchScope.projectScope(project)
+                val xmlFiles = FileTypeIndex.getFiles(XmlFileType.INSTANCE, scope)
+
+                for (vFile in xmlFiles) {
+                    if (!vFile.path.contains("/composeResources/")) continue
+
+                    val xmlFile = PsiManager.getInstance(project).findFile(vFile) as? XmlFile ?: continue
+                    val rootTag = xmlFile.rootTag ?: continue
+
+                    for (tag in rootTag.subTags) {
+                        val rawName = tag.getAttributeValue("name") ?: continue
+                        val normalizedName = rawName.replace(".", "_").replace("-", "_")
+                        val resType = tag.name
+
+                        val resKey = ResolvedResource(normalizedName, resType)
+
+                        map.getOrPut(resKey) { mutableListOf() }
+                            .add(pointerManager.createSmartPsiElementPointer(tag))
+                    }
+                }
+
+                val resultMap: Map<ResolvedResource, List<SmartPsiElementPointer<XmlTag>>> = map
+                CachedValueProvider.Result.create(resultMap, PsiModificationTracker.MODIFICATION_COUNT)
+            }, false)
+
+            cachedMap[resolved]?.mapNotNull { it.element } ?: emptyList()
+        } catch (e: ProcessCanceledException) {
+            throw e
+        } catch (e: Exception) {
+            if (e.javaClass.name.contains("JobCancellationException")) {
+                throw ProcessCanceledException(e)
             }
-            .toList()
+            emptyList()
+        }
     }
 }

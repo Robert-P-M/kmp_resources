@@ -8,7 +8,6 @@ import com.intellij.openapi.project.DumbAware
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
 import dev.robdoes.kmpresources.data.repository.XmlResourceRepositoryFactory
-import dev.robdoes.kmpresources.data.repository.XmlResourceRepositoryImpl
 
 class KmpResourceEditorProvider : FileEditorProvider, DumbAware {
 

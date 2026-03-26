@@ -1,6 +1,5 @@
 package dev.robdoes.kmpresources.presentation.editor
 
-import com.intellij.find.FindModel
 import com.intellij.find.findInProject.FindInProjectManager
 import com.intellij.icons.AllIcons
 import com.intellij.openapi.actionSystem.*
@@ -312,14 +311,21 @@ class KmpResourceTableEditor(
 
     private fun triggerNativeFindUsages(keyName: String) {
         val normalizedKey = keyName.replace(".", "_").replace("-", "_")
-        val findModel = FindModel().apply {
-            stringToFind = normalizedKey
+
+        val searchRegex = "Res\\.(string|plurals|array)\\.$normalizedKey|name=\"$keyName\""
+
+        val findModel = com.intellij.find.FindModel().apply {
+            stringToFind = searchRegex
+            isRegularExpressions = true
             isCaseSensitive = true
             isProjectScope = false
             isCustomScope = true
-            customScopeName = "KMP Usages"
-            customScope = KmpUsageSearchScope(GlobalSearchScope.projectScope(project))
+            customScopeName = "KMP Usages ($keyName)"
+            customScope = KmpUsageSearchScope(
+                GlobalSearchScope.projectScope(project)
+            )
         }
+
         FindInProjectManager.getInstance(project).startFindInProject(findModel)
     }
 
@@ -345,9 +351,12 @@ class KmpUsageSearchScope(baseScope: GlobalSearchScope) : DelegatingGlobalSearch
 
     override fun contains(file: VirtualFile): Boolean {
         val path = file.path
+        val extension = file.extension?.lowercase()
+
+        if (extension != "kt" && extension != "xml") return false
+
         return !path.contains("/generated/") &&
                 !path.contains("/build/") &&
-                !path.endsWith(".cvr") &&
                 super.contains(file)
     }
 
@@ -358,9 +367,7 @@ class KmpUsageSearchScope(baseScope: GlobalSearchScope) : DelegatingGlobalSearch
         return myBaseScope == other.myBaseScope
     }
 
-    override fun hashCode(): Int {
-        return myBaseScope.hashCode() * 31 + javaClass.name.hashCode()
-    }
+    override fun hashCode(): Int = myBaseScope.hashCode()
 
     override fun toString() = KmpResourcesBundle.message("search.scope.name")
 }

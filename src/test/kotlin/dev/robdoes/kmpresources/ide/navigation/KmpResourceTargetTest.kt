@@ -30,7 +30,11 @@ class KmpResourceTargetTest : BasePlatformTestCase() {
         assertTrue(actual = target.isValid, message = "Target should be valid if the XML tag is valid")
         assertTrue(actual = target.canNavigate(), message = "Target should always be navigable")
         assertTrue(actual = target.canNavigateToSource(), message = "Target should be navigable to source")
-        assertEquals(expected = target, actual = target.navigationElement, message = "Navigation element should be itself")
+        assertEquals(
+            expected = target,
+            actual = target.navigationElement,
+            message = "Navigation element should be itself"
+        )
 
         // Assert: Presentation (used in UI popups and search everywhere)
         val presentation = target.presentation

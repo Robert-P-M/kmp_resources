@@ -13,9 +13,9 @@ import com.intellij.openapi.roots.ProjectRootManager
 import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.util.Iconable
 import com.intellij.psi.*
+import com.intellij.psi.codeStyle.CodeStyleManager
 import com.intellij.psi.search.FilenameIndex
 import com.intellij.psi.search.GlobalSearchScope
-import com.intellij.psi.util.parentOfType
 import com.intellij.psi.xml.XmlFile
 import dev.robdoes.kmpresources.core.KmpResourcesBundle
 import dev.robdoes.kmpresources.ide.utils.KmpGradleSyncHelper
@@ -105,7 +105,14 @@ class KmpCreateResourceIntention : PsiElementBaseIntentionAction(), PriorityActi
             }
 
             val newTag = factory.createTagFromText(tagText)
-            resourcesTag.addSubTag(newTag, false)
+            val addedTag = resourcesTag.add(newTag)
+            CodeStyleManager.getInstance(project).reformat(addedTag)
+
+            val documentManager = PsiDocumentManager.getInstance(project)
+            val document = documentManager.getDocument(xmlFile)
+            if (document != null) {
+                documentManager.commitDocument(document)
+            }
         })
 
         PsiDocumentManager.getInstance(project).commitAllDocuments()
@@ -152,16 +159,24 @@ class KmpCreateResourceIntention : PsiElementBaseIntentionAction(), PriorityActi
     }
 
     private fun extractResourceInfo(element: PsiElement): Pair<String, String>? {
-        val refExpr = element.parentOfType<KtNameReferenceExpression>() ?: return null
+        val refExpr = element as? KtNameReferenceExpression
+            ?: element.parent as? KtNameReferenceExpression
+            ?: element.prevSibling as? KtNameReferenceExpression
+            ?: element.prevSibling?.parent as? KtNameReferenceExpression
+            ?: return null
+
         val dotExpr = refExpr.parent as? KtDotQualifiedExpression ?: return null
 
         if (dotExpr.selectorExpression != refExpr) return null
 
         val receiverText = dotExpr.receiverExpression.text
-        if (!receiverText.startsWith("Res.")) return null
 
-        val type = receiverText.substringAfter("Res.")
-        if (type != "string" && type != "plurals" && type != "array") return null
+        val type = when {
+            receiverText.endsWith("Res.string") -> "string"
+            receiverText.endsWith("Res.plurals") -> "plurals"
+            receiverText.endsWith("Res.array") -> "array"
+            else -> return null
+        }
 
         val key = refExpr.text
         if (key.isBlank()) return null

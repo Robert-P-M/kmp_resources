@@ -159,6 +159,50 @@ class XmlResourceRepositoryImplTest : BasePlatformTestCase() {
         )
     }
 
+    fun testSaveResourceEscapesSpecialCharactersAndSupportsUnicode() {
+        // Arrange
+        val xmlContent = "<resources></resources>"
+        val psiFile = myFixture.addFileToProject("composeResources/values/strings_escape.xml", xmlContent)
+        val repository = XmlResourceRepositoryImpl(project, psiFile.virtualFile)
+
+        // Act: A brutal combination of KMP multi-language characters, emojis, and XML breakers
+        val nastyString = StringResource(
+            key = "global_chars",
+            isUntranslatable = false,
+            value = "Apple & 🍎 < > \" ' \n Japanese: 日本語, Cyrillic: Привет, German: äöüß @string/fake"
+        )
+        repository.saveResource(nastyString)
+
+        com.intellij.psi.PsiDocumentManager.getInstance(project).commitAllDocuments()
+
+        // Assert
+        val resultingXml = psiFile.text
+
+        // Must not contain a CDATA block under any circumstances!
+        assertFalse("XML should not use CDATA blocks for standard escaping!", resultingXml.contains("<![CDATA["))
+
+        // 1. Standard XML Entity Escaping
+        assertTrue("Ampersand must be escaped as &amp;", resultingXml.contains("Apple &amp; 🍎"))
+        assertTrue("Less-than must be escaped as &lt;", resultingXml.contains("&lt;"))
+        assertTrue("Greater-than must be escaped as &gt;", resultingXml.contains("&gt;"))
+
+        // 2. Quote Escaping (Important for Android/KMP resource parsers)
+        assertTrue("Double quotes must be escaped", resultingXml.contains("&quot;") || resultingXml.contains("\\\""))
+        assertTrue("Single quotes must be escaped", resultingXml.contains("&apos;") || resultingXml.contains("\\'"))
+
+        // 3. UTF-8 & Internationalization (Must remain native characters, NOT unicode hex codes)
+        assertTrue("Emojis must be preserved", resultingXml.contains("🍎"))
+        assertTrue("Japanese characters must be preserved", resultingXml.contains("日本語"))
+        assertTrue("Cyrillic characters must be preserved", resultingXml.contains("Привет"))
+        assertTrue("German umlauts must be preserved", resultingXml.contains("äöüß"))
+
+        // 4. Special Android/KMP markers (Should be written as literal text)
+        assertTrue("Resource references like @string must be preserved as text", resultingXml.contains("@string/fake"))
+
+        // 5. Line breaks
+        assertTrue("Line breaks must be preserved", resultingXml.contains("\n"))
+    }
+
     fun testSaveResourceEscapesSpecialCharactersCorrectly() {
         // Arrange
         val xmlContent = "<resources>\n</resources>"
