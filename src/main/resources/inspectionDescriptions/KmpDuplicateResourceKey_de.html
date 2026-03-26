@@ -1,0 +1,22 @@
+<html lang="de">
+<body>
+Meldet doppelte Ressourcen-Schlüssel innerhalb derselben Compose Multiplatform XML-Datei.
+<p>
+    Wenn Ressourcen in Compose Multiplatform definiert werden, führen doppelte Schlüssel (z. B. zwei <code>&lt;string&gt;</code>-Tags
+    mit demselben <code>name</code>-Attribut in einer Datei) dazu, dass der KMP-Compiler während des Build-Prozesses fehlschlägt.
+</p>
+<p>
+    Diese Code-Analyse erkennt solche Duplikate in Echtzeit und markiert sie als Fehler, damit sie behoben werden können,
+    bevor kompiliert wird. Ein Quick Fix zum sicheren Entfernen des doppelten Eintrags wird ebenfalls angeboten.
+</p>
+<p>
+    <i>Hinweis: Diese Prüfung sucht strikt nur nach Duplikaten im Gültigkeitsbereich der aktuellen Datei bzw. des aktuellen Moduls. Identische Schlüssel über verschiedene Module hinweg sind völlig zulässig und werden nicht markiert.</i>
+</p>
+<p><b>Beispiel:</b></p>
+<p>
+    <code>&lt;string name="app_name"&gt;Meine App&lt;/string&gt;</code><br/>
+    <code>&lt;string name="unique_key"&gt;Willkommen&lt;/string&gt;</code><br/>
+    <code>&lt;string name="app_name"&gt;Doppelter App Name&lt;/string&gt;</code> <i>(Fehler: Doppelter Ressourcen-Schlüssel 'app_name')</i>
+</p>
+</body>
+</html>

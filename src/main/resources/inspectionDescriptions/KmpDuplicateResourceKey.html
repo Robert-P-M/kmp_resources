@@ -1,0 +1,22 @@
+<html lang="en">
+<body>
+Reports duplicate resource keys within the same Compose Multiplatform XML file.
+<p>
+    When defining resources in Compose Multiplatform, duplicate keys (such as having two <code>&lt;string&gt;</code> tags
+    with the same <code>name</code> attribute in the same file) will cause the Gradle resource compiler to fail during the build process.
+</p>
+<p>
+    This inspection detects these duplicates in real-time and highlights them as errors, allowing you to fix them
+    before compiling. It also provides a quick fix to safely remove the duplicate entry.
+</p>
+<p>
+    <i>Note: This inspection strictly checks for duplicates within the scope of the current file/module. Identical keys across different modules are perfectly valid and will not be highlighted.</i>
+</p>
+<p><b>Example:</b></p>
+<p>
+    <code>&lt;string name="app_name"&gt;My App&lt;/string&gt;</code><br/>
+    <code>&lt;string name="unique_key"&gt;Welcome&lt;/string&gt;</code><br/>
+    <code>&lt;string name="app_name"&gt;Duplicate App Name&lt;/string&gt;</code> <i>(Error: Duplicate resource key 'app_name')</i>
+</p>
+</body>
+</html>

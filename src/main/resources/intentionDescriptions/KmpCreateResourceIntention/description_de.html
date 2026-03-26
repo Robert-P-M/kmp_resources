@@ -1,0 +1,14 @@
+<html lang="de">
+<body>
+Erstellt eine fehlende Compose Multiplatform Ressource direkt aus einer Kotlin-Referenz.
+<p>
+    Wenn du auf eine Ressource verweist, die noch nicht existiert (z. B. <code>Res.string.mein_neuer_key</code>),
+    kannst du mit diesem Quick Fix das zugehörige XML-Tag on-the-fly generieren lassen.
+</p>
+<p>
+    Der Quick Fix fragt dich nach dem Standardwert und fügt die neue Ressource sicher
+    in die <code>strings.xml</code> deines <b>aktuellen Moduls</b> ein. Anschließend wird ein Gradle-Sync
+    im Hintergrund gestartet, um die benötigten Kotlin-Klassen zu generieren, was für einen flüssigen Workflow sorgt.
+</p>
+</body>
+</html>

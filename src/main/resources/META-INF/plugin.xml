@@ -25,7 +25,12 @@
         <gotoDeclarationHandler implementation="dev.robdoes.kmpresources.ide.navigation.KmpGotoDeclarationHandler"/>
         <lang.documentationProvider language="kotlin"
                                     implementationClass="dev.robdoes.kmpresources.ide.documentation.KmpDocumentationProvider"/>
-
+        <intentionAction>
+            <language>kotlin</language>
+            <className>dev.robdoes.kmpresources.ide.intentions.KmpCreateResourceIntention</className>
+            <categoryKey>intention.category</categoryKey>
+            <bundleName>messages.KmpResourcesBundle</bundleName>
+        </intentionAction>
         <localInspection
                 language="kotlin"
                 key="inspection.format.args.display_name"
@@ -36,6 +41,17 @@
                 enabledByDefault="true"
                 level="ERROR"
                 implementationClass="dev.robdoes.kmpresources.ide.linter.KmpFormatInspection"/>
+
+        <localInspection
+                language="XML"
+                key="inspection.duplicate.key.display_name"
+                groupKey="inspection.format.args.group_name"
+                bundle="messages.KmpResourcesBundle"
+                shortName="KmpDuplicateResourceKey"
+                groupPath="XML"
+                enabledByDefault="true"
+                level="ERROR"
+                implementationClass="dev.robdoes.kmpresources.ide.linter.KmpDuplicateResourceKeyInspection"/>
 
         <toolWindow id="KMP Resources"
                     anchor="bottom"
