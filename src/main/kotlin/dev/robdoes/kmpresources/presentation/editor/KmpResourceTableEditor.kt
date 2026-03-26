@@ -19,6 +19,7 @@ import com.intellij.psi.search.DelegatingGlobalSearchScope
 import com.intellij.psi.search.GlobalSearchScope
 import dev.robdoes.kmpresources.core.KmpResourcesBundle
 import dev.robdoes.kmpresources.core.coroutines.KmpProjectScopeService
+import dev.robdoes.kmpresources.core.coroutines.withEdtContext
 import dev.robdoes.kmpresources.core.service.ResourceScannerService
 import dev.robdoes.kmpresources.domain.model.PluralsResource
 import dev.robdoes.kmpresources.domain.model.StringArrayResource
@@ -95,7 +96,7 @@ class KmpResourceTableEditor(
             currentEditingOldKey = key
             project.service<KmpProjectScopeService>().coroutineScope.launch {
                 val resource = readAction { loadResourcesUseCase().find { it.key == key } }
-                withContext(Dispatchers.EDT) {
+                withEdtContext {
                     resource?.let { editPanel.showForUpdate(it) }
                 }
             }
@@ -195,15 +196,18 @@ class KmpResourceTableEditor(
         project.service<KmpProjectScopeService>().coroutineScope.launch {
             val existing = readAction { loadResourcesUseCase().find { it.key == resourceToSave.key } }
 
-            withContext(Dispatchers.EDT) {
+            withEdtContext {
                 if (existing != null && existing.xmlTag != resourceToSave.xmlTag && currentEditingOldKey != resourceToSave.key) {
                     Messages.showErrorDialog(
                         project,
                         KmpResourcesBundle.message("dialog.error.key.exists", resourceToSave.key),
                         KmpResourcesBundle.message("dialog.error.title")
                     )
-                    return@withContext
+                    return@withEdtContext
                 }
+            }
+            withContext(Dispatchers.EDT) {
+
 
                 val oldKey = currentEditingOldKey
                 val type = when (resourceToSave) {
@@ -211,20 +215,15 @@ class KmpResourceTableEditor(
                     is PluralsResource -> "plurals"
                     is StringArrayResource -> "string-array"
                 }
-
-                project.service<KmpProjectScopeService>().coroutineScope.launch {
-                    if (oldKey != null && oldKey != resourceToSave.key) {
-                        KmpResourceRefactorService.renameKeyInModule(project, file, type, oldKey, resourceToSave.key)
-                    }
-
-                    withContext(Dispatchers.EDT) {
-                        saveResourceUseCase(resourceToSave)
-                        editPanel.isVisible = false
-                        currentEditingOldKey = null
-                        reloadTableData()
-                        tablePanel.scrollToKey(resourceToSave.key)
-                    }
-
+                if (oldKey != null && oldKey != resourceToSave.key) {
+                    KmpResourceRefactorService.renameKeyInModule(project, file, type, oldKey, resourceToSave.key)
+                }
+                withEdtContext {
+                    saveResourceUseCase(resourceToSave)
+                    editPanel.isVisible = false
+                    currentEditingOldKey = null
+                    reloadTableData()
+                    tablePanel.scrollToKey(resourceToSave.key)
                     KmpGradleSyncHelper.triggerGenerateAccessors(project, file)
                 }
             }
@@ -303,7 +302,7 @@ class KmpResourceTableEditor(
     private fun reloadTableData() {
         project.service<KmpProjectScopeService>().coroutineScope.launch {
             val resources = readAction { loadResourcesUseCase() }
-            withContext(Dispatchers.EDT) {
+            withEdtContext {
                 tablePanel.updateData(resources)
             }
         }

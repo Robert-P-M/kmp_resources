@@ -21,6 +21,9 @@ import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.psi.KtNameReferenceExpression
 import org.jetbrains.kotlin.psi.KtPsiFactory
 import org.jetbrains.kotlin.psi.psiUtil.collectDescendantsOfType
+import com.intellij.openapi.command.writeCommandAction
+import dev.robdoes.kmpresources.core.coroutines.withEdtContext
+
 
 object KmpResourceRefactorService {
 
@@ -59,7 +62,7 @@ object KmpResourceRefactorService {
             pointers
         }
 
-        val writeTask = suspend {
+        withEdtContext {
             WriteCommandAction.runWriteCommandAction(project, "Rename KMP Resource Key", "KMP Resources", {
                 val psiManager = PsiManager.getInstance(project)
                 val psiFactory = KtPsiFactory(project)
@@ -100,14 +103,6 @@ object KmpResourceRefactorService {
 
                 documentManager.commitAllDocuments()
             })
-        }
-
-        if (ApplicationManager.getApplication().isDispatchThread) {
-            writeTask()
-        } else {
-            withContext(Dispatchers.EDT) {
-                writeTask()
-            }
         }
     }
 }
