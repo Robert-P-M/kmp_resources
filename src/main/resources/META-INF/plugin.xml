@@ -37,6 +37,17 @@
                 level="ERROR"
                 implementationClass="dev.robdoes.kmpresources.ide.linter.KmpFormatInspection"/>
 
+        <localInspection
+                language="XML"
+                key="inspection.duplicate.key.display_name"
+                groupKey="inspection.format.args.group_name"
+                bundle="messages.KmpResourcesBundle"
+                shortName="KmpDuplicateResourceKey"
+                groupPath="XML"
+                enabledByDefault="true"
+                level="ERROR"
+                implementationClass="dev.robdoes.kmpresources.ide.linter.KmpDuplicateResourceKeyInspection"/>
+
         <toolWindow id="KMP Resources"
                     anchor="bottom"
                     icon="AllIcons.Toolwindows.ToolWindowInspection"

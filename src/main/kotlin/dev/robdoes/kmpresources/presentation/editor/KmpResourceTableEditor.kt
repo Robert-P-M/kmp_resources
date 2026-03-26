@@ -206,7 +206,6 @@ class KmpResourceTableEditor(
             is StringResource -> "string"
             is PluralsResource -> "plurals"
             is StringArrayResource -> "string-array"
-            else -> "string"
         }
 
         project.service<KmpProjectScopeService>().coroutineScope.launch {
