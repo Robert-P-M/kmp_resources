@@ -2,13 +2,16 @@
 <body>
 Meldet fehlende oder nicht übereinstimmende Format-Argumente in Compose Multiplatform Ressourcen-Aufrufen.
 <p>
-    Bei der Verwendung von <code>stringResource()</code> oder <code>pluralStringResource()</code> prüft diese Code-Analyse die
+    Bei der Verwendung von <code>stringResource()</code> oder <code>pluralStringResource()</code> prüft diese
+    Code-Analyse die
     zugrunde liegende XML-Definition auf Format-Platzhalter (wie <code>%s</code> oder <code>%1$d</code>).
-    Stimmt die Anzahl der im Kotlin-Code übergebenen Argumente nicht mit der Anzahl der benötigten Argumente aus der XML-Datei überein,
+    Stimmt die Anzahl der im Kotlin-Code übergebenen Argumente nicht mit der Anzahl der benötigten Argumente aus der
+    XML-Datei überein,
     wird ein Fehler markiert.
 </p>
 <p>
-    <i>Hinweis: Im Gegensatz zu Standard-Android/Java unterstützt Compose Multiplatform strikt nur die Format-Suffixe <code>s</code> (String) und <code>d</code> (Dezimal/Zahl).</i>
+    <i>Hinweis: Im Gegensatz zu Standard-Android/Java unterstützt Compose Multiplatform strikt nur die Format-Suffixe
+        <code>s</code> (String) und <code>d</code> (Dezimal/Zahl).</i>
 </p>
 <p><b>Beispiel:</b></p>
 <p>XML: <code>&lt;string name="welcome"&gt;Hallo %1$s, du hast %2$d Nachrichten&lt;/string&gt;</code></p>

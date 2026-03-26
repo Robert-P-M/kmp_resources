@@ -29,7 +29,8 @@ object KmpGradleSyncHelper {
 
         project.service<KmpProjectScopeService>().coroutineScope.launch {
             val module = readAction { ModuleUtilCore.findModuleForFile(contextFile, project) } ?: return@launch
-            val basePath = readAction { ExternalSystemApiUtil.getExternalProjectPath(module) ?: project.basePath } ?: return@launch
+            val basePath =
+                readAction { ExternalSystemApiUtil.getExternalProjectPath(module) ?: project.basePath } ?: return@launch
 
             val settings = ExternalSystemTaskExecutionSettings().apply {
                 externalProjectPath = basePath
@@ -44,6 +45,7 @@ object KmpGradleSyncHelper {
                         override fun onSuccess() {
                             onSuccess()
                         }
+
                         override fun onFailure() {}
                     },
                     ProgressExecutionMode.IN_BACKGROUND_ASYNC, false

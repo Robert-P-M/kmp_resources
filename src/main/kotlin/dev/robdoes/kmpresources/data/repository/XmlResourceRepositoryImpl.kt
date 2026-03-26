@@ -66,51 +66,59 @@ class XmlResourceRepositoryImpl(
                 val rootTag = getRootTag() ?: return@runWriteCommandAction
                 val factory = XmlElementFactory.getInstance(project)
 
-                val tagBuilder = java.lang.StringBuilder()
+                val newTag = factory.createTagFromText("<${resource.xmlTag} name=\"${resource.key}\"/>")
+                if (resource.isUntranslatable) {
+                    newTag.setAttribute("translatable", "false")
+                }
 
-                val translatableAttr = if (resource.isUntranslatable) " translatable=\"false\"" else ""
-                tagBuilder.append("<${resource.xmlTag} name=\"${resource.key}\"$translatableAttr>")
+                fun appendEscapedText(targetTag: XmlTag, rawText: String) {
+                    if (rawText.isEmpty()) return
 
-                when (resource) {
-                    is StringResource -> {
-                        tagBuilder.append(XmlStringUtil.escapeString(resource.value))
-                        tagBuilder.append("</${resource.xmlTag}>")
-                    }
+                    var escaped = XmlStringUtil.escapeString(rawText)
 
-                    is PluralsResource -> {
-                        tagBuilder.append("\n")
-                        resource.items.forEach { (quantity, value) ->
-                            tagBuilder.append("    <item quantity=\"$quantity\">")
-                            tagBuilder.append(XmlStringUtil.escapeString(value))
-                            tagBuilder.append("</item>\n")
-                        }
-                        tagBuilder.append("</${resource.xmlTag}>")
-                    }
+                    escaped = escaped.replace("'", "\\'")
 
-                    is StringArrayResource -> {
-                        tagBuilder.append("\n")
-                        resource.items.forEach { value ->
-                            tagBuilder.append("    <item>")
-                            tagBuilder.append(XmlStringUtil.escapeString(value))
-                            tagBuilder.append("</item>\n")
-                        }
-                        tagBuilder.append("</${resource.xmlTag}>")
+                    val dummyTag = factory.createTagFromText("<dummy>$escaped</dummy>")
+
+                    dummyTag.value.textElements.forEach { textNode ->
+                        targetTag.add(textNode)
                     }
                 }
 
-                val newTag = factory.createTagFromText(tagBuilder.toString())
+
+                when (resource) {
+                    is StringResource -> {
+                        appendEscapedText(newTag, resource.value)
+                    }
+
+                    is PluralsResource -> {
+                        resource.items.forEach { (quantity, value) ->
+                            val itemTag = factory.createTagFromText("<item quantity=\"$quantity\"/>")
+                            appendEscapedText(itemTag, value)
+                            newTag.add(itemTag)
+                        }
+                    }
+
+                    is StringArrayResource -> {
+                        resource.items.forEach { value ->
+                            val itemTag = factory.createTagFromText("<item/>")
+                            appendEscapedText(itemTag, value)
+                            newTag.add(itemTag)
+                        }
+                    }
+                }
 
                 val existingTag = rootTag.subTags.find {
                     it.name == resource.xmlTag && it.getAttributeValue("name") == resource.key
                 }
 
-                if (existingTag != null) {
-                    val replacedTag = existingTag.replace(newTag)
-                    CodeStyleManager.getInstance(project).reformat(replacedTag)
+                val finalElement = if (existingTag != null) {
+                    existingTag.replace(newTag)
                 } else {
-                    val addedTag = rootTag.add(newTag)
-                    CodeStyleManager.getInstance(project).reformat(addedTag)
+                    rootTag.add(newTag)
                 }
+
+                CodeStyleManager.getInstance(project).reformat(finalElement)
 
             } catch (e: Exception) {
                 logger.error("Error saving resource ${resource.key}", e)

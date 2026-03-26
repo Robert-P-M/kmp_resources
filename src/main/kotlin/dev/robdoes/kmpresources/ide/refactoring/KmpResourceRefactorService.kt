@@ -9,6 +9,8 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.PsiManager
+import com.intellij.psi.SmartPointerManager
+import com.intellij.psi.SmartPsiElementPointer
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.search.PsiSearchHelper
 import com.intellij.psi.xml.XmlFile
@@ -33,26 +35,31 @@ object KmpResourceRefactorService {
 
         val module = readAction { ModuleUtilCore.findModuleForFile(xmlFile, project) } ?: return
 
-        val affectedFiles = readAction {
+        val affectedFilePointers = readAction {
             val moduleScope = GlobalSearchScope.moduleScope(module)
             val normalizedOldKey = oldKey.replace(".", "_").replace("-", "_")
-            val files = mutableSetOf<VirtualFile>()
+            val pointers = mutableListOf<SmartPsiElementPointer<KtFile>>()
+            val psiManager = PsiManager.getInstance(project)
+            val pointerManager = SmartPointerManager.getInstance(project)
 
             PsiSearchHelper.getInstance(project).processAllFilesWithWord(
                 normalizedOldKey,
                 moduleScope,
                 { psiFile ->
                     if (psiFile.fileType == KotlinFileType.INSTANCE) {
-                        files.add(psiFile.virtualFile)
+                        val ktFile = psiManager.findFile(psiFile.virtualFile) as? KtFile
+                        if (ktFile != null) {
+                            pointers.add(pointerManager.createSmartPsiElementPointer(ktFile))
+                        }
                     }
                     true
                 },
                 true
             )
-            files
+            pointers
         }
 
-        val writeActionTask = Runnable {
+        val writeTask = suspend {
             WriteCommandAction.runWriteCommandAction(project, "Rename KMP Resource Key", "KMP Resources", {
                 val psiManager = PsiManager.getInstance(project)
                 val psiFactory = KtPsiFactory(project)
@@ -68,8 +75,8 @@ object KmpResourceRefactorService {
                 }
                 targetTag?.setAttribute("name", newKey)
 
-                for (vFile in affectedFiles) {
-                    val ktFile = psiManager.findFile(vFile) as? KtFile ?: continue
+                for (pointer in affectedFilePointers) {
+                    val ktFile = pointer.element ?: continue
                     val isImported = ktFile.importDirectives.any { it.importedName?.asString() == oldKey }
 
                     val references = ktFile.collectDescendantsOfType<KtNameReferenceExpression> {
@@ -96,10 +103,10 @@ object KmpResourceRefactorService {
         }
 
         if (ApplicationManager.getApplication().isDispatchThread) {
-            writeActionTask.run()
+            writeTask()
         } else {
             withContext(Dispatchers.EDT) {
-                writeActionTask.run()
+                writeTask()
             }
         }
     }

@@ -66,11 +66,15 @@ class KmpDocumentationProviderCoverageTest : BasePlatformTestCase() {
         assertTrue(actual = doc.contains("<ol>"), message = "Array documentation should contain an ordered list <ol>")
         assertTrue(actual = doc.contains("<li>Deutsches Item</li>"), message = "Array items should be listed as <li>")
         assertTrue(actual = doc.contains("<i>de</i>"), message = "The locale 'de' should be indicated in the header")
-        assertTrue(actual = doc.contains("[default]"), message = "A translation link to the default locale should be present")
+        assertTrue(
+            actual = doc.contains("[default]"),
+            message = "A translation link to the default locale should be present"
+        )
     }
 
     fun testCoverageFindAvailableLocalesEarlyReturns() {
-        val xmlPsi = myFixture.addFileToProject("strings.xml", "<resources><string name=\"x\">y</string></resources>") as XmlFile
+        val xmlPsi =
+            myFixture.addFileToProject("strings.xml", "<resources><string name=\"x\">y</string></resources>") as XmlFile
         val tag = xmlPsi.rootTag!!.findFirstSubTag("string")!!
         val target = KmpResourceTarget(tag, "x")
 
