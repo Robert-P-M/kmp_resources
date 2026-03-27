@@ -1,6 +1,7 @@
 package dev.robdoes.kmpresources.ide.navigation
 
 import com.intellij.openapi.fileEditor.FileEditorManager
+import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.xml.XmlFile
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import kotlin.test.assertEquals
@@ -8,6 +9,10 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 class KmpResourceTargetTest : BasePlatformTestCase() {
+
+    private fun commitAll() {
+        PsiDocumentManager.getInstance(project).commitAllDocuments()
+    }
 
     fun testTargetPropertiesAndPresentation() {
         // Arrange
@@ -17,6 +22,9 @@ class KmpResourceTargetTest : BasePlatformTestCase() {
             </resources>
         """.trimIndent()
         val psiFile = myFixture.addFileToProject("composeResources/values/strings.xml", xmlContent) as XmlFile
+
+        commitAll()
+
         val xmlTag = psiFile.rootTag!!.findFirstSubTag("string")!!
 
         // Act
@@ -59,6 +67,9 @@ class KmpResourceTargetTest : BasePlatformTestCase() {
             </resources>
         """.trimIndent()
         val psiFile = myFixture.addFileToProject("composeResources/values/strings.xml", xmlContent) as XmlFile
+
+        commitAll()
+
         val xmlTag = psiFile.rootTag!!.findFirstSubTag("string")!!
 
         val target = KmpResourceTarget(xmlTag, "nav_target")

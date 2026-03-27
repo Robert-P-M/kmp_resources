@@ -1,5 +1,6 @@
 package dev.robdoes.kmpresources.ide.documentation
 
+import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.PsiManager
 import com.intellij.psi.xml.XmlFile
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
@@ -10,8 +11,11 @@ import kotlin.test.assertTrue
 
 class KmpDocumentationProviderCoverageTest : BasePlatformTestCase() {
 
+    private fun commitAll() {
+        PsiDocumentManager.getInstance(project).commitAllDocuments()
+    }
+
     fun testCoverageNullsAndEarlyReturns() {
-        // FIX: First configure a dummy file to initialize myFixture.editor!
         myFixture.configureByText("Test.kt", "val x = 1<caret>")
 
         val provider = KmpDocumentationProvider()
@@ -57,6 +61,8 @@ class KmpDocumentationProviderCoverageTest : BasePlatformTestCase() {
         myFixture.addFileToProject("composeResources/values/strings.xml", xmlDefault)
         val dePsiFile = myFixture.addFileToProject("composeResources/values-de/strings.xml", xmlDe) as XmlFile
 
+        commitAll()
+
         val deTag = dePsiFile.rootTag!!.findFirstSubTag("string-array")!!
         val target = KmpResourceTarget(deTag, "my_array")
 
@@ -75,6 +81,9 @@ class KmpDocumentationProviderCoverageTest : BasePlatformTestCase() {
     fun testCoverageFindAvailableLocalesEarlyReturns() {
         val xmlPsi =
             myFixture.addFileToProject("strings.xml", "<resources><string name=\"x\">y</string></resources>") as XmlFile
+
+        commitAll()
+
         val tag = xmlPsi.rootTag!!.findFirstSubTag("string")!!
         val target = KmpResourceTarget(tag, "x")
 
@@ -89,6 +98,9 @@ class KmpDocumentationProviderCoverageTest : BasePlatformTestCase() {
     fun testCoverageLinks() {
         val xmlDefault = """<resources><string name="loc_key">Hello</string></resources>"""
         val xmlPsi = myFixture.addFileToProject("composeResources/values/strings.xml", xmlDefault) as XmlFile
+
+        commitAll()
+
         val tag = xmlPsi.rootTag!!.findFirstSubTag("string")!!
         val target = KmpResourceTarget(tag, "loc_key")
 

@@ -1,5 +1,6 @@
 package dev.robdoes.kmpresources.data.repository
 
+import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.xml.XmlFile
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import dev.robdoes.kmpresources.domain.model.PluralsResource
@@ -11,6 +12,10 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 class XmlResourceParserTest : BasePlatformTestCase() {
+
+    private fun commitAll() {
+        PsiDocumentManager.getInstance(project).commitAllDocuments()
+    }
 
     fun testParseSuccessfullyExtractsAllSupportedResourceTypes() {
         // Arrange
@@ -28,6 +33,7 @@ class XmlResourceParserTest : BasePlatformTestCase() {
             </resources>
         """.trimIndent()
         val psiFile = myFixture.addFileToProject("composeResources/values/strings.xml", xmlContent) as XmlFile
+        commitAll()
 
         // Act
         val resources = XmlResourceParser.parse(psiFile)
@@ -70,6 +76,7 @@ class XmlResourceParserTest : BasePlatformTestCase() {
             </resources>
         """.trimIndent()
         val psiFile = myFixture.addFileToProject("composeResources/values/strings.xml", xmlContent) as XmlFile
+        commitAll()
 
         // Act
         val resources = XmlResourceParser.parse(psiFile)
@@ -92,6 +99,7 @@ class XmlResourceParserTest : BasePlatformTestCase() {
             </resources>
         """.trimIndent()
         val psiFile = myFixture.addFileToProject("composeResources/values/strings.xml", xmlContent) as XmlFile
+        commitAll()
 
         // Act
         val resources = XmlResourceParser.parse(psiFile)
@@ -118,6 +126,8 @@ class XmlResourceParserTest : BasePlatformTestCase() {
             "no_text.xml",
             "<resources><string name=\"empty_string\"></string></resources>"
         ) as XmlFile
+
+        commitAll()
 
         // Act & Assert
         assertTrue(

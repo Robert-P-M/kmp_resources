@@ -17,6 +17,7 @@ import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.util.UserDataHolderBase
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.search.GlobalSearchScope
+import dev.robdoes.kmpresources.core.application.service.KmpResourceWorkspaceService
 import dev.robdoes.kmpresources.core.application.service.ResourceUsageService
 import dev.robdoes.kmpresources.core.infrastructure.coroutines.KmpProjectScopeService
 import dev.robdoes.kmpresources.core.infrastructure.coroutines.withEdtContext
@@ -78,6 +79,12 @@ class KmpResourceTableEditor(
 
         wireUpCallbacks()
 
+        project.service<KmpProjectScopeService>().coroutineScope.launch {
+            project.service<KmpResourceWorkspaceService>().getResourceStateFlow(file).collect {
+                reloadTableData()
+            }
+        }
+
         project.messageBus.connect(this).subscribe(
             DumbService.DUMB_MODE,
             object : DumbService.DumbModeListener {
@@ -87,7 +94,7 @@ class KmpResourceTableEditor(
             }
         )
 
-        reloadTableData()
+
     }
 
     private fun wireUpCallbacks() {

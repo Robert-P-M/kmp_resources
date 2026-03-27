@@ -9,11 +9,14 @@ import dev.robdoes.kmpresources.domain.model.ResourceType
 import dev.robdoes.kmpresources.domain.model.StringResource
 import kotlinx.coroutines.runBlocking
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 
 class XmlResourceRepositoryImplTest : BasePlatformTestCase() {
+
+    private fun commitAll() {
+        PsiDocumentManager.getInstance(project).commitAllDocuments()
+    }
 
     fun testLoadResourcesMergesDefaultAndLocaleFilesCorrectly() {
         // Arrange
@@ -23,10 +26,12 @@ class XmlResourceRepositoryImplTest : BasePlatformTestCase() {
         val defaultFile = myFixture.addFileToProject("composeResources/values/strings.xml", defaultXml)
         myFixture.addFileToProject("composeResources/values-de/strings.xml", germanXml)
 
+        commitAll()
+
         val repository = XmlResourceRepositoryImpl(project, defaultFile.virtualFile)
 
         // Act
-        val resources = repository.loadResources()
+        val resources = repository.parseResourcesFromDisk()
 
         // Assert
         assertEquals(
@@ -43,6 +48,8 @@ class XmlResourceRepositoryImplTest : BasePlatformTestCase() {
     fun testSaveResourceWritesToMultipleLocaleFiles() = runBlocking {
         // Arrange
         val defaultFile = myFixture.addFileToProject("composeResources/values/strings.xml", "<resources/>")
+        commitAll()
+
         val repository = XmlResourceRepositoryImpl(project, defaultFile.virtualFile)
 
         val newResource = StringResource(
@@ -53,7 +60,8 @@ class XmlResourceRepositoryImplTest : BasePlatformTestCase() {
 
         // Act
         repository.saveResource(newResource)
-        PsiDocumentManager.getInstance(project).commitAllDocuments()
+
+        commitAll()
 
         // Assert: Check PSI structure instead of raw text
         runReadAction {
@@ -86,11 +94,14 @@ class XmlResourceRepositoryImplTest : BasePlatformTestCase() {
         val defaultFile = myFixture.addFileToProject("composeResources/values/strings.xml", defaultXml)
         val germanFile = myFixture.addFileToProject("composeResources/values-de/strings.xml", germanXml)
 
+        commitAll()
+
         val repository = XmlResourceRepositoryImpl(project, defaultFile.virtualFile)
 
         // Act
         repository.deleteResource("to_delete", ResourceType.String)
-        PsiDocumentManager.getInstance(project).commitAllDocuments()
+
+        commitAll()
 
         // Assert
         runReadAction {
@@ -111,16 +122,19 @@ class XmlResourceRepositoryImplTest : BasePlatformTestCase() {
     fun testToggleUntranslatableAddsAttributeAndCleansUpTranslations() {
         // Arrange
         val defaultXml = """<resources><string name="api_key">12345</string></resources>"""
-        val germanXml = """<resources><string name="api_key">12345_DE</string></resources>""" // Translation that shouldn't exist
+        val germanXml = """<resources><string name="api_key">12345_DE</string></resources>"""
 
         val defaultFile = myFixture.addFileToProject("composeResources/values/strings.xml", defaultXml)
         val germanFile = myFixture.addFileToProject("composeResources/values-de/strings.xml", germanXml)
+
+        commitAll()
 
         val repository = XmlResourceRepositoryImpl(project, defaultFile.virtualFile)
 
         // Act: Set to untranslatable = true
         repository.toggleUntranslatable("api_key", true)
-        PsiDocumentManager.getInstance(project).commitAllDocuments()
+
+        commitAll()
 
         // Assert
         runReadAction {

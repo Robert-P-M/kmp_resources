@@ -26,8 +26,8 @@ class ResourceIssueService(private val project: Project) {
         return try {
             val keys = readAction {
                 val repository = repositoryFactory.create(file)
-                val loadResourcesUseCase = LoadResourcesUseCase(repository)
-                loadResourcesUseCase().map { it.key }
+                val resources = repository.parseResourcesFromDisk()
+                resources.map { it.key }
             }
 
             var warnings = 0

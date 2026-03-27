@@ -1,6 +1,7 @@
 package dev.robdoes.kmpresources.core.infrastructure.resolver
 
 import com.intellij.openapi.command.WriteCommandAction
+import com.intellij.psi.PsiDocumentManager
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import dev.robdoes.kmpresources.domain.model.ResourceType
 import kotlin.test.assertEquals
@@ -9,6 +10,10 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class KmpResourceResolverTest : BasePlatformTestCase() {
+
+    private fun commitAll() {
+        PsiDocumentManager.getInstance(project).commitAllDocuments()
+    }
 
     fun testResolveReferenceExtractsStringCorrectly() {
         // Arrange: Simulate a Kotlin file with the cursor (<caret>) inside the resource call
@@ -80,6 +85,8 @@ class KmpResourceResolverTest : BasePlatformTestCase() {
         """.trimIndent()
         myFixture.addFileToProject("composeResources/values/strings.xml", xmlContent)
 
+        commitAll()
+
         // Act 1: Find normal key
         val normalResolved = KmpResourceResolver.ResolvedResource("normal_key", ResourceType.String)
         val normalTags = KmpResourceResolver.findXmlTags(project, normalResolved)
@@ -93,8 +100,6 @@ class KmpResourceResolverTest : BasePlatformTestCase() {
         assertEquals(expected = "Hello Normal", actual = normalTags[0].value.text)
 
         // Act 2: Find normalized key
-        // When KMP generates the Res class, "weird-key.with_dots" becomes "weird_key_with_dots".
-        // Our resolver needs to match the Kotlin identifier back to the raw XML attribute.
         val normalizedResolved = KmpResourceResolver.ResolvedResource("weird_key_with_dots", ResourceType.String)
         val normalizedTags = KmpResourceResolver.findXmlTags(project, normalizedResolved)
 
@@ -112,6 +117,8 @@ class KmpResourceResolverTest : BasePlatformTestCase() {
         val xmlContent = """<resources><string name="cache_test">A</string></resources>"""
         myFixture.addFileToProject("composeResources/values/strings_cache.xml", xmlContent)
 
+        commitAll()
+
         val resolved = KmpResourceResolver.ResolvedResource("cache_test", ResourceType.String)
 
         // Act 1: Initial call (builds the cache)
@@ -126,6 +133,8 @@ class KmpResourceResolverTest : BasePlatformTestCase() {
         WriteCommandAction.runWriteCommandAction(project) {
             tags1.first().setAttribute("name", "cache_test_renamed")
         }
+
+        commitAll()
 
         // Act 3: Search for the OLD key again
         val tags2 = KmpResourceResolver.findXmlTags(project, resolved)
