@@ -9,7 +9,7 @@ class UpdateInlineStringUseCase(
     private val loadResourcesUseCase: LoadResourcesUseCase
 ) {
 
-    operator fun invoke(key: String, localeTag: String?, isUntranslatable: Boolean, newValue: String) {
+    suspend operator fun invoke(key: String, localeTag: String?, isUntranslatable: Boolean, newValue: String) {
         val existingResources = loadResourcesUseCase()
         val existingString = existingResources.findResource<StringResource>(key)
 

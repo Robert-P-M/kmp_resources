@@ -8,7 +8,7 @@ class UpdateInlineArrayUseCase(
     private val repository: ResourceRepository,
     private val loadResourcesUseCase: LoadResourcesUseCase
 ) {
-    operator fun invoke(key: String, localeTag: String?, isUntranslatable: Boolean, index: Int, newValue: String) {
+    suspend operator fun invoke(key: String, localeTag: String?, isUntranslatable: Boolean, index: Int, newValue: String) {
         val existingResources = loadResourcesUseCase()
         val existingArray = existingResources.findResource<StringArrayResource>(key)
 

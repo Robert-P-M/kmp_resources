@@ -1,10 +1,10 @@
-package dev.robdoes.kmpresources.core.service
+package dev.robdoes.kmpresources.core.application.service
 
+import com.intellij.openapi.application.runWriteAction
 import com.intellij.openapi.components.service
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
-import dev.robdoes.kmpresources.core.application.service.ResourceIssueService
 import kotlinx.coroutines.runBlocking
-import kotlin.test.DefaultAsserter.assertEquals
+import kotlin.test.assertEquals
 
 class ResourceIssueServiceTest : BasePlatformTestCase() {
 
@@ -58,6 +58,26 @@ class ResourceIssueServiceTest : BasePlatformTestCase() {
             expected = 2,
             actual = issueCount,
             message = "Should find exactly 2 unused keys (issues) out of the 3 defined in XML"
+        )
+    }
+
+    fun testCountIssuesReturnsZeroForInvalidFile() = runBlocking {
+        // Arrange
+        val xmlFile = myFixture.addFileToProject("composeResources/values/strings.xml", "<resources></resources>")
+        val issueService = project.service<ResourceIssueService>()
+
+        runWriteAction {
+            xmlFile.virtualFile.delete(this)
+        }
+
+        // Act
+        val issueCount = issueService.countIssues(xmlFile.virtualFile)
+
+        // Assert
+        assertEquals(
+            expected = 0,
+            actual = issueCount,
+            message = "Should return 0 immediately if the VirtualFile is no longer valid"
         )
     }
 }

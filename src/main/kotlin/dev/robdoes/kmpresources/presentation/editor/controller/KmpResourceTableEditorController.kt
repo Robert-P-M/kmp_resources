@@ -1,4 +1,4 @@
-package dev.robdoes.kmpresources.presentation.editor
+package dev.robdoes.kmpresources.presentation.editor.controller
 
 import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
@@ -10,12 +10,13 @@ import dev.robdoes.kmpresources.core.infrastructure.i18n.KmpResourcesBundle
 import dev.robdoes.kmpresources.data.repository.XmlLocaleRepositoryFactory
 import dev.robdoes.kmpresources.domain.model.ResourceType
 import dev.robdoes.kmpresources.domain.model.XmlResource
+import dev.robdoes.kmpresources.domain.usecase.AddLocaleUseCase
 import dev.robdoes.kmpresources.domain.usecase.DeleteResourceUseCase
 import dev.robdoes.kmpresources.domain.usecase.SaveResourceUseCase
 import dev.robdoes.kmpresources.ide.refactoring.KmpResourceRefactorService
 import dev.robdoes.kmpresources.ide.utils.KmpGradleSyncHelper
 
-class KmpResourceEditorController(
+class KmpResourceTableEditorController(
     private val project: Project,
     private val file: VirtualFile,
     private val scannerService: ResourceUsageService,
@@ -117,7 +118,7 @@ class KmpResourceEditorController(
     suspend fun handleAddLocale(localeTag: String) {
         val localeFactory = project.service<XmlLocaleRepositoryFactory>()
         val localeRepo = localeFactory.createLocaleRepository()
-        val addLocaleUseCase = dev.robdoes.kmpresources.domain.usecase.AddLocaleUseCase(
+        val addLocaleUseCase = AddLocaleUseCase(
             localeRepository = localeRepo,
             resourceRepositoryFactory = localeFactory.resourceRepositoryFactory()
         )

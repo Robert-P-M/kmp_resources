@@ -1,8 +1,7 @@
-package dev.robdoes.kmpresources.core.index
+package dev.robdoes.kmpresources.core.infrastructure.index
 
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import com.intellij.util.indexing.FileBasedIndex
-import dev.robdoes.kmpresources.core.infrastructure.index.KMP_RESOURCE_USAGE_INDEX_NAME
 import org.jetbrains.kotlin.idea.base.util.allScope
 
 class KmpResourceUsageIndexTest : BasePlatformTestCase() {
@@ -47,8 +46,7 @@ class KmpResourceUsageIndexTest : BasePlatformTestCase() {
             
             // TODO: Use Res.string.comment_key later
             
-            /* 
-               Here is a block comment mentioning Res.string.block_key
+            /* Here is a block comment mentioning Res.string.block_key
             */
             
             fun test() {
@@ -76,10 +74,10 @@ class KmpResourceUsageIndexTest : BasePlatformTestCase() {
             project.allScope()
         )
 
-        assertEquals(
-            "Index should find exactly $expectedOccurrences file(s) for the key '$key'.",
-            expectedOccurrences,
-            files.size
+        kotlin.test.assertEquals(
+            expected = expectedOccurrences,
+            actual = files.size,
+            message = "Index should find exactly $expectedOccurrences file(s) for the key '$key'."
         )
     }
 }

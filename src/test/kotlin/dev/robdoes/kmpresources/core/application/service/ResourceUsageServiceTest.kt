@@ -1,11 +1,27 @@
-package dev.robdoes.kmpresources.core.service
+package dev.robdoes.kmpresources.core.application.service
 
 import com.intellij.openapi.components.service
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
-import dev.robdoes.kmpresources.core.application.service.ResourceUsageService
 import kotlinx.coroutines.runBlocking
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 class ResourceUsageServiceTest : BasePlatformTestCase() {
+
+    fun testIsResourceUsedReturnsFalseForBlankKey() = runBlocking {
+        // Arrange
+        val scannerService = project.service<ResourceUsageService>()
+
+        // Act & Assert
+        assertFalse(
+            actual = scannerService.isResourceUsed("   "),
+            message = "Should return false immediately if the key is blank"
+        )
+        assertFalse(
+            actual = scannerService.isResourceUsed(""),
+            message = "Should return false immediately if the key is empty"
+        )
+    }
 
     fun testIsResourceUsedReturnsTrueWhenKeyExistsInKotlinFile() = runBlocking {
         // Arrange
@@ -27,8 +43,8 @@ class ResourceUsageServiceTest : BasePlatformTestCase() {
 
         // Act & Assert
         assertTrue(
-            "The scanner should find 'login_button_title' in MainScreen.kt via the custom usage index.",
-            scannerService.isResourceUsed("login_button_title")
+            actual = scannerService.isResourceUsed("login_button_title"),
+            message = "The scanner should find 'login_button_title' in MainScreen.kt via the custom usage index."
         )
     }
 
@@ -43,8 +59,8 @@ class ResourceUsageServiceTest : BasePlatformTestCase() {
 
         // Act & Assert
         assertFalse(
-            "The scanner should return false if the key does not exist in any indexed source file.",
-            scannerService.isResourceUsed("unused_key")
+            actual = scannerService.isResourceUsed("unused_key"),
+            message = "The scanner should return false if the key does not exist in any indexed source file."
         )
     }
 
@@ -59,8 +75,8 @@ class ResourceUsageServiceTest : BasePlatformTestCase() {
 
         // Act & Assert
         assertTrue(
-            "The scanner should normalize dots and dashes to underscores before querying the index.",
-            scannerService.isResourceUsed("my.weird-key")
+            actual = scannerService.isResourceUsed("my.weird-key"),
+            message = "The scanner should normalize dots and dashes to underscores before querying the index."
         )
     }
 }

@@ -1,5 +1,6 @@
 package dev.robdoes.kmpresources.data.repository
 
+import com.intellij.ide.highlighter.XmlFileType
 import com.intellij.openapi.application.edtWriteAction
 import com.intellij.openapi.application.readAction
 import com.intellij.openapi.project.Project
@@ -7,6 +8,8 @@ import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VfsUtil
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiManager
+import com.intellij.psi.search.FileTypeIndex
+import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.xml.XmlFile
 import dev.robdoes.kmpresources.domain.repository.LocaleRepository
 import dev.robdoes.kmpresources.domain.repository.ResourceRepository
@@ -21,39 +24,24 @@ class XmlLocaleRepository(
 
     override suspend fun findAllDefaultLocaleContexts(): List<LocaleContext> {
         return readAction {
-            val basePath = project.basePath ?: return@readAction emptyList<LocaleContext>()
-            val root = LocalFileSystem.getInstance()
-                .findFileByPath(basePath) ?: return@readAction emptyList<LocaleContext>()
-
-            val result = mutableListOf<LocaleContext>()
+            val scope = GlobalSearchScope.projectScope(project)
+            val xmlFiles = FileTypeIndex.getFiles(XmlFileType.INSTANCE, scope)
             val psiManager = PsiManager.getInstance(project)
-            val candidates = mutableListOf<VirtualFile>()
 
-            VfsUtil.processFilesRecursively(root) { file ->
-                if (!file.isDirectory &&
-                    (file.name == "strings.xml" || file.name == "string.xml") &&
-                    file.parent?.name == "values" &&
-                    file.path.contains("composeResources")
-                ) {
-                    candidates.add(file)
-                }
-                true
-            }
-
-            candidates.forEach { vFile ->
-                val xml = psiManager.findFile(vFile) as? XmlFile ?: return@forEach
+            xmlFiles.filter { file ->
+                !file.isDirectory &&
+                        (file.name == "strings.xml" || file.name == "string.xml") &&
+                        file.parent?.name == "values" &&
+                        file.path.contains("composeResources")
+            }.mapNotNull { vFile ->
+                val xml = psiManager.findFile(vFile) as? XmlFile ?: return@mapNotNull null
                 if (xml.rootTag?.name == "resources") {
-                    val valuesDir = vFile.parent
-                    result.add(
-                        LocaleContext(
-                            defaultValuesDirPath = valuesDir.path,
-                            defaultStringsFilePath = vFile.path
-                        )
+                    LocaleContext(
+                        defaultValuesDirPath = vFile.parent.path,
+                        defaultStringsFilePath = vFile.path
                     )
-                }
+                } else null
             }
-
-            result.toList()
         }
     }
 

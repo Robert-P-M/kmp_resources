@@ -16,7 +16,8 @@ class KmpFormatInspection : LocalInspectionTool() {
             override fun visitCallExpression(expression: KtCallExpression) {
                 super.visitCallExpression(expression)
 
-                val functionName = expression.calleeExpression?.text ?: return
+                val callee = expression.calleeExpression ?: return
+                val functionName = callee.text
 
                 if (functionName != "stringResource" && functionName != "pluralStringResource") return
 
@@ -55,7 +56,7 @@ class KmpFormatInspection : LocalInspectionTool() {
                         actualProvided
                     )
 
-                    holder.registerProblem(expression, message)
+                    holder.registerProblem(callee, message)
                 }
             }
         }

@@ -3,20 +3,24 @@ package dev.robdoes.kmpresources.domain.model
 sealed interface ResourceType {
     val xmlTag: kotlin.String
     val kotlinAccessor: kotlin.String
+    val supportedQuantities: List<kotlin.String>
 
     data object String : ResourceType {
         override val xmlTag: kotlin.String = "string"
         override val kotlinAccessor: kotlin.String = "${RES_PREFIX}$xmlTag"
+        override val supportedQuantities: List<kotlin.String> = emptyList()
     }
 
     data object Plural : ResourceType {
         override val xmlTag: kotlin.String = "plurals"
         override val kotlinAccessor: kotlin.String = "${RES_PREFIX}$xmlTag"
+        override val supportedQuantities: List<kotlin.String> = listOf("zero", "one", "two", "few", "many", "other")
     }
 
     data object Array : ResourceType {
         override val xmlTag: kotlin.String = "string-array"
-        override val kotlinAccessor: kotlin.String = "${RES_PREFIX}$xmlTag"
+        override val kotlinAccessor: kotlin.String = "${RES_PREFIX}array"
+        override val supportedQuantities: List<kotlin.String> = emptyList()
     }
 
     companion object {

@@ -1,10 +1,12 @@
-package dev.robdoes.kmpresources.core.shared
+package dev.robdoes.kmpresources.core.infrastructure.resolver
 
+import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
-import dev.robdoes.kmpresources.core.infrastructure.resolver.KmpResourceResolver
+import dev.robdoes.kmpresources.domain.model.ResourceType
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 class KmpResourceResolverTest : BasePlatformTestCase() {
 
@@ -25,6 +27,7 @@ class KmpResourceResolverTest : BasePlatformTestCase() {
             message = "The resolver should successfully parse the Res.string reference"
         )
         assertEquals(expected = "login_title", actual = resolved.key)
+        assertEquals(expected = ResourceType.String, actual = resolved.type)
         assertEquals(expected = "string", actual = resolved.xmlTag)
     }
 
@@ -37,6 +40,7 @@ class KmpResourceResolverTest : BasePlatformTestCase() {
         val resolvedPlural = KmpResourceResolver.resolveReference(pluralElement)
         assertNotNull(actual = resolvedPlural)
         assertEquals(expected = "my_plural", actual = resolvedPlural.key)
+        assertEquals(expected = ResourceType.Plural, actual = resolvedPlural.type)
         assertEquals(expected = "plurals", actual = resolvedPlural.xmlTag)
 
         // Arrange: Test array
@@ -47,6 +51,7 @@ class KmpResourceResolverTest : BasePlatformTestCase() {
         val resolvedArray = KmpResourceResolver.resolveReference(arrayElement)
         assertNotNull(actual = resolvedArray)
         assertEquals(expected = "my_array", actual = resolvedArray.key)
+        assertEquals(expected = ResourceType.Array, actual = resolvedArray.type)
         assertEquals(expected = "string-array", actual = resolvedArray.xmlTag)
     }
 
@@ -76,7 +81,7 @@ class KmpResourceResolverTest : BasePlatformTestCase() {
         myFixture.addFileToProject("composeResources/values/strings.xml", xmlContent)
 
         // Act 1: Find normal key
-        val normalResolved = KmpResourceResolver.ResolvedResource("normal_key", "string")
+        val normalResolved = KmpResourceResolver.ResolvedResource("normal_key", ResourceType.String)
         val normalTags = KmpResourceResolver.findXmlTags(project, normalResolved)
 
         // Assert 1
@@ -90,7 +95,7 @@ class KmpResourceResolverTest : BasePlatformTestCase() {
         // Act 2: Find normalized key
         // When KMP generates the Res class, "weird-key.with_dots" becomes "weird_key_with_dots".
         // Our resolver needs to match the Kotlin identifier back to the raw XML attribute.
-        val normalizedResolved = KmpResourceResolver.ResolvedResource("weird_key_with_dots", "string")
+        val normalizedResolved = KmpResourceResolver.ResolvedResource("weird_key_with_dots", ResourceType.String)
         val normalizedTags = KmpResourceResolver.findXmlTags(project, normalizedResolved)
 
         // Assert 2
@@ -107,14 +112,18 @@ class KmpResourceResolverTest : BasePlatformTestCase() {
         val xmlContent = """<resources><string name="cache_test">A</string></resources>"""
         myFixture.addFileToProject("composeResources/values/strings_cache.xml", xmlContent)
 
-        val resolved = KmpResourceResolver.ResolvedResource("cache_test", "string")
+        val resolved = KmpResourceResolver.ResolvedResource("cache_test", ResourceType.String)
 
         // Act 1: Initial call (builds the cache)
         val tags1 = KmpResourceResolver.findXmlTags(project, resolved)
-        assertEquals("Should find exactly one tag on initial lookup", 1, tags1.size)
+        assertEquals(
+            expected = 1,
+            actual = tags1.size,
+            message = "Should find exactly one tag on initial lookup"
+        )
 
         // Act 2: Physically modify the file via PSI to trigger a MODIFICATION_COUNT bump
-        com.intellij.openapi.command.WriteCommandAction.runWriteCommandAction(project) {
+        WriteCommandAction.runWriteCommandAction(project) {
             tags1.first().setAttribute("name", "cache_test_renamed")
         }
 
@@ -123,6 +132,9 @@ class KmpResourceResolverTest : BasePlatformTestCase() {
 
         // Assert: Because the MODIFICATION_COUNT changed due to the rename,
         // the cache was invalidated and should no longer find the old name!
-        assertTrue("Cache was not invalidated after PSI modification!", tags2.isEmpty())
+        assertTrue(
+            actual = tags2.isEmpty(),
+            message = "Cache was not invalidated after PSI modification!"
+        )
     }
 }

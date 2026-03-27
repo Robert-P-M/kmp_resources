@@ -4,8 +4,10 @@ import com.intellij.find.FindModel
 import com.intellij.find.findInProject.FindInProjectManager
 import com.intellij.openapi.actionSystem.ActionManager
 import com.intellij.openapi.actionSystem.DefaultActionGroup
+import com.intellij.openapi.application.EDT
 import com.intellij.openapi.application.readAction
 import com.intellij.openapi.components.service
+import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.fileEditor.FileEditor
 import com.intellij.openapi.fileEditor.FileEditorLocation
 import com.intellij.openapi.fileEditor.FileEditorState
@@ -24,11 +26,14 @@ import dev.robdoes.kmpresources.domain.repository.ResourceRepository
 import dev.robdoes.kmpresources.domain.usecase.*
 import dev.robdoes.kmpresources.ide.utils.KmpGradleSyncHelper
 import dev.robdoes.kmpresources.presentation.editor.action.*
+import dev.robdoes.kmpresources.presentation.editor.controller.KmpResourceTableEditorController
 import dev.robdoes.kmpresources.presentation.editor.model.ResourceFilter
 import dev.robdoes.kmpresources.presentation.editor.search.KmpUsageSearchScope
 import dev.robdoes.kmpresources.presentation.editor.ui.ResourceEditPanel
 import dev.robdoes.kmpresources.presentation.editor.ui.ResourceTablePanel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.awt.BorderLayout
 import java.beans.PropertyChangeListener
 import javax.swing.JComponent
@@ -59,7 +64,7 @@ class KmpResourceTableEditor(
     private var currentFilter = ResourceFilter.ALL
     private var currentEditingOldKey: String? = null
 
-    private val controller = KmpResourceEditorController(
+    private val controller = KmpResourceTableEditorController(
         project, file, scannerService, deleteResourceUseCase, saveResourceUseCase
     ).apply {
         onDataChanged = { reloadTableData() }
@@ -111,19 +116,21 @@ class KmpResourceTableEditor(
         tablePanel.onUsageRequested = { triggerNativeFindUsages(it) }
 
         tablePanel.onInlineStringEdited = { key, localeTag, isUn, newValue ->
-            updateInlineStringUseCase(key, localeTag, isUn, newValue)
-            if (localeTag == null) KmpGradleSyncHelper.triggerGenerateAccessors(project, file)
+            applyInlineEditAndReload(localeTag) {
+                updateInlineStringUseCase(key, localeTag, isUn, newValue)
+            }
         }
 
         tablePanel.onInlinePluralEdited = { key, localeTag, isUn, quantity, newValue ->
-            updateInlinePluralUseCase(key, localeTag, isUn, quantity, newValue)
-            if (localeTag == null) KmpGradleSyncHelper.triggerGenerateAccessors(project, file)
+            applyInlineEditAndReload(localeTag) {
+                updateInlinePluralUseCase(key, localeTag, isUn, quantity, newValue)
+            }
         }
 
         tablePanel.onInlineArrayEdited = { key, localeTag, isUn, index, newValue ->
-            updateInlineArrayUseCase(key, localeTag, isUn, index, newValue)
-            reloadTableData()
-            if (localeTag == null) KmpGradleSyncHelper.triggerGenerateAccessors(project, file)
+            applyInlineEditAndReload(localeTag) {
+                updateInlineArrayUseCase(key, localeTag, isUn, index, newValue)
+            }
         }
 
         tablePanel.onUntranslatableToggled = { key, isUn ->
@@ -205,11 +212,22 @@ class KmpResourceTableEditor(
 
 
     private fun reloadTableData() {
-        project.service<KmpProjectScopeService>().coroutineScope.launch {
+        project.service<KmpProjectScopeService>().coroutineScope.launch(Dispatchers.Default) {
             val resources = readAction { loadResourcesUseCase() }
-
             withEdtContext {
                 tablePanel.updateData(resources)
+            }
+        }
+    }
+
+    private fun applyInlineEditAndReload(localeTag: String?, editAction: suspend () -> Unit) {
+        project.service<KmpProjectScopeService>().coroutineScope.launch(Dispatchers.Default) {
+            editAction()
+            withContext(Dispatchers.EDT) {
+                FileDocumentManager.getInstance().saveAllDocuments()
+                file.parent?.parent?.refresh(true, true)
+                reloadTableData()
+                if (localeTag == null) KmpGradleSyncHelper.triggerGenerateAccessors(project, file)
             }
         }
     }

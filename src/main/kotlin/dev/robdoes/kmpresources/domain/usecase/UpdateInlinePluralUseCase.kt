@@ -9,7 +9,7 @@ class UpdateInlinePluralUseCase(
     private val loadResourcesUseCase: LoadResourcesUseCase
 ) {
 
-    operator fun invoke(
+    suspend operator fun invoke(
         key: String,
         localeTag: String?,
         isUntranslatable: Boolean,

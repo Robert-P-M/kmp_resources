@@ -2,37 +2,22 @@ package dev.robdoes.kmpresources.domain.usecase
 
 import dev.robdoes.kmpresources.domain.model.StringResource
 import dev.robdoes.kmpresources.domain.repository.FakeResourceRepository
+import kotlinx.coroutines.runBlocking
 import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class SaveResourceUseCaseTest {
-
     @Test
-    fun `saveResource should add a new resource to the repository`() {
-        // Arrange
+    fun `saveResource should add a new resource to the repository`() = runBlocking {
         val fakeRepo = FakeResourceRepository()
         val saveUseCase = SaveResourceUseCase(fakeRepo)
 
-        val newResource = StringResource(
-            key = "welcome_message",
-            isUntranslatable = false,
-            value = "Hello KMP!"
-        )
-
-        // Act
+        val newResource = StringResource("welcome", false, mapOf(null to "Hello KMP!"))
         saveUseCase(newResource)
 
-        // Assert
         val resources = fakeRepo.loadResources()
-        assertEquals(
-            expected = 1,
-            actual = resources.size,
-            message = "The repository should contain exactly 1 resource"
-        )
-        assertTrue(
-            actual = resources.contains(newResource),
-            message = "The saved resource should be found in the repository"
-        )
+        assertEquals(expected = 1, actual = resources.size)
+        assertTrue(actual = resources.contains(newResource))
     }
 }

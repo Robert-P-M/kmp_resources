@@ -2,39 +2,24 @@ package dev.robdoes.kmpresources.domain.usecase
 
 import dev.robdoes.kmpresources.domain.model.StringResource
 import dev.robdoes.kmpresources.domain.repository.FakeResourceRepository
+import kotlinx.coroutines.runBlocking
 import org.junit.Test
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class ToggleUntranslatableUseCaseTest {
-
     @Test
-    fun `invoke should correctly toggle the untranslatable flag of an existing resource`() {
-        // Arrange
+    fun `invoke should correctly toggle the untranslatable flag`() = runBlocking {
         val repo = FakeResourceRepository()
-        repo.saveResource(StringResource("welcome_text", false, "Welcome!"))
+        repo.saveResource(StringResource("welcome", false, mapOf(null to "Welcome!")))
 
         val toggleUseCase = ToggleUntranslatableUseCase(repo)
         val loadUseCase = LoadResourcesUseCase(repo)
 
-        // Act - Set to true
-        toggleUseCase(key = "welcome_text", isUntranslatable = true)
+        toggleUseCase(key = "welcome", isUntranslatable = true)
+        assertTrue(actual = loadUseCase().first().isUntranslatable)
 
-        // Assert
-        val resourceAfterFirstToggle = loadUseCase().first()
-        assertTrue(
-            actual = resourceAfterFirstToggle.isUntranslatable,
-            message = "The resource should now be marked as untranslatable (true)"
-        )
-
-        // Act - Set back to false
-        toggleUseCase(key = "welcome_text", isUntranslatable = false)
-
-        // Assert
-        val resourceAfterSecondToggle = loadUseCase().first()
-        assertFalse(
-            actual = resourceAfterSecondToggle.isUntranslatable,
-            message = "The resource should now be marked as translatable (false) again"
-        )
+        toggleUseCase(key = "welcome", isUntranslatable = false)
+        assertFalse(actual = loadUseCase().first().isUntranslatable)
     }
 }

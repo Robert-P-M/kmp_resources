@@ -7,7 +7,7 @@ import kotlin.test.assertTrue
 class KmpDocumentationProviderTest : BasePlatformTestCase() {
 
     fun testGenerateDocForStringResource() {
-        // Arrange: Create XML and Kotlin file
+        // Arrange
         val xmlContent = """
             <resources>
                 <string name="login_title">Welcome to the App!</string>
@@ -15,16 +15,14 @@ class KmpDocumentationProviderTest : BasePlatformTestCase() {
         """.trimIndent()
         myFixture.addFileToProject("composeResources/values/strings.xml", xmlContent)
 
-        // Set the caret inside the key
         myFixture.configureByText(
             "MainScreen.kt",
             "val text = Res.string.log<caret>in_title"
         )
         val elementAtCaret = myFixture.file.findElementAt(myFixture.caretOffset)
-
         val provider = KmpDocumentationProvider()
 
-        // Act 1: Get the custom target element (our KmpResourceTarget)
+        // Act
         val docElement = provider.getCustomDocumentationElement(
             myFixture.editor,
             myFixture.file,
@@ -36,7 +34,6 @@ class KmpDocumentationProviderTest : BasePlatformTestCase() {
             message = "The documentation provider should resolve the element under the caret"
         )
 
-        // Act 2: Generate the HTML documentation
         val htmlDoc = provider.generateDoc(docElement, elementAtCaret)
 
         // Assert
@@ -85,6 +82,80 @@ class KmpDocumentationProviderTest : BasePlatformTestCase() {
         assertTrue(
             actual = htmlDoc.contains("1 apple") && htmlDoc.contains("Many apples"),
             message = "The documentation should list all plural items and their values"
+        )
+        assertTrue(
+            actual = htmlDoc.contains("<ul>") && htmlDoc.contains("<li>"),
+            message = "Plurals should be formatted as an HTML unordered list"
+        )
+    }
+
+    fun testGenerateDocForArrayResource() {
+        // Arrange
+        val xmlContent = """
+            <resources>
+                <string-array name="options">
+                    <item>First Choice</item>
+                    <item>Second Choice</item>
+                </string-array>
+            </resources>
+        """.trimIndent()
+        myFixture.addFileToProject("composeResources/values/strings.xml", xmlContent)
+
+        myFixture.configureByText("MainScreen.kt", "val a = Res.array.opt<caret>ions")
+        val elementAtCaret = myFixture.file.findElementAt(myFixture.caretOffset)
+        val provider = KmpDocumentationProvider()
+
+        // Act
+        val docElement = provider.getCustomDocumentationElement(
+            myFixture.editor, myFixture.file, elementAtCaret, myFixture.caretOffset
+        )
+        val htmlDoc = provider.generateDoc(docElement, elementAtCaret)
+
+        // Assert
+        assertNotNull(actual = htmlDoc)
+        assertTrue(
+            actual = htmlDoc.contains("First Choice") && htmlDoc.contains("Second Choice"),
+            message = "The documentation should list all array items"
+        )
+        assertTrue(
+            actual = htmlDoc.contains("<ol>") && htmlDoc.contains("<li>"),
+            message = "Arrays should be formatted as an HTML ordered list"
+        )
+    }
+
+    fun testGenerateDocIncludesTranslationLinks() {
+        // Arrange
+        val defaultXml = """<resources><string name="greeting">Hello</string></resources>"""
+        val germanXml = """<resources><string name="greeting">Hallo</string></resources>"""
+        val frenchXml = """<resources><string name="greeting">Bonjour</string></resources>"""
+
+        myFixture.addFileToProject("composeResources/values/strings.xml", defaultXml)
+        myFixture.addFileToProject("composeResources/values-de/strings.xml", germanXml)
+        myFixture.addFileToProject("composeResources/values-fr/strings.xml", frenchXml)
+
+        myFixture.configureByText("MainScreen.kt", "val t = Res.string.gre<caret>eting")
+        val elementAtCaret = myFixture.file.findElementAt(myFixture.caretOffset)
+        val provider = KmpDocumentationProvider()
+
+        // Act
+        val docElement = provider.getCustomDocumentationElement(
+            myFixture.editor, myFixture.file, elementAtCaret, myFixture.caretOffset
+        )
+        val htmlDoc = provider.generateDoc(docElement, elementAtCaret)
+
+        // Assert
+        assertNotNull(actual = htmlDoc)
+        assertTrue(
+            actual = htmlDoc.contains("psi_element://locale_"),
+            message = "The documentation should contain specialized psi_element links for translations"
+        )
+        assertTrue(
+            actual = htmlDoc.contains(">[de]</a>"),
+            message = "The documentation should contain a link to the German translation"
+        )
+        assertTrue(
+            actual = htmlDoc.contains(">[fr]</a>"),
+            message = "The documentation should contain a link to the French translation"
         )
     }
 }
