@@ -17,11 +17,15 @@ import com.intellij.psi.codeStyle.CodeStyleManager
 import com.intellij.psi.search.FilenameIndex
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.xml.XmlFile
-import dev.robdoes.kmpresources.core.KmpResourcesBundle
+import dev.robdoes.kmpresources.core.infrastructure.i18n.KmpResourcesBundle
+import dev.robdoes.kmpresources.core.infrastructure.resolver.KmpResourceResolver
+import dev.robdoes.kmpresources.data.repository.XmlResourceWriter
+import dev.robdoes.kmpresources.domain.model.PluralsResource
+import dev.robdoes.kmpresources.domain.model.ResourceType
+import dev.robdoes.kmpresources.domain.model.StringArrayResource
+import dev.robdoes.kmpresources.domain.model.StringResource
 import dev.robdoes.kmpresources.ide.utils.KmpGradleSyncHelper
-import org.jetbrains.kotlin.psi.KtDotQualifiedExpression
 import org.jetbrains.kotlin.psi.KtFile
-import org.jetbrains.kotlin.psi.KtNameReferenceExpression
 import org.jetbrains.kotlin.psi.KtPsiFactory
 import javax.swing.Icon
 
@@ -36,20 +40,20 @@ class KmpCreateResourceIntention : PsiElementBaseIntentionAction(), PriorityActi
     override fun startInWriteAction(): Boolean = false
 
     override fun isAvailable(project: Project, editor: Editor?, element: PsiElement): Boolean {
-        val (type, key) = extractResourceInfo(element) ?: return false
-        text = KmpResourcesBundle.message("intention.create.resource.text", type, key)
+        val resolved = KmpResourceResolver.resolveReference(element) ?: return false
+        text = KmpResourcesBundle.message("intention.create.resource.text", resolved.xmlTag, resolved.key)
         return true
     }
 
     override fun invoke(project: Project, editor: Editor?, element: PsiElement) {
-        val (resourceType, keyName) = extractResourceInfo(element) ?: return
+        val resolved = KmpResourceResolver.resolveReference(element) ?: return
 
         val value = if (ApplicationManager.getApplication().isUnitTestMode) {
             "Test Value"
         } else {
             Messages.showInputDialog(
                 project,
-                KmpResourcesBundle.message("intention.create.resource.prompt", keyName),
+                KmpResourcesBundle.message("intention.create.resource.prompt", resolved.key),
                 KmpResourcesBundle.message("intention.create.resource.title"),
                 Messages.getQuestionIcon()
             )
@@ -91,21 +95,21 @@ class KmpCreateResourceIntention : PsiElementBaseIntentionAction(), PriorityActi
         val commandName = KmpResourcesBundle.message("command.create.resource.name")
         val commandGroup = KmpResourcesBundle.message("ui.toolwindow.pane.title")
 
+        val resourceToSave = when (resolved.type) {
+            ResourceType.String -> StringResource(resolved.key, false, mapOf(null to value))
+            ResourceType.Plural -> PluralsResource(resolved.key, false, mapOf(null to mapOf("other" to value)))
+            ResourceType.Array -> StringArrayResource(resolved.key, false, mapOf(null to listOf(value)))
+        }
+
         WriteCommandAction.runWriteCommandAction(project, commandName, commandGroup, {
             val xmlFile =
                 PsiManager.getInstance(project).findFile(stringsFile) as? XmlFile ?: return@runWriteCommandAction
             val resourcesTag = xmlFile.rootTag ?: return@runWriteCommandAction
             val factory = XmlElementFactory.getInstance(project)
 
-            val tagText = when (resourceType) {
-                "string" -> """<string name="$keyName">$value</string>"""
-                "plurals" -> """<plurals name="$keyName"><item quantity="other">$value</item></plurals>"""
-                "array" -> """<string-array name="$keyName"><item>$value</item></string-array>"""
-                else -> return@runWriteCommandAction
-            }
-
-            val newTag = factory.createTagFromText(tagText)
+            val newTag = XmlResourceWriter.createResourceTag(factory, resourceToSave, null)
             val addedTag = resourcesTag.add(newTag)
+
             CodeStyleManager.getInstance(project).reformat(addedTag)
 
             val documentManager = PsiDocumentManager.getInstance(project)
@@ -119,12 +123,14 @@ class KmpCreateResourceIntention : PsiElementBaseIntentionAction(), PriorityActi
         FileDocumentManager.getInstance().saveAllDocuments()
 
         if (ApplicationManager.getApplication().isUnitTestMode) {
-            addKotlinImport(project, ktFilePointer?.element, basePackage, keyName)
+            WriteCommandAction.runWriteCommandAction(project, "Add KMP Import", commandGroup, {
+                addKotlinImport(project, ktFilePointer?.element, basePackage, resolved)
+            })
         } else {
             KmpGradleSyncHelper.triggerGenerateAccessors(project, stringsFile) {
                 ApplicationManager.getApplication().invokeLater {
                     WriteCommandAction.runWriteCommandAction(project, "Add KMP Import", commandGroup, {
-                        addKotlinImport(project, ktFilePointer?.element, basePackage, keyName)
+                        addKotlinImport(project, ktFilePointer?.element, basePackage, resolved)
                     })
                 }
             }
@@ -138,11 +144,16 @@ class KmpCreateResourceIntention : PsiElementBaseIntentionAction(), PriorityActi
             ?.substringBeforeLast(".")
     }
 
-    private fun addKotlinImport(project: Project, ktFile: KtFile?, basePackage: String?, keyName: String) {
+    private fun addKotlinImport(
+        project: Project,
+        ktFile: KtFile?,
+        basePackage: String?,
+        resolved: KmpResourceResolver.ResolvedResource
+    ) {
         if (ktFile == null || basePackage == null) return
         val importList = ktFile.importList ?: return
 
-        val targetFqName = "$basePackage.$keyName"
+        val targetFqName = "$basePackage.${resolved.type.kotlinAccessor}.${resolved.key}"
 
         val alreadyImported = ktFile.importDirectives.any {
             it.importedFqName?.asString() == targetFqName ||
@@ -156,31 +167,5 @@ class KmpCreateResourceIntention : PsiElementBaseIntentionAction(), PriorityActi
             importList.add(ktFactory.createWhiteSpace("\n"))
             importList.add(importDirective)
         }
-    }
-
-    private fun extractResourceInfo(element: PsiElement): Pair<String, String>? {
-        val refExpr = element as? KtNameReferenceExpression
-            ?: element.parent as? KtNameReferenceExpression
-            ?: element.prevSibling as? KtNameReferenceExpression
-            ?: element.prevSibling?.parent as? KtNameReferenceExpression
-            ?: return null
-
-        val dotExpr = refExpr.parent as? KtDotQualifiedExpression ?: return null
-
-        if (dotExpr.selectorExpression != refExpr) return null
-
-        val receiverText = dotExpr.receiverExpression.text
-
-        val type = when {
-            receiverText.endsWith("Res.string") -> "string"
-            receiverText.endsWith("Res.plurals") -> "plurals"
-            receiverText.endsWith("Res.array") -> "array"
-            else -> return null
-        }
-
-        val key = refExpr.text
-        if (key.isBlank()) return null
-
-        return Pair(type, key)
     }
 }

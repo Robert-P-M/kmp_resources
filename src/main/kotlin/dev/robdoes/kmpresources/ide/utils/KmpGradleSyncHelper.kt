@@ -14,7 +14,7 @@ import com.intellij.openapi.externalSystem.util.ExternalSystemUtil
 import com.intellij.openapi.module.ModuleUtilCore
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
-import dev.robdoes.kmpresources.core.coroutines.KmpProjectScopeService
+import dev.robdoes.kmpresources.core.infrastructure.coroutines.KmpProjectScopeService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext

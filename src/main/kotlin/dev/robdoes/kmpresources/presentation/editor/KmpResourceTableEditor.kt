@@ -1,12 +1,13 @@
 package dev.robdoes.kmpresources.presentation.editor
 
+import com.intellij.find.FindModel
 import com.intellij.find.findInProject.FindInProjectManager
-import com.intellij.icons.AllIcons
-import com.intellij.openapi.actionSystem.*
-import com.intellij.openapi.actionSystem.ex.ComboBoxAction
+import com.intellij.openapi.actionSystem.ActionManager
+import com.intellij.openapi.actionSystem.DefaultActionGroup
 import com.intellij.openapi.application.EDT
 import com.intellij.openapi.application.readAction
 import com.intellij.openapi.components.service
+import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.fileEditor.FileEditor
 import com.intellij.openapi.fileEditor.FileEditorLocation
 import com.intellij.openapi.fileEditor.FileEditorState
@@ -15,20 +16,19 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.util.UserDataHolderBase
 import com.intellij.openapi.vfs.VirtualFile
-import com.intellij.psi.search.DelegatingGlobalSearchScope
 import com.intellij.psi.search.GlobalSearchScope
-import dev.robdoes.kmpresources.core.KmpResourcesBundle
-import dev.robdoes.kmpresources.core.coroutines.KmpProjectScopeService
-import dev.robdoes.kmpresources.core.coroutines.withEdtContext
-import dev.robdoes.kmpresources.core.service.ResourceScannerService
-import dev.robdoes.kmpresources.domain.model.PluralsResource
-import dev.robdoes.kmpresources.domain.model.StringArrayResource
-import dev.robdoes.kmpresources.domain.model.StringResource
-import dev.robdoes.kmpresources.domain.model.XmlResource
+import dev.robdoes.kmpresources.core.application.service.ResourceUsageService
+import dev.robdoes.kmpresources.core.infrastructure.coroutines.KmpProjectScopeService
+import dev.robdoes.kmpresources.core.infrastructure.coroutines.withEdtContext
+import dev.robdoes.kmpresources.core.infrastructure.i18n.KmpResourcesBundle
+import dev.robdoes.kmpresources.core.shared.ResourceKeyNormalizer
 import dev.robdoes.kmpresources.domain.repository.ResourceRepository
 import dev.robdoes.kmpresources.domain.usecase.*
-import dev.robdoes.kmpresources.ide.refactoring.KmpResourceRefactorService
 import dev.robdoes.kmpresources.ide.utils.KmpGradleSyncHelper
+import dev.robdoes.kmpresources.presentation.editor.action.*
+import dev.robdoes.kmpresources.presentation.editor.controller.KmpResourceTableEditorController
+import dev.robdoes.kmpresources.presentation.editor.model.ResourceFilter
+import dev.robdoes.kmpresources.presentation.editor.search.KmpUsageSearchScope
 import dev.robdoes.kmpresources.presentation.editor.ui.ResourceEditPanel
 import dev.robdoes.kmpresources.presentation.editor.ui.ResourceTablePanel
 import kotlinx.coroutines.Dispatchers
@@ -40,27 +40,19 @@ import javax.swing.JComponent
 import javax.swing.JPanel
 
 
-enum class ResourceFilter(val bundleKey: String) {
-    ALL("action.table.filter.all"),
-    STRINGS("action.table.filter.strings"),
-    PLURALS("action.table.filter.plurals"),
-    ARRAYS("action.table.filter.arrays");
-
-    fun getDisplayText(): String = KmpResourcesBundle.message(bundleKey)
-}
-
 class KmpResourceTableEditor(
     private val project: Project,
     private val file: VirtualFile,
     private val repository: ResourceRepository
 ) : UserDataHolderBase(), FileEditor {
 
-    private val scannerService = project.service<ResourceScannerService>()
+
+    private val scannerService = project.service<ResourceUsageService>()
 
     private val loadResourcesUseCase = LoadResourcesUseCase(repository)
     private val deleteResourceUseCase = DeleteResourceUseCase(repository, loadResourcesUseCase)
     private val saveResourceUseCase = SaveResourceUseCase(repository)
-    private val updateInlineStringUseCase = UpdateInlineStringUseCase(repository)
+    private val updateInlineStringUseCase = UpdateInlineStringUseCase(repository, loadResourcesUseCase)
     private val updateInlinePluralUseCase = UpdateInlinePluralUseCase(repository, loadResourcesUseCase)
     private val updateInlineArrayUseCase = UpdateInlineArrayUseCase(repository, loadResourcesUseCase)
     private val toggleUntranslatableUseCase = ToggleUntranslatableUseCase(repository)
@@ -71,6 +63,13 @@ class KmpResourceTableEditor(
 
     private var currentFilter = ResourceFilter.ALL
     private var currentEditingOldKey: String? = null
+
+    private val controller = KmpResourceTableEditorController(
+        project, file, scannerService, deleteResourceUseCase, saveResourceUseCase
+    ).apply {
+        onDataChanged = { reloadTableData() }
+        onShowUsagesRequested = { triggerNativeFindUsages(it) }
+    }
 
     init {
         setupToolbar()
@@ -92,139 +91,75 @@ class KmpResourceTableEditor(
     }
 
     private fun wireUpCallbacks() {
+
         tablePanel.onEditRequested = { key ->
             currentEditingOldKey = key
             project.service<KmpProjectScopeService>().coroutineScope.launch {
                 val resource = readAction { loadResourcesUseCase().find { it.key == key } }
-                withEdtContext {
-                    resource?.let { editPanel.showForUpdate(it) }
-                }
+                withEdtContext { resource?.let { editPanel.showForUpdate(it) } }
             }
         }
 
-        tablePanel.onDeleteRequested = { key, type, isSubItem ->
-            if (isSubItem) {
-                handleSubItemDeletion(key, type)
-            } else {
-                handleMainResourceDeletion(key, type)
+        tablePanel.onDeleteRequested = { key, typeString, isSubItem ->
+            project.service<KmpProjectScopeService>().coroutineScope.launch {
+                val resource = readAction { loadResourcesUseCase().find { it.key == key } }
+                if (resource != null) {
+                    if (isSubItem) {
+                        controller.handleSubItemDeletion(resource, typeString)
+                    } else {
+                        controller.handleMainResourceDeletion(resource)
+                    }
+                }
             }
         }
 
         tablePanel.onUsageRequested = { triggerNativeFindUsages(it) }
 
-        tablePanel.onInlineStringEdited = { key, isUn, newValue ->
-            updateInlineStringUseCase(key, isUn, newValue)
-            KmpGradleSyncHelper.triggerGenerateAccessors(project, file)
+        tablePanel.onInlineStringEdited = { key, localeTag, isUn, newValue ->
+            applyInlineEditAndReload(localeTag) {
+                updateInlineStringUseCase(key, localeTag, isUn, newValue)
+            }
         }
 
-        tablePanel.onInlinePluralEdited = { key, isUn, quantity, newValue ->
-            updateInlinePluralUseCase(key, isUn, quantity, newValue)
-            KmpGradleSyncHelper.triggerGenerateAccessors(project, file)
+        tablePanel.onInlinePluralEdited = { key, localeTag, isUn, quantity, newValue ->
+            applyInlineEditAndReload(localeTag) {
+                updateInlinePluralUseCase(key, localeTag, isUn, quantity, newValue)
+            }
         }
 
-        tablePanel.onInlineArrayEdited = { key, isUn, index, newValue ->
-            updateInlineArrayUseCase(key, isUn, index, newValue)
+        tablePanel.onInlineArrayEdited = { key, localeTag, isUn, index, newValue ->
+            applyInlineEditAndReload(localeTag) {
+                updateInlineArrayUseCase(key, localeTag, isUn, index, newValue)
+            }
+        }
+
+        tablePanel.onUntranslatableToggled = { key, isUn ->
+            val proceed = if (isUn) {
+                Messages.showYesNoDialog(
+                    project,
+                    KmpResourcesBundle.message("dialog.untranslatable.clean.message"),
+                    KmpResourcesBundle.message("dialog.untranslatable.clean.title"),
+                    Messages.getQuestionIcon()
+                ) == Messages.YES
+            } else true
+
+            if (proceed) toggleUntranslatableUseCase(key, isUn)
             reloadTableData()
-            KmpGradleSyncHelper.triggerGenerateAccessors(project, file)
         }
-
-        tablePanel.onUntranslatableToggled = { key, isUn -> toggleUntranslatableUseCase(key, isUn) }
 
         editPanel.onSaveRequested = { resourceToSave ->
             if (editPanel.isVisible && resourceToSave.key.isNotBlank()) {
-                handleResourceSave(resourceToSave)
-            }
-        }
-    }
+                project.service<KmpProjectScopeService>().coroutineScope.launch {
+                    val existing = readAction { loadResourcesUseCase().find { it.key == resourceToSave.key } }
+                    val success = controller.handleResourceSave(resourceToSave, existing, currentEditingOldKey)
 
-    private fun handleSubItemDeletion(key: String, type: String) {
-        val isPlural = !type.startsWith("item[")
-        val proceed = if (isPlural) {
-            Messages.showYesNoDialog(
-                project,
-                KmpResourcesBundle.message("dialog.delete.plural.message", type, key),
-                KmpResourcesBundle.message("dialog.delete.plural.title"),
-                Messages.getQuestionIcon()
-            ) == Messages.YES
-        } else true
-
-        if (proceed) {
-            deleteResourceUseCase(key, type, true)
-            reloadTableData()
-            KmpGradleSyncHelper.triggerGenerateAccessors(project, file)
-        }
-    }
-
-    private fun handleMainResourceDeletion(key: String, type: String) {
-        project.service<KmpProjectScopeService>().coroutineScope.launch {
-            val isUsed = scannerService.isResourceUsed(key)
-
-            withContext(Dispatchers.EDT) {
-                if (!isUsed) {
-                    if (Messages.showYesNoDialog(
-                            project,
-                            KmpResourcesBundle.message("dialog.delete.resource.message", key),
-                            KmpResourcesBundle.message("dialog.delete.resource.title"),
-                            Messages.getQuestionIcon()
-                        ) == Messages.YES
-                    ) {
-                        deleteResourceUseCase(key, type, false)
-                        reloadTableData()
-                        KmpGradleSyncHelper.triggerGenerateAccessors(project, file)
+                    if (success) {
+                        withEdtContext {
+                            editPanel.isVisible = false
+                            currentEditingOldKey = null
+                            tablePanel.scrollToKey(resourceToSave.key)
+                        }
                     }
-                } else {
-                    if (Messages.showDialog(
-                            project,
-                            KmpResourcesBundle.message("dialog.warning.in_use.message", key),
-                            KmpResourcesBundle.message("dialog.warning.in_use.title"),
-                            arrayOf(
-                                KmpResourcesBundle.message("dialog.btn.show_usages"),
-                                KmpResourcesBundle.message("dialog.btn.cancel")
-                            ),
-                            0,
-                            Messages.getWarningIcon()
-                        ) == 0
-                    ) {
-                        triggerNativeFindUsages(key)
-                    }
-                }
-            }
-        }
-    }
-
-    private fun handleResourceSave(resourceToSave: XmlResource) {
-        project.service<KmpProjectScopeService>().coroutineScope.launch {
-            val existing = readAction { loadResourcesUseCase().find { it.key == resourceToSave.key } }
-
-            withEdtContext {
-                if (existing != null && existing.xmlTag != resourceToSave.xmlTag && currentEditingOldKey != resourceToSave.key) {
-                    Messages.showErrorDialog(
-                        project,
-                        KmpResourcesBundle.message("dialog.error.key.exists", resourceToSave.key),
-                        KmpResourcesBundle.message("dialog.error.title")
-                    )
-                    return@withEdtContext
-                }
-            }
-            withContext(Dispatchers.EDT) {
-
-
-                val oldKey = currentEditingOldKey
-                val type = when (resourceToSave) {
-                    is StringResource -> "string"
-                    is PluralsResource -> "plurals"
-                    is StringArrayResource -> "string-array"
-                }
-                if (oldKey != null && oldKey != resourceToSave.key) {
-                    KmpResourceRefactorService.renameKeyInModule(project, file, type, oldKey, resourceToSave.key)
-                }
-                withEdtContext {
-                    saveResourceUseCase(resourceToSave)
-                    editPanel.isVisible = false
-                    currentEditingOldKey = null
-                    reloadTableData()
-                    tablePanel.scrollToKey(resourceToSave.key)
-                    KmpGradleSyncHelper.triggerGenerateAccessors(project, file)
                 }
             }
         }
@@ -232,65 +167,42 @@ class KmpResourceTableEditor(
 
     private fun setupToolbar() {
         val actionGroup = DefaultActionGroup().apply {
-            addAction(object : AnAction(
-                KmpResourcesBundle.message("action.table.add.key.text"),
-                KmpResourcesBundle.message("action.table.add.key.desc"),
-                AllIcons.General.Add
-            ) {
-                override fun actionPerformed(e: AnActionEvent) {
-                    currentEditingOldKey = null
-                    editPanel.showForAdd()
-                }
+            add(AddResourceKeyAction {
+                currentEditingOldKey = null
+                editPanel.showForAdd()
             })
-
-            addAction(object : AnAction(
-                KmpResourcesBundle.message("action.table.remove.key.text"),
-                KmpResourcesBundle.message("action.table.remove.key.desc"),
-                AllIcons.General.Remove
-            ) {
-                override fun actionPerformed(e: AnActionEvent) = tablePanel.triggerDeleteForSelectedRow()
-                override fun update(e: AnActionEvent) {
-                    e.presentation.isEnabled = tablePanel.hasSelection()
-                }
-
-                override fun getActionUpdateThread() = ActionUpdateThread.EDT
-            })
+            add(
+                RemoveResourceKeyAction(
+                    hasSelection = { tablePanel.hasSelection() },
+                    onRemoveRequested = { tablePanel.triggerDeleteForSelectedRow() }
+                ))
 
             addSeparator()
 
-            addAction(object : AnAction(
-                KmpResourcesBundle.message("action.sync.gradle.text"),
-                KmpResourcesBundle.message("action.sync.gradle.desc"),
-                AllIcons.Actions.Refresh
-            ) {
-                override fun actionPerformed(e: AnActionEvent) =
-                    KmpGradleSyncHelper.triggerGenerateAccessors(project, file)
-            })
+            add(
+                SyncGradleAction(
+                    project = project,
+                    file = file
+                )
+            )
 
             addSeparator()
 
-            val filterAction = object : ComboBoxAction() {
-                override fun createPopupActionGroup(button: JComponent, dataContext: DataContext): DefaultActionGroup {
-                    return DefaultActionGroup().apply {
-                        ResourceFilter.entries.forEach { filter ->
-                            addAction(object : AnAction(filter.getDisplayText()) {
-                                override fun actionPerformed(e: AnActionEvent) {
-                                    currentFilter = filter
-                                    tablePanel.applyFilter(filter.name)
-                                }
-                            })
-                        }
+            add(
+                FilterResourceAction(
+                    getCurrentFilter = { currentFilter },
+                    onFilterSelected = { filter ->
+                        currentFilter = filter
+                        tablePanel.applyFilter(filter.name)
                     }
-                }
+                ))
 
-                override fun update(e: AnActionEvent) {
-                    super.update(e)
-                    e.presentation.text = currentFilter.getDisplayText()
+            addSeparator()
+            add(AddLocaleAction { selectedLocale ->
+                project.service<KmpProjectScopeService>().coroutineScope.launch {
+                    controller.handleAddLocale(selectedLocale.languageTag)
                 }
-
-                override fun getActionUpdateThread() = ActionUpdateThread.BGT
-            }
-            addAction(filterAction)
+            })
         }
 
         val toolbar = ActionManager.getInstance().createActionToolbar("KmpResourceEditorToolbar", actionGroup, true)
@@ -300,7 +212,7 @@ class KmpResourceTableEditor(
 
 
     private fun reloadTableData() {
-        project.service<KmpProjectScopeService>().coroutineScope.launch {
+        project.service<KmpProjectScopeService>().coroutineScope.launch(Dispatchers.Default) {
             val resources = readAction { loadResourcesUseCase() }
             withEdtContext {
                 tablePanel.updateData(resources)
@@ -308,12 +220,23 @@ class KmpResourceTableEditor(
         }
     }
 
-    private fun triggerNativeFindUsages(keyName: String) {
-        val normalizedKey = keyName.replace(".", "_").replace("-", "_")
+    private fun applyInlineEditAndReload(localeTag: String?, editAction: suspend () -> Unit) {
+        project.service<KmpProjectScopeService>().coroutineScope.launch(Dispatchers.Default) {
+            editAction()
+            withContext(Dispatchers.EDT) {
+                FileDocumentManager.getInstance().saveAllDocuments()
+                file.parent?.parent?.refresh(true, true)
+                reloadTableData()
+                if (localeTag == null) KmpGradleSyncHelper.triggerGenerateAccessors(project, file)
+            }
+        }
+    }
 
+    private fun triggerNativeFindUsages(keyName: String) {
+        val normalizedKey = ResourceKeyNormalizer.normalize(keyName)
         val searchRegex = "Res\\.(string|plurals|array)\\.$normalizedKey|name=\"$keyName\""
 
-        val findModel = com.intellij.find.FindModel().apply {
+        val findModel = FindModel().apply {
             stringToFind = searchRegex
             isRegularExpressions = true
             isCaseSensitive = true
@@ -346,27 +269,3 @@ class KmpResourceTableEditor(
     override fun dispose() {}
 }
 
-class KmpUsageSearchScope(baseScope: GlobalSearchScope) : DelegatingGlobalSearchScope(baseScope) {
-
-    override fun contains(file: VirtualFile): Boolean {
-        val path = file.path
-        val extension = file.extension?.lowercase()
-
-        if (extension != "kt" && extension != "xml") return false
-
-        return !path.contains("/generated/") &&
-                !path.contains("/build/") &&
-                super.contains(file)
-    }
-
-    override fun equals(other: Any?): Boolean {
-        if (this === other) return true
-        if (javaClass != other?.javaClass) return false
-        other as KmpUsageSearchScope
-        return myBaseScope == other.myBaseScope
-    }
-
-    override fun hashCode(): Int = myBaseScope.hashCode()
-
-    override fun toString() = KmpResourcesBundle.message("search.scope.name")
-}

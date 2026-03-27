@@ -8,18 +8,16 @@ import com.intellij.openapi.application.EDT
 import com.intellij.openapi.components.service
 import com.intellij.ui.JBColor
 import com.intellij.ui.SimpleTextAttributes
-import dev.robdoes.kmpresources.core.coroutines.KmpProjectScopeService
-import dev.robdoes.kmpresources.core.service.ResourceIssueService
+import dev.robdoes.kmpresources.core.application.service.ResourceIssueService
+import dev.robdoes.kmpresources.core.infrastructure.coroutines.KmpProjectScopeService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.concurrent.ConcurrentHashMap
 
-// TOP-LEVEL PROPERTIES: Safe for IDE extensions (avoids early class loading penalties)
 private val issueCache = ConcurrentHashMap<String, Int>()
 private val isCalculating = ConcurrentHashMap.newKeySet<String>()
 
-// TOP-LEVEL FUNCTION: Can be called from anywhere to clear the cache
 fun invalidateProjectViewCache() {
     issueCache.clear()
 }

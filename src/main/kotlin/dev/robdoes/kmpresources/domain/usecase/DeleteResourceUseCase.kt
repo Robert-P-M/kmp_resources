@@ -1,53 +1,48 @@
 package dev.robdoes.kmpresources.domain.usecase
 
 import dev.robdoes.kmpresources.domain.model.PluralsResource
+import dev.robdoes.kmpresources.domain.model.ResourceType
 import dev.robdoes.kmpresources.domain.model.StringArrayResource
-import dev.robdoes.kmpresources.domain.model.findResource
+import dev.robdoes.kmpresources.domain.model.StringResource
 import dev.robdoes.kmpresources.domain.repository.ResourceRepository
 
 class DeleteResourceUseCase(
     private val repository: ResourceRepository,
     private val loadResourcesUseCase: LoadResourcesUseCase
 ) {
-
-    /**
-     * @param key The resource key
-     * @param type The type (e.g., "string", "item[1]", "other")
-     * @param isSubItem True if we are deleting an item inside an array or plural
-     */
-    operator fun invoke(key: String, type: String, isSubItem: Boolean) {
+    suspend operator fun invoke(key: String, resourceType: ResourceType, isSubItem: Boolean, subItemIdentifier: String = "") {
         if (isSubItem) {
-            handleSubItemDeletion(key, type)
+            handleSubItemDeletion(key, subItemIdentifier)
         } else {
-            repository.deleteResource(key, type)
+            repository.deleteResource(key, resourceType)
         }
     }
 
-    private fun handleSubItemDeletion(key: String, type: String) {
-        if (type.startsWith("item[")) {
-            val indexStr = type.substringAfter("[").substringBefore("]")
-            if (indexStr != "+") {
-                val index = indexStr.toIntOrNull() ?: -1
-                val existingArray = loadResourcesUseCase().findResource<StringArrayResource>(key)
+    private suspend fun handleSubItemDeletion(key: String, subItemIdentifier: String) {
+        val existingResource = loadResourcesUseCase().find { it.key == key } ?: return
 
-                if (existingArray != null && index in existingArray.items.indices) {
-                    val updatedItems = existingArray.items.toMutableList().apply { removeAt(index) }
-                    repository.saveResource(
-                        StringArrayResource(
-                            key,
-                            existingArray.isUntranslatable,
-                            updatedItems
-                        )
-                    )
+        when (existingResource) {
+            is StringArrayResource -> {
+                if (subItemIdentifier.startsWith("item[")) {
+                    val index = subItemIdentifier.substringAfter("[").substringBefore("]").toIntOrNull() ?: return
+
+                    val updatedLocalizedItems = existingResource.localizedItems.mapValues { (_, items) ->
+                        items.toMutableList().apply { if (index in indices) removeAt(index) }
+                    }
+
+                    repository.saveResource(existingResource.copy(localizedItems = updatedLocalizedItems))
                 }
             }
-        } else {
-            val existingPlural = loadResourcesUseCase().findResource<PluralsResource>(key)
 
-            if (existingPlural != null) {
-                val updatedItems = existingPlural.items.toMutableMap().apply { remove(type) }
-                repository.saveResource(PluralsResource(key, existingPlural.isUntranslatable, updatedItems))
+            is PluralsResource -> {
+                val updatedLocalizedItems = existingResource.localizedItems.mapValues { (_, items) ->
+                    items.toMutableMap().apply { remove(subItemIdentifier) }
+                }
+
+                repository.saveResource(existingResource.copy(localizedItems = updatedLocalizedItems))
             }
+
+            is StringResource -> {}
         }
     }
 }

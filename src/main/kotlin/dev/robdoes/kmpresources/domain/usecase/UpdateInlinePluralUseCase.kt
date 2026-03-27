@@ -8,16 +8,33 @@ class UpdateInlinePluralUseCase(
     private val repository: ResourceRepository,
     private val loadResourcesUseCase: LoadResourcesUseCase
 ) {
-    operator fun invoke(key: String, isUntranslatable: Boolean, quantity: String, newValue: String) {
-        val existingPlural = loadResourcesUseCase().findResource<PluralsResource>(key)
+
+    suspend operator fun invoke(
+        key: String,
+        localeTag: String?,
+        isUntranslatable: Boolean,
+        quantity: String,
+        newValue: String
+    ) {
+        val existingResources = loadResourcesUseCase()
+        val existingPlural = existingResources.findResource<PluralsResource>(key)
+
         if (existingPlural != null) {
-            val updatedItems = existingPlural.items.toMutableMap()
+            val allLocalizedItems = existingPlural.localizedItems.toMutableMap()
+
+            val currentLocaleItems = allLocalizedItems[localeTag]?.toMutableMap() ?: mutableMapOf()
+
             if (newValue.isNotBlank()) {
-                updatedItems[quantity] = newValue
+                currentLocaleItems[quantity] = newValue
             } else {
-                updatedItems.remove(quantity)
+                currentLocaleItems.remove(quantity)
             }
-            repository.saveResource(PluralsResource(key, isUntranslatable, updatedItems))
+
+            allLocalizedItems[localeTag] = currentLocaleItems
+
+            repository.saveResource(
+                PluralsResource(key, isUntranslatable, allLocalizedItems)
+            )
         }
     }
 }

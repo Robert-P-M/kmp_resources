@@ -16,7 +16,21 @@ class FormatArgumentAnalyzerTest {
         assertEquals(
             expected = 0,
             actual = countRequiredArguments("100% discount"),
-            message = "A % symbol without 's' or 'd' is not a valid format argument"
+            message = "A single % symbol without 's' or 'd' is not a valid format argument"
+        )
+    }
+
+    @Test
+    fun `escaped percent signs should be ignored`() {
+        assertEquals(
+            expected = 0,
+            actual = countRequiredArguments("Progress: 50%%s"),
+            message = "An escaped percent sign (%%s) should not be counted as a format argument"
+        )
+        assertEquals(
+            expected = 1,
+            actual = countRequiredArguments("Progress %%s is %d"),
+            message = "Only the unescaped %d should be counted"
         )
     }
 

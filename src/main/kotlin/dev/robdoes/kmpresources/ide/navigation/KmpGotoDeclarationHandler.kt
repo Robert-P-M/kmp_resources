@@ -4,8 +4,8 @@ import com.intellij.codeInsight.navigation.actions.GotoDeclarationHandler
 import com.intellij.openapi.actionSystem.DataContext
 import com.intellij.openapi.editor.Editor
 import com.intellij.psi.PsiElement
-import dev.robdoes.kmpresources.core.KmpResourcesBundle
-import dev.robdoes.kmpresources.core.util.KmpResourceResolver
+import dev.robdoes.kmpresources.core.infrastructure.i18n.KmpResourcesBundle
+import dev.robdoes.kmpresources.core.infrastructure.resolver.KmpResourceResolver
 
 class KmpGotoDeclarationHandler : GotoDeclarationHandler {
 

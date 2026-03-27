@@ -13,12 +13,14 @@ import com.intellij.ui.dsl.builder.Row
 import com.intellij.ui.dsl.builder.panel
 import com.intellij.util.ui.JBUI
 import com.intellij.util.ui.UIUtil
-import dev.robdoes.kmpresources.core.KmpResourcesBundle
+import dev.robdoes.kmpresources.core.infrastructure.i18n.KmpResourcesBundle
 import dev.robdoes.kmpresources.domain.model.PluralsResource
+import dev.robdoes.kmpresources.domain.model.ResourceType
 import dev.robdoes.kmpresources.domain.model.StringArrayResource
 import dev.robdoes.kmpresources.domain.model.StringResource
 import dev.robdoes.kmpresources.domain.model.XmlResource
 import dev.robdoes.kmpresources.domain.usecase.ResourceKeyValidator
+import dev.robdoes.kmpresources.presentation.editor.controller.ResourceEditPanelController
 import java.awt.*
 import java.awt.event.KeyAdapter
 import java.awt.event.KeyEvent
@@ -27,7 +29,7 @@ import javax.swing.text.AbstractDocument
 import javax.swing.text.AttributeSet
 import javax.swing.text.DocumentFilter
 
-class ResourceEditPanel(private val project: Project) : JPanel(BorderLayout()) {
+class ResourceEditPanel(project: Project) : JPanel(BorderLayout()) {
 
     enum class EditMode { ADD, UPDATE }
 
@@ -63,11 +65,13 @@ class ResourceEditPanel(private val project: Project) : JPanel(BorderLayout()) {
     private val mainActionButton = JButton(KmpResourcesBundle.message("ui.panel.btn.add"), AllIcons.General.Add)
     private val cancelButton = JButton(KmpResourcesBundle.message("ui.panel.btn.cancel"))
 
-    private val validQuantities = listOf("zero", "one", "two", "few", "many", "other")
+    private val validQuantities = ResourceType.Plural.supportedQuantities
 
     private lateinit var stringRow: Row
     private val pluralsRows = mutableListOf<Row>()
     private val arrayRows = mutableListOf<Row>()
+
+    private val controller = ResourceEditPanelController(project)
 
     init {
         border = BorderFactory.createCompoundBorder(
@@ -148,7 +152,9 @@ class ResourceEditPanel(private val project: Project) : JPanel(BorderLayout()) {
             val selected = typeComboBox.selectedItem as String
             updateFormVisibility(selected)
             if (currentEditMode == EditMode.ADD) {
-                updateHeaderTexts(EditMode.ADD, selected)
+                titleLabel.text = controller.getHeaderTitle(false, selected)
+                descriptionLabel.text = controller.getHeaderDescription(false, selected)
+
                 if (selected == "string-array" && arrayValueFields.isEmpty()) buildArrayItemRow("")
             }
         }
@@ -234,7 +240,10 @@ class ResourceEditPanel(private val project: Project) : JPanel(BorderLayout()) {
         currentEditMode = EditMode.ADD
         isUntranslatableState = false
         val selectedType = typeComboBox.selectedItem as String
-        updateHeaderTexts(EditMode.ADD, selectedType)
+
+        titleLabel.text = controller.getHeaderTitle(false, selectedType)
+        descriptionLabel.text = controller.getHeaderDescription(false, selectedType)
+
         updateFormVisibility(selectedType)
 
         typeComboBox.isEnabled = true
@@ -258,7 +267,8 @@ class ResourceEditPanel(private val project: Project) : JPanel(BorderLayout()) {
     fun showForUpdate(resource: XmlResource) {
         currentEditMode = EditMode.UPDATE
         isUntranslatableState = resource.isUntranslatable
-        updateHeaderTexts(EditMode.UPDATE, resource.xmlTag)
+        titleLabel.text = controller.getHeaderTitle(true, resource.xmlTag)
+        descriptionLabel.text = controller.getHeaderDescription(true, resource.xmlTag)
 
         typeComboBox.selectedItem = resource.xmlTag
         typeComboBox.isEnabled = false
@@ -269,15 +279,23 @@ class ResourceEditPanel(private val project: Project) : JPanel(BorderLayout()) {
 
         when (resource) {
             is StringResource -> {
-                stringValueField.text = resource.value; stringValueField.requestFocusInWindow()
+                stringValueField.text = resource.values[null] ?: ""
+                stringValueField.requestFocusInWindow()
             }
 
-            is PluralsResource -> validQuantities.forEach { q -> pluralValueFields[q]?.text = resource.items[q] ?: "" }
+            is PluralsResource -> {
+                val defaultItems = resource.localizedItems[null] ?: emptyMap()
+                validQuantities.forEach { q ->
+                    pluralValueFields[q]?.text = defaultItems[q] ?: ""
+                }
+            }
+
             is StringArrayResource -> {
                 arrayItemsContainer.removeAll()
                 arrayValueFields.clear()
-                resource.items.forEach { buildArrayItemRow(it) }
-                if (resource.items.isEmpty()) buildArrayItemRow("")
+                val defaultItems = resource.localizedItems[null] ?: emptyList()
+                defaultItems.forEach { buildArrayItemRow(it) }
+                if (defaultItems.isEmpty()) buildArrayItemRow("")
             }
         }
 
@@ -288,68 +306,18 @@ class ResourceEditPanel(private val project: Project) : JPanel(BorderLayout()) {
     }
 
     private fun submit() {
-        val key = keyField.text.trim()
-        val type = typeComboBox.selectedItem as String
-
-        if (key.isBlank()) {
-            Messages.showErrorDialog(
-                project,
-                KmpResourcesBundle.message("dialog.error.empty.key"),
-                KmpResourcesBundle.message("dialog.error.title")
-            )
-            return
-        }
-
-        if (!ResourceKeyValidator.isValid(key)) {
-            Messages.showErrorDialog(
-                project,
-                KmpResourcesBundle.message("dialog.error.validation.key"),
-                KmpResourcesBundle.message("dialog.error.title")
-            )
-            return
-        }
-
-        val resourceToSave: XmlResource? = when (type) {
-            "string" -> StringResource(key, isUntranslatableState, stringValueField.text)
-            "plurals" -> {
-                val items = pluralValueFields.filterValues { it.text.isNotBlank() }.mapValues { it.value.text }
-                PluralsResource(key, isUntranslatableState, items)
-            }
-
-            "string-array" -> {
-                val items = arrayValueFields.map { it.text }.filter { it.isNotBlank() }
-                StringArrayResource(key, isUntranslatableState, items)
-            }
-
-            else -> null
-        }
+        val resourceToSave = controller.buildResourceFromInput(
+            key = keyField.text.trim(),
+            type = typeComboBox.selectedItem as String,
+            isUntranslatable = isUntranslatableState,
+            stringValue = stringValueField.text,
+            pluralValues = pluralValueFields.mapValues { it.value.text },
+            arrayValues = arrayValueFields.map { it.text }
+        )
 
         if (resourceToSave != null) {
             onSaveRequested?.invoke(resourceToSave)
         }
     }
 
-    private fun updateHeaderTexts(mode: EditMode, type: String) {
-        if (mode == EditMode.ADD) {
-            titleLabel.text = KmpResourcesBundle.message("ui.panel.title.add")
-            descriptionLabel.text = KmpResourcesBundle.message("ui.panel.desc.add")
-        } else {
-            when (type) {
-                "string" -> {
-                    titleLabel.text = KmpResourcesBundle.message("ui.panel.title.edit.string")
-                    descriptionLabel.text = KmpResourcesBundle.message("ui.panel.desc.edit.string")
-                }
-
-                "plurals" -> {
-                    titleLabel.text = KmpResourcesBundle.message("ui.panel.title.edit.plural")
-                    descriptionLabel.text = KmpResourcesBundle.message("ui.panel.desc.edit.plural")
-                }
-
-                else -> {
-                    titleLabel.text = KmpResourcesBundle.message("ui.panel.title.edit.array")
-                    descriptionLabel.text = KmpResourcesBundle.message("ui.panel.desc.edit.array")
-                }
-            }
-        }
-    }
 }

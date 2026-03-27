@@ -3,8 +3,8 @@ package dev.robdoes.kmpresources.ide.linter
 import com.intellij.codeInspection.LocalInspectionTool
 import com.intellij.codeInspection.ProblemsHolder
 import com.intellij.psi.PsiElementVisitor
-import dev.robdoes.kmpresources.core.KmpResourcesBundle
-import dev.robdoes.kmpresources.core.util.KmpResourceResolver
+import dev.robdoes.kmpresources.core.infrastructure.i18n.KmpResourcesBundle
+import dev.robdoes.kmpresources.core.infrastructure.resolver.KmpResourceResolver
 import org.jetbrains.kotlin.psi.KtCallExpression
 import org.jetbrains.kotlin.psi.KtVisitorVoid
 
@@ -16,7 +16,8 @@ class KmpFormatInspection : LocalInspectionTool() {
             override fun visitCallExpression(expression: KtCallExpression) {
                 super.visitCallExpression(expression)
 
-                val functionName = expression.calleeExpression?.text ?: return
+                val callee = expression.calleeExpression ?: return
+                val functionName = callee.text
 
                 if (functionName != "stringResource" && functionName != "pluralStringResource") return
 
@@ -55,7 +56,7 @@ class KmpFormatInspection : LocalInspectionTool() {
                         actualProvided
                     )
 
-                    holder.registerProblem(expression, message)
+                    holder.registerProblem(callee, message)
                 }
             }
         }
