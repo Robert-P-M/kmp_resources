@@ -1,7 +1,5 @@
 package dev.robdoes.kmpresources.ide.refactoring
 
-import com.intellij.openapi.application.ApplicationManager
-import com.intellij.openapi.application.EDT
 import com.intellij.openapi.application.readAction
 import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.module.ModuleUtilCore
@@ -14,15 +12,12 @@ import com.intellij.psi.SmartPsiElementPointer
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.search.PsiSearchHelper
 import com.intellij.psi.xml.XmlFile
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import dev.robdoes.kmpresources.core.coroutines.withEdtContext
 import org.jetbrains.kotlin.idea.KotlinFileType
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.psi.KtNameReferenceExpression
 import org.jetbrains.kotlin.psi.KtPsiFactory
 import org.jetbrains.kotlin.psi.psiUtil.collectDescendantsOfType
-import com.intellij.openapi.command.writeCommandAction
-import dev.robdoes.kmpresources.core.coroutines.withEdtContext
 
 
 object KmpResourceRefactorService {

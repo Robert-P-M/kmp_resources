@@ -8,21 +8,29 @@ class UpdateInlineArrayUseCase(
     private val repository: ResourceRepository,
     private val loadResourcesUseCase: LoadResourcesUseCase
 ) {
-    operator fun invoke(key: String, isUntranslatable: Boolean, index: Int, newValue: String) {
-        val existingArray =
-            loadResourcesUseCase().findResource<StringArrayResource>(key)
+    operator fun invoke(key: String, localeTag: String?, isUntranslatable: Boolean, index: Int, newValue: String) {
+        val existingResources = loadResourcesUseCase()
+        val existingArray = existingResources.findResource<StringArrayResource>(key)
+
         if (existingArray != null) {
-            val updatedItems = existingArray.items.toMutableList()
+            val allLocalizedItems = existingArray.localizedItems.toMutableMap()
+            val currentLocaleItems = allLocalizedItems[localeTag]?.toMutableList() ?: mutableListOf()
+
             if (index == -1 && newValue.isNotBlank()) {
-                updatedItems.add(newValue)
-            } else if (index in updatedItems.indices) {
+                currentLocaleItems.add(newValue)
+            } else if (index in currentLocaleItems.indices) {
                 if (newValue.isNotBlank()) {
-                    updatedItems[index] = newValue
+                    currentLocaleItems[index] = newValue
                 } else {
-                    updatedItems.removeAt(index)
+                    currentLocaleItems.removeAt(index)
                 }
             }
-            repository.saveResource(StringArrayResource(key, isUntranslatable, updatedItems))
+
+            allLocalizedItems[localeTag] = currentLocaleItems
+
+            repository.saveResource(
+                StringArrayResource(key, isUntranslatable, allLocalizedItems)
+            )
         }
     }
 }

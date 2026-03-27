@@ -21,6 +21,7 @@ import dev.robdoes.kmpresources.core.KmpResourcesBundle
 import dev.robdoes.kmpresources.core.coroutines.KmpProjectScopeService
 import dev.robdoes.kmpresources.core.coroutines.withEdtContext
 import dev.robdoes.kmpresources.core.service.ResourceScannerService
+import dev.robdoes.kmpresources.data.repository.LocaleRepositoryFactory
 import dev.robdoes.kmpresources.domain.model.PluralsResource
 import dev.robdoes.kmpresources.domain.model.StringArrayResource
 import dev.robdoes.kmpresources.domain.model.StringResource
@@ -29,6 +30,7 @@ import dev.robdoes.kmpresources.domain.repository.ResourceRepository
 import dev.robdoes.kmpresources.domain.usecase.*
 import dev.robdoes.kmpresources.ide.refactoring.KmpResourceRefactorService
 import dev.robdoes.kmpresources.ide.utils.KmpGradleSyncHelper
+import dev.robdoes.kmpresources.presentation.editor.action.AddLocaleAction
 import dev.robdoes.kmpresources.presentation.editor.ui.ResourceEditPanel
 import dev.robdoes.kmpresources.presentation.editor.ui.ResourceTablePanel
 import kotlinx.coroutines.Dispatchers
@@ -60,7 +62,7 @@ class KmpResourceTableEditor(
     private val loadResourcesUseCase = LoadResourcesUseCase(repository)
     private val deleteResourceUseCase = DeleteResourceUseCase(repository, loadResourcesUseCase)
     private val saveResourceUseCase = SaveResourceUseCase(repository)
-    private val updateInlineStringUseCase = UpdateInlineStringUseCase(repository)
+    private val updateInlineStringUseCase = UpdateInlineStringUseCase(repository, loadResourcesUseCase)
     private val updateInlinePluralUseCase = UpdateInlinePluralUseCase(repository, loadResourcesUseCase)
     private val updateInlineArrayUseCase = UpdateInlineArrayUseCase(repository, loadResourcesUseCase)
     private val toggleUntranslatableUseCase = ToggleUntranslatableUseCase(repository)
@@ -112,23 +114,45 @@ class KmpResourceTableEditor(
 
         tablePanel.onUsageRequested = { triggerNativeFindUsages(it) }
 
-        tablePanel.onInlineStringEdited = { key, isUn, newValue ->
-            updateInlineStringUseCase(key, isUn, newValue)
-            KmpGradleSyncHelper.triggerGenerateAccessors(project, file)
+        tablePanel.onInlineStringEdited = { key, localeTag, isUn, newValue ->
+            updateInlineStringUseCase(key, localeTag, isUn, newValue)
+            if (localeTag == null) {
+                KmpGradleSyncHelper.triggerGenerateAccessors(project, file)
+            }
         }
 
-        tablePanel.onInlinePluralEdited = { key, isUn, quantity, newValue ->
-            updateInlinePluralUseCase(key, isUn, quantity, newValue)
-            KmpGradleSyncHelper.triggerGenerateAccessors(project, file)
+        tablePanel.onInlinePluralEdited = { key, localeTag, isUn, quantity, newValue ->
+            updateInlinePluralUseCase(key, localeTag, isUn, quantity, newValue)
+            if (localeTag == null) {
+                KmpGradleSyncHelper.triggerGenerateAccessors(project, file)
+            }
         }
 
-        tablePanel.onInlineArrayEdited = { key, isUn, index, newValue ->
-            updateInlineArrayUseCase(key, isUn, index, newValue)
+        tablePanel.onInlineArrayEdited = { key, localeTag, isUn, index, newValue ->
+            updateInlineArrayUseCase(key, localeTag, isUn, index, newValue)
             reloadTableData()
-            KmpGradleSyncHelper.triggerGenerateAccessors(project, file)
+            if (localeTag == null) {
+                KmpGradleSyncHelper.triggerGenerateAccessors(project, file)
+            }
         }
 
-        tablePanel.onUntranslatableToggled = { key, isUn -> toggleUntranslatableUseCase(key, isUn) }
+        tablePanel.onUntranslatableToggled = { key, isUn ->
+            val proceed = if (isUn) {
+                Messages.showYesNoDialog(
+                    project,
+                    KmpResourcesBundle.message("dialog.untranslatable.clean.message"),
+                    KmpResourcesBundle.message("dialog.untranslatable.clean.title"),
+                    Messages.getQuestionIcon()
+                ) == Messages.YES
+            } else true
+
+            if (proceed) {
+                toggleUntranslatableUseCase(key, isUn)
+                reloadTableData()
+            } else {
+                reloadTableData()
+            }
+        }
 
         editPanel.onSaveRequested = { resourceToSave ->
             if (editPanel.isVisible && resourceToSave.key.isNotBlank()) {
@@ -291,6 +315,34 @@ class KmpResourceTableEditor(
                 override fun getActionUpdateThread() = ActionUpdateThread.BGT
             }
             addAction(filterAction)
+
+            addSeparator()
+            addAction(AddLocaleAction { selectedLocale ->
+                val localeFactory = project.service<LocaleRepositoryFactory>()
+                val localeRepo = localeFactory.createLocaleRepository()
+                val addLocaleUseCase = AddLocaleUseCase(
+                    localeRepository = localeRepo,
+                    resourceRepositoryFactory = localeFactory.resourceRepositoryFactory()
+                )
+
+                project.service<KmpProjectScopeService>().coroutineScope.launch {
+                    try {
+                        addLocaleUseCase(selectedLocale.languageTag)
+
+                        withEdtContext {
+                            reloadTableData()
+                        }
+                    } catch (e: Exception) {
+                        withEdtContext {
+                            Messages.showErrorDialog(
+                                project,
+                                e.message ?: "Failed to add locale ${selectedLocale.languageTag}",
+                                KmpResourcesBundle.message("dialog.error.title")
+                            )
+                        }
+                    }
+                }
+            })
         }
 
         val toolbar = ActionManager.getInstance().createActionToolbar("KmpResourceEditorToolbar", actionGroup, true)
@@ -302,6 +354,7 @@ class KmpResourceTableEditor(
     private fun reloadTableData() {
         project.service<KmpProjectScopeService>().coroutineScope.launch {
             val resources = readAction { loadResourcesUseCase() }
+
             withEdtContext {
                 tablePanel.updateData(resources)
             }

@@ -15,11 +15,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.concurrent.ConcurrentHashMap
 
-// TOP-LEVEL PROPERTIES: Safe for IDE extensions (avoids early class loading penalties)
 private val issueCache = ConcurrentHashMap<String, Int>()
 private val isCalculating = ConcurrentHashMap.newKeySet<String>()
 
-// TOP-LEVEL FUNCTION: Can be called from anywhere to clear the cache
 fun invalidateProjectViewCache() {
     issueCache.clear()
 }

@@ -5,6 +5,7 @@ import com.intellij.openapi.application.EDT
 import com.intellij.openapi.components.service
 import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.psi.PsiElement
+import com.intellij.psi.PsiFile
 import com.intellij.psi.impl.FakePsiElement
 import com.intellij.psi.xml.XmlTag
 import dev.robdoes.kmpresources.core.coroutines.KmpProjectScopeService
@@ -21,7 +22,7 @@ class KmpResourceTarget(
     override fun getParent(): PsiElement = xmlTag
     override fun getName(): String = kotlinKeyName
     override fun getProject() = xmlTag.project
-    override fun getContainingFile() = xmlTag.containingFile
+    override fun getContainingFile(): PsiFile? = xmlTag.containingFile
     override fun isValid() = xmlTag.isValid
 
     override fun getNavigationElement(): PsiElement = this

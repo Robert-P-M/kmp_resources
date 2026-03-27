@@ -5,7 +5,7 @@ import com.intellij.openapi.application.EDT
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-suspend inline fun <T> withEdtContext(crossinline block: () -> T): T {
+suspend inline fun <T> withEdtContext(crossinline block: suspend () -> T): T {
     val application = ApplicationManager.getApplication()
     return if (application.isDispatchThread) {
         block()
