@@ -1,6 +1,7 @@
 package dev.robdoes.kmpresources.core
 
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import dev.robdoes.kmpresources.core.infrastructure.i18n.KmpResourcesBundle
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 

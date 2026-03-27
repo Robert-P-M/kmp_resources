@@ -1,6 +1,6 @@
-package dev.robdoes.kmpresources.core.util
+package dev.robdoes.kmpresources.core.shared
 
-import java.util.Locale
+import java.util.*
 
 data class LocaleInfo(
     val languageTag: String,

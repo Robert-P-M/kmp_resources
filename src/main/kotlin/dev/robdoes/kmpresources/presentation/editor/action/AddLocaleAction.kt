@@ -6,16 +6,12 @@ import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.DataContext
 import com.intellij.openapi.actionSystem.DefaultActionGroup
 import com.intellij.openapi.actionSystem.ex.ComboBoxAction
-import com.intellij.openapi.ui.popup.JBPopup
-import com.intellij.openapi.ui.popup.JBPopupFactory
-import com.intellij.openapi.ui.popup.JBPopupListener
-import com.intellij.openapi.ui.popup.LightweightWindowEvent
-import com.intellij.openapi.ui.popup.PopupStep
+import com.intellij.openapi.ui.popup.*
 import com.intellij.openapi.ui.popup.util.BaseListPopupStep
 import com.intellij.ui.JBColor
-import dev.robdoes.kmpresources.core.KmpResourcesBundle
-import dev.robdoes.kmpresources.core.util.LocaleInfo
-import dev.robdoes.kmpresources.core.util.LocaleProvider
+import dev.robdoes.kmpresources.core.infrastructure.i18n.KmpResourcesBundle
+import dev.robdoes.kmpresources.core.shared.LocaleInfo
+import dev.robdoes.kmpresources.core.shared.LocaleProvider
 import javax.swing.Icon
 import javax.swing.JComponent
 

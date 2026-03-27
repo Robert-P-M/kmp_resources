@@ -1,4 +1,4 @@
-package dev.robdoes.kmpresources.core.service
+package dev.robdoes.kmpresources.core.application.service
 
 import com.intellij.ide.highlighter.XmlFileType
 import com.intellij.openapi.application.readAction
@@ -20,7 +20,7 @@ class ResourceIssueService(private val project: Project) {
 
     suspend fun countIssues(file: VirtualFile): Int {
         if (!file.isValid) return 0
-        val scanner = project.service<ResourceScannerService>()
+        val scanner = project.service<ResourceUsageService>()
         val repositoryFactory = project.service<XmlResourceRepositoryFactory>()
 
         return try {

@@ -1,10 +1,11 @@
-package dev.robdoes.kmpresources.core.index
+package dev.robdoes.kmpresources.core.infrastructure.index
 
 import com.intellij.lexer.Lexer
 import com.intellij.util.indexing.*
 import com.intellij.util.io.EnumeratorStringDescriptor
 import com.intellij.util.io.KeyDescriptor
 import org.jetbrains.kotlin.idea.KotlinFileType
+import org.jetbrains.kotlin.lexer.KotlinLexer
 import org.jetbrains.kotlin.lexer.KtTokens
 
 val KMP_RESOURCE_USAGE_INDEX_NAME = ID.create<String, Void>("dev.robdoes.kmpresources.UsageIndex")
@@ -18,7 +19,7 @@ class KmpResourceUsageIndex : ScalarIndexExtension<String>() {
             val usages = mutableMapOf<String, Void?>()
             val text = inputData.contentAsText
 
-            val lexer: Lexer = org.jetbrains.kotlin.lexer.KotlinLexer()
+            val lexer: Lexer = KotlinLexer()
             lexer.start(text)
 
             var state = 0

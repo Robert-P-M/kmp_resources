@@ -8,11 +8,11 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.wm.IdeFocusManager
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.table.JBTable
-import dev.robdoes.kmpresources.core.KmpResourcesBundle
-import dev.robdoes.kmpresources.core.coroutines.KmpProjectScopeService
-import dev.robdoes.kmpresources.core.service.LocaleDetectionService
-import dev.robdoes.kmpresources.core.service.ResourceScannerService
-import dev.robdoes.kmpresources.core.util.LocaleInfo
+import dev.robdoes.kmpresources.core.application.service.LocaleDetectionService
+import dev.robdoes.kmpresources.core.application.service.ResourceUsageService
+import dev.robdoes.kmpresources.core.infrastructure.coroutines.KmpProjectScopeService
+import dev.robdoes.kmpresources.core.infrastructure.i18n.KmpResourcesBundle
+import dev.robdoes.kmpresources.core.shared.LocaleInfo
 import dev.robdoes.kmpresources.domain.model.PluralsResource
 import dev.robdoes.kmpresources.domain.model.StringArrayResource
 import dev.robdoes.kmpresources.domain.model.StringResource
@@ -29,18 +29,10 @@ import javax.swing.table.DefaultTableCellRenderer
 import javax.swing.table.DefaultTableModel
 import javax.swing.table.TableRowSorter
 
-/**
- * Status für die erste Spalte:
- * OK (Grün) -> Benutzt & Vollständig übersetzt
- * Error (Rot) -> Unbenutzt
- * Warning (Gelb) -> Benutzt, aber Übersetzung fehlt
- */
+
 data class ResourceStatus(val icon: Icon?, val tooltip: String?)
 
-/**
- * Statische Spalten-Definitionen.
- * Locales werden dynamisch NACH dem DEFAULT_VALUE eingefügt.
- */
+
 enum class ResourceColumn(val index: Int, val titleKey: String) {
     STATUS(0, "ui.table.column.status"),
     KEY(1, "ui.table.column.key"),
@@ -55,7 +47,7 @@ enum class ResourceColumn(val index: Int, val titleKey: String) {
     }
 }
 
-class ResourceTablePanel(private val project: Project, private val scannerService: ResourceScannerService) :
+class ResourceTablePanel(private val project: Project, private val scannerService: ResourceUsageService) :
     JPanel(BorderLayout()) {
 
     var onInlineStringEdited: ((key: String, localeTag: String?, isUn: Boolean, newValue: String) -> Unit)? = null
@@ -368,10 +360,7 @@ class ResourceTablePanel(private val project: Project, private val scannerServic
                     locales.any { locale ->
                         val tag = locale.languageTag
                         when (res) {
-                            is StringResource -> {
-                                res.values[tag].isNullOrBlank()
-                            }
-
+                            is StringResource -> res.values[tag].isNullOrBlank()
                             is PluralsResource -> {
                                 val defaultKeys = res.localizedItems[null]?.keys ?: emptySet()
                                 val localeItems = res.localizedItems[tag] ?: emptyMap()
@@ -405,9 +394,77 @@ class ResourceTablePanel(private val project: Project, private val scannerServic
                 }
 
                 withContext(Dispatchers.EDT) {
-                    val modelRow = findModelRowForKey(res.key)
-                    if (modelRow != -1) {
-                        tableModel.setValueAt(finalStatus, modelRow, ResourceColumn.STATUS.index)
+                    val mainRow = findModelRowForKey(res.key)
+                    if (mainRow != -1) {
+                        tableModel.setValueAt(finalStatus, mainRow, ResourceColumn.STATUS.index)
+
+                        if (res is PluralsResource) {
+                            val defaultKeys = res.localizedItems[null]?.keys ?: emptySet()
+                            validQuantities.forEachIndexed { i, q ->
+                                val subRowIdx = mainRow + 1 + i
+                                val subStatus = if (q !in defaultKeys) {
+                                    null
+                                } else {
+                                    val isMissing = !res.isUntranslatable && locales.any { l ->
+                                        res.localizedItems[l.languageTag]?.get(q).isNullOrBlank()
+                                    }
+                                    when {
+                                        !isUsed -> ResourceStatus(
+                                            AllIcons.General.Error,
+                                            KmpResourcesBundle.message("ui.table.status.tooltip.unused")
+                                        )
+
+                                        isMissing -> ResourceStatus(
+                                            AllIcons.General.Warning,
+                                            KmpResourcesBundle.message("ui.table.status.tooltip.missing_translation")
+                                        )
+
+                                        else -> ResourceStatus(
+                                            AllIcons.General.InspectionsOK,
+                                            KmpResourcesBundle.message("ui.table.status.tooltip.ok")
+                                        )
+                                    }
+                                }
+                                tableModel.setValueAt(subStatus, subRowIdx, ResourceColumn.STATUS.index)
+                            }
+                        }
+
+                        if (res is StringArrayResource) {
+                            val defaultSize = res.localizedItems[null]?.size ?: 0
+                            val maxItems =
+                                locales.map { res.localizedItems[it.languageTag]?.size ?: 0 }.maxOrNull() ?: 0
+                            val finalMax = maxOf(maxItems, defaultSize)
+
+                            for (i in 0 until finalMax) {
+                                val subRowIdx = mainRow + 1 + i
+                                val subStatus = if (i >= defaultSize) {
+                                    null
+                                } else {
+                                    val isMissing = !res.isUntranslatable && locales.any { l ->
+                                        val items = res.localizedItems[l.languageTag] ?: emptyList()
+                                        i >= items.size || items[i].isBlank()
+                                    }
+                                    when {
+                                        !isUsed -> ResourceStatus(
+                                            AllIcons.General.Error,
+                                            KmpResourcesBundle.message("ui.table.status.tooltip.unused")
+                                        )
+
+                                        isMissing -> ResourceStatus(
+                                            AllIcons.General.Warning,
+                                            KmpResourcesBundle.message("ui.table.status.tooltip.missing_translation")
+                                        )
+
+                                        else -> ResourceStatus(
+                                            AllIcons.General.InspectionsOK,
+                                            KmpResourcesBundle.message("ui.table.status.tooltip.ok")
+                                        )
+                                    }
+                                }
+                                tableModel.setValueAt(subStatus, subRowIdx, ResourceColumn.STATUS.index)
+                            }
+                            tableModel.setValueAt(null, mainRow + 1 + finalMax, ResourceColumn.STATUS.index)
+                        }
                     }
                 }
             }

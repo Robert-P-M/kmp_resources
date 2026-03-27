@@ -20,7 +20,7 @@
     ]]></description>
 
     <extensions defaultExtensionNs="com.intellij">
-        <fileBasedIndex implementation="dev.robdoes.kmpresources.core.index.KmpResourceUsageIndex"/>
+        <fileBasedIndex implementation="dev.robdoes.kmpresources.core.infrastructure.index.KmpResourceUsageIndex"/>
         <fileEditorProvider implementation="dev.robdoes.kmpresources.presentation.editor.KmpResourceEditorProvider"/>
         <gotoDeclarationHandler implementation="dev.robdoes.kmpresources.ide.navigation.KmpGotoDeclarationHandler"/>
         <lang.documentationProvider language="kotlin"

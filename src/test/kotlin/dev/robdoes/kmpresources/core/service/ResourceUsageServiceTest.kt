@@ -2,9 +2,10 @@ package dev.robdoes.kmpresources.core.service
 
 import com.intellij.openapi.components.service
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import dev.robdoes.kmpresources.core.application.service.ResourceUsageService
 import kotlinx.coroutines.runBlocking
 
-class ResourceScannerServiceTest : BasePlatformTestCase() {
+class ResourceUsageServiceTest : BasePlatformTestCase() {
 
     fun testIsResourceUsedReturnsTrueWhenKeyExistsInKotlinFile() = runBlocking {
         // Arrange
@@ -22,7 +23,7 @@ class ResourceScannerServiceTest : BasePlatformTestCase() {
             """.trimIndent()
         )
 
-        val scannerService = project.service<ResourceScannerService>()
+        val scannerService = project.service<ResourceUsageService>()
 
         // Act & Assert
         assertTrue(
@@ -38,7 +39,7 @@ class ResourceScannerServiceTest : BasePlatformTestCase() {
             "val text = stringResource(Res.string.some_other_key)"
         )
 
-        val scannerService = project.service<ResourceScannerService>()
+        val scannerService = project.service<ResourceUsageService>()
 
         // Act & Assert
         assertFalse(
@@ -54,7 +55,7 @@ class ResourceScannerServiceTest : BasePlatformTestCase() {
             "val text = Res.string.my_weird_key"
         )
 
-        val scannerService = project.service<ResourceScannerService>()
+        val scannerService = project.service<ResourceUsageService>()
 
         // Act & Assert
         assertTrue(

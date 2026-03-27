@@ -13,7 +13,7 @@ import com.intellij.ui.dsl.builder.Row
 import com.intellij.ui.dsl.builder.panel
 import com.intellij.util.ui.JBUI
 import com.intellij.util.ui.UIUtil
-import dev.robdoes.kmpresources.core.KmpResourcesBundle
+import dev.robdoes.kmpresources.core.infrastructure.i18n.KmpResourcesBundle
 import dev.robdoes.kmpresources.domain.model.PluralsResource
 import dev.robdoes.kmpresources.domain.model.StringArrayResource
 import dev.robdoes.kmpresources.domain.model.StringResource
@@ -269,13 +269,11 @@ class ResourceEditPanel(private val project: Project) : JPanel(BorderLayout()) {
 
         when (resource) {
             is StringResource -> {
-                // Wir nehmen den Default-Wert (null) für das Textfeld
                 stringValueField.text = resource.values[null] ?: ""
                 stringValueField.requestFocusInWindow()
             }
 
             is PluralsResource -> {
-                // Wir nehmen die Map der Quantities für das Default-Locale
                 val defaultItems = resource.localizedItems[null] ?: emptyMap()
                 validQuantities.forEach { q ->
                     pluralValueFields[q]?.text = defaultItems[q] ?: ""
@@ -285,7 +283,6 @@ class ResourceEditPanel(private val project: Project) : JPanel(BorderLayout()) {
             is StringArrayResource -> {
                 arrayItemsContainer.removeAll()
                 arrayValueFields.clear()
-                // Wir nehmen die Liste für das Default-Locale
                 val defaultItems = resource.localizedItems[null] ?: emptyList()
                 defaultItems.forEach { buildArrayItemRow(it) }
                 if (defaultItems.isEmpty()) buildArrayItemRow("")
@@ -322,20 +319,17 @@ class ResourceEditPanel(private val project: Project) : JPanel(BorderLayout()) {
 
         val resourceToSave: XmlResource? = when (type) {
             "string" -> {
-                // Erstellt eine StringResource mit dem Wert im Default-Slot (null)
                 StringResource(key, isUntranslatableState, mapOf(null to stringValueField.text))
             }
 
             "plurals" -> {
                 val items = pluralValueFields.filterValues { it.text.isNotBlank() }
                     .mapValues { it.value.text }
-                // Packt die Quantity-Map in den Default-Slot der localizedItems
                 PluralsResource(key, isUntranslatableState, mapOf(null to items))
             }
 
             "string-array" -> {
                 val items = arrayValueFields.map { it.text }.filter { it.isNotBlank() }
-                // Packt die Liste in den Default-Slot der localizedItems
                 StringArrayResource(key, isUntranslatableState, mapOf(null to items))
             }
 

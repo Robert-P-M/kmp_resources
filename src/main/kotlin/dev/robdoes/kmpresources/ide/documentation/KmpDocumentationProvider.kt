@@ -13,9 +13,9 @@ import com.intellij.psi.PsiFile
 import com.intellij.psi.PsiManager
 import com.intellij.psi.xml.XmlFile
 import com.intellij.psi.xml.XmlTag
-import dev.robdoes.kmpresources.core.KmpResourcesBundle
-import dev.robdoes.kmpresources.core.coroutines.KmpProjectScopeService
-import dev.robdoes.kmpresources.core.util.KmpResourceResolver
+import dev.robdoes.kmpresources.core.infrastructure.coroutines.KmpProjectScopeService
+import dev.robdoes.kmpresources.core.infrastructure.i18n.KmpResourcesBundle
+import dev.robdoes.kmpresources.core.infrastructure.resolver.KmpResourceResolver
 import dev.robdoes.kmpresources.ide.navigation.KmpResourceTarget
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch

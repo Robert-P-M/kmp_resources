@@ -12,10 +12,8 @@ import com.intellij.psi.codeStyle.CodeStyleManager
 import com.intellij.psi.xml.XmlFile
 import com.intellij.psi.xml.XmlTag
 import com.intellij.xml.util.XmlStringUtil
-import dev.robdoes.kmpresources.domain.model.PluralsResource
-import dev.robdoes.kmpresources.domain.model.StringArrayResource
-import dev.robdoes.kmpresources.domain.model.StringResource
-import dev.robdoes.kmpresources.domain.model.XmlResource
+import dev.robdoes.kmpresources.core.infrastructure.coroutines.KmpProjectScopeService
+import dev.robdoes.kmpresources.domain.model.*
 import dev.robdoes.kmpresources.domain.repository.ResourceRepository
 import kotlinx.coroutines.launch
 
@@ -41,19 +39,21 @@ class XmlResourceRepositoryImpl(
             val name = tag.getAttributeValue("name") ?: continue
             val isUntranslatable = tag.getAttributeValue("translatable") == "false"
 
-            when (tag.name) {
-                "string" -> {
+            val type = ResourceType.fromXmlTag(tag.name) ?: continue
+
+            when (type) {
+                ResourceType.String -> {
                     resources.add(StringResource(name, isUntranslatable, mapOf(null to getDecodedText(tag))))
                 }
 
-                "plurals" -> {
+                ResourceType.Plural -> {
                     val items = tag.findSubTags("item").associate {
                         (it.getAttributeValue("quantity") ?: "unknown") to getDecodedText(it)
                     }
                     resources.add(PluralsResource(name, isUntranslatable, mapOf(null to items)))
                 }
 
-                "string-array" -> {
+                ResourceType.Array -> {
                     val items = tag.findSubTags("item").map { getDecodedText(it) }
                     resources.add(StringArrayResource(name, isUntranslatable, mapOf(null to items)))
                 }
@@ -119,7 +119,7 @@ class XmlResourceRepositoryImpl(
 
 
     override fun saveResource(resource: XmlResource) {
-        project.service<dev.robdoes.kmpresources.core.coroutines.KmpProjectScopeService>().coroutineScope.launch {
+        project.service<KmpProjectScopeService>().coroutineScope.launch {
 
             val localesInResource = when (resource) {
                 is StringResource -> resource.values.keys
@@ -245,7 +245,7 @@ class XmlResourceRepositoryImpl(
         }
     }
 
-    override fun deleteResource(key: String, xmlTag: String) {
+    override fun deleteResource(key: String, type: ResourceType) {
         val filesToDeleteFrom = mutableListOf(file)
         filesToDeleteFrom.addAll(findRelatedLocaleFiles().values.map { it.virtualFile })
 
@@ -253,7 +253,7 @@ class XmlResourceRepositoryImpl(
             WriteCommandAction.runWriteCommandAction(project, "Delete KMP Resource", "KmpResourceEditor", {
                 val psiFile = PsiManager.getInstance(project).findFile(f) as? XmlFile
                 psiFile?.rootTag?.subTags?.find {
-                    it.name == xmlTag && it.getAttributeValue("name") == key
+                    it.name == type.xmlTag && it.getAttributeValue("name") == key
                 }?.delete()
             })
         }

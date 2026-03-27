@@ -1,7 +1,7 @@
 package dev.robdoes.kmpresources.domain.repository
 
 import dev.robdoes.kmpresources.domain.usecase.AddLocaleUseCase.LocaleContext
-import java.util.Locale
+import java.util.*
 
 interface LocaleRepository {
 

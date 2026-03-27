@@ -18,10 +18,10 @@ import com.intellij.ui.JBColor
 import com.intellij.ui.SimpleTextAttributes
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.treeStructure.Tree
-import dev.robdoes.kmpresources.core.KmpResourcesBundle
-import dev.robdoes.kmpresources.core.coroutines.KmpProjectScopeService
-import dev.robdoes.kmpresources.core.service.ResourceIssueService
-import dev.robdoes.kmpresources.core.util.LocaleProvider
+import dev.robdoes.kmpresources.core.application.service.ResourceIssueService
+import dev.robdoes.kmpresources.core.infrastructure.coroutines.KmpProjectScopeService
+import dev.robdoes.kmpresources.core.infrastructure.i18n.KmpResourcesBundle
+import dev.robdoes.kmpresources.core.shared.LocaleProvider
 import dev.robdoes.kmpresources.presentation.view.invalidateProjectViewCache
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch

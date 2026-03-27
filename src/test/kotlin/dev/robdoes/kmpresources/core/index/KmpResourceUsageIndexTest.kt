@@ -2,6 +2,7 @@ package dev.robdoes.kmpresources.core.index
 
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import com.intellij.util.indexing.FileBasedIndex
+import dev.robdoes.kmpresources.core.infrastructure.index.KMP_RESOURCE_USAGE_INDEX_NAME
 import org.jetbrains.kotlin.idea.base.util.allScope
 
 class KmpResourceUsageIndexTest : BasePlatformTestCase() {

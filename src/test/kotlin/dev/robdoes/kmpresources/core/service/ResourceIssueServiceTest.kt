@@ -2,6 +2,7 @@ package dev.robdoes.kmpresources.core.service
 
 import com.intellij.openapi.components.service
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import dev.robdoes.kmpresources.core.application.service.ResourceIssueService
 import kotlinx.coroutines.runBlocking
 import kotlin.test.DefaultAsserter.assertEquals
 

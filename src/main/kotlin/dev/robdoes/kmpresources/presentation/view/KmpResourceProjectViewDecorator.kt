@@ -8,8 +8,8 @@ import com.intellij.openapi.application.EDT
 import com.intellij.openapi.components.service
 import com.intellij.ui.JBColor
 import com.intellij.ui.SimpleTextAttributes
-import dev.robdoes.kmpresources.core.coroutines.KmpProjectScopeService
-import dev.robdoes.kmpresources.core.service.ResourceIssueService
+import dev.robdoes.kmpresources.core.application.service.ResourceIssueService
+import dev.robdoes.kmpresources.core.infrastructure.coroutines.KmpProjectScopeService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext

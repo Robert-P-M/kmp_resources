@@ -1,6 +1,7 @@
-package dev.robdoes.kmpresources.core.util
+package dev.robdoes.kmpresources.core.shared
 
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import dev.robdoes.kmpresources.core.infrastructure.resolver.KmpResourceResolver
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
@@ -106,10 +107,10 @@ class KmpResourceResolverTest : BasePlatformTestCase() {
         val xmlContent = """<resources><string name="cache_test">A</string></resources>"""
         myFixture.addFileToProject("composeResources/values/strings_cache.xml", xmlContent)
 
-        val resolved = dev.robdoes.kmpresources.core.util.KmpResourceResolver.ResolvedResource("cache_test", "string")
+        val resolved = KmpResourceResolver.ResolvedResource("cache_test", "string")
 
         // Act 1: Initial call (builds the cache)
-        val tags1 = dev.robdoes.kmpresources.core.util.KmpResourceResolver.findXmlTags(project, resolved)
+        val tags1 = KmpResourceResolver.findXmlTags(project, resolved)
         assertEquals("Should find exactly one tag on initial lookup", 1, tags1.size)
 
         // Act 2: Physically modify the file via PSI to trigger a MODIFICATION_COUNT bump
@@ -118,7 +119,7 @@ class KmpResourceResolverTest : BasePlatformTestCase() {
         }
 
         // Act 3: Search for the OLD key again
-        val tags2 = dev.robdoes.kmpresources.core.util.KmpResourceResolver.findXmlTags(project, resolved)
+        val tags2 = KmpResourceResolver.findXmlTags(project, resolved)
 
         // Assert: Because the MODIFICATION_COUNT changed due to the rename,
         // the cache was invalidated and should no longer find the old name!

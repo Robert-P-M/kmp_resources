@@ -1,4 +1,4 @@
-package dev.robdoes.kmpresources.core.util
+package dev.robdoes.kmpresources.core.infrastructure.resolver
 
 import com.intellij.ide.highlighter.XmlFileType
 import com.intellij.openapi.progress.ProcessCanceledException
@@ -16,19 +16,18 @@ import com.intellij.psi.util.CachedValuesManager
 import com.intellij.psi.util.PsiModificationTracker
 import com.intellij.psi.xml.XmlFile
 import com.intellij.psi.xml.XmlTag
+import dev.robdoes.kmpresources.core.shared.ResourceKeyNormalizer
+import dev.robdoes.kmpresources.domain.model.ResourceType
 import org.jetbrains.kotlin.psi.KtDotQualifiedExpression
 import org.jetbrains.kotlin.psi.KtNameReferenceExpression
 import org.jetbrains.kotlin.psi.psiUtil.getQualifiedExpressionForSelector
 
 object KmpResourceResolver {
 
-    private val RESOURCE_PREFIXES = mapOf(
-        "Res.string." to "string",
-        "Res.plurals." to "plurals",
-        "Res.array." to "string-array"
-    )
 
-    data class ResolvedResource(val key: String, val xmlTag: String)
+    data class ResolvedResource(val key: String, val type: ResourceType) {
+        val xmlTag: String get() = type.xmlTag
+    }
 
     private val RESOURCE_CACHE_KEY =
         Key.create<CachedValue<Map<ResolvedResource, List<SmartPsiElementPointer<XmlTag>>>>>("KmpResourceCache")
@@ -48,12 +47,15 @@ object KmpResourceResolver {
 
         val text = dotQualified?.text ?: return null
 
-        for ((prefix, tag) in RESOURCE_PREFIXES) {
-            if (text.startsWith(prefix)) {
-                val key = text.substringAfter(prefix)
-                if (key.isNotBlank()) return ResolvedResource(key, tag)
-            }
+        val type = ResourceType.fromKotlinAccessor(text) ?: return null
+
+        val prefix = "${type.kotlinAccessor}."
+        val key = text.substringAfter(prefix)
+
+        if (key.isNotBlank()) {
+            return ResolvedResource(key, type)
         }
+
         return null
     }
 
@@ -74,8 +76,8 @@ object KmpResourceResolver {
 
                     for (tag in rootTag.subTags) {
                         val rawName = tag.getAttributeValue("name") ?: continue
-                        val normalizedName = rawName.replace(".", "_").replace("-", "_")
-                        val resType = tag.name
+                        val normalizedName = ResourceKeyNormalizer.normalize(rawName)
+                        val resType = ResourceType.fromXmlTag(tag.name) ?: continue
 
                         val resKey = ResolvedResource(normalizedName, resType)
 

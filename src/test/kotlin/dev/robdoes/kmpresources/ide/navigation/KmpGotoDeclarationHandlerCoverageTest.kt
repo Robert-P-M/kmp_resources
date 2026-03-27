@@ -2,7 +2,7 @@ package dev.robdoes.kmpresources.ide.navigation
 
 import com.intellij.openapi.actionSystem.DataContext
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
-import dev.robdoes.kmpresources.core.KmpResourcesBundle
+import dev.robdoes.kmpresources.core.infrastructure.i18n.KmpResourcesBundle
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 

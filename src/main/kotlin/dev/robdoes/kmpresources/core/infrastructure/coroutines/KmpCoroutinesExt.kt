@@ -1,4 +1,4 @@
-package dev.robdoes.kmpresources.core.coroutines
+package dev.robdoes.kmpresources.core.infrastructure.coroutines
 
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.EDT

@@ -8,7 +8,7 @@ import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
 import com.intellij.psi.impl.FakePsiElement
 import com.intellij.psi.xml.XmlTag
-import dev.robdoes.kmpresources.core.coroutines.KmpProjectScopeService
+import dev.robdoes.kmpresources.core.infrastructure.coroutines.KmpProjectScopeService
 import dev.robdoes.kmpresources.presentation.editor.KmpResourceTableEditor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
