@@ -3,14 +3,17 @@ package dev.robdoes.kmpresources.data.repository
 import com.intellij.openapi.application.readAction
 import com.intellij.openapi.application.runReadAction
 import com.intellij.openapi.command.WriteCommandAction
+import com.intellij.openapi.components.service
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
+import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.PsiManager
 import com.intellij.psi.XmlElementFactory
 import com.intellij.psi.codeStyle.CodeStyleManager
 import com.intellij.psi.xml.XmlFile
 import com.intellij.psi.xml.XmlTag
+import dev.robdoes.kmpresources.core.application.service.KmpResourceWorkspaceService
 import dev.robdoes.kmpresources.domain.model.*
 import dev.robdoes.kmpresources.domain.repository.ResourceRepository
 
@@ -22,8 +25,13 @@ class XmlResourceRepositoryImpl(
     private val logger = Logger.getInstance(XmlResourceRepositoryImpl::class.java)
 
     override fun loadResources(): List<XmlResource> {
+        return project.service<KmpResourceWorkspaceService>().getResourceStateFlow(file).value
+    }
+
+    override fun parseResourcesFromDisk(): List<XmlResource> {
         return runReadAction {
-            val defaultPsiFile = PsiManager.getInstance(project).findFile(file) as? XmlFile ?: return@runReadAction emptyList()
+            val defaultPsiFile =
+                PsiManager.getInstance(project).findFile(file) as? XmlFile ?: return@runReadAction emptyList()
             val defaultResources = XmlResourceParser.parse(defaultPsiFile)
             val localeFiles = XmlLocaleFileManager.findRelatedLocaleFiles(project, file)
 
@@ -64,6 +72,9 @@ class XmlResourceRepositoryImpl(
     }
 
     private fun saveToSpecificFile(targetFile: VirtualFile, resource: XmlResource, localeTag: String?) {
+        val psiDocumentManager = PsiDocumentManager.getInstance(project)
+        psiDocumentManager.commitAllDocuments()
+
         WriteCommandAction.runWriteCommandAction(project, "Save KMP Resource ($localeTag)", "KmpResourceEditor", {
             try {
                 val psiFile = PsiManager.getInstance(project).findFile(targetFile) as? XmlFile ?: return@runWriteCommandAction
@@ -95,7 +106,13 @@ class XmlResourceRepositoryImpl(
 
     override fun deleteResource(key: String, type: ResourceType) {
         val filesToDeleteFrom = mutableListOf(file)
-        filesToDeleteFrom.addAll(XmlLocaleFileManager.findRelatedLocaleFiles(project, file).values.map { it.virtualFile })
+        filesToDeleteFrom.addAll(
+            XmlLocaleFileManager.findRelatedLocaleFiles(
+                project,
+                file
+            ).values.map { it.virtualFile })
+
+        PsiDocumentManager.getInstance(project).commitAllDocuments()
 
         filesToDeleteFrom.forEach { f ->
             WriteCommandAction.runWriteCommandAction(project, "Delete KMP Resource", "KmpResourceEditor", {
@@ -110,7 +127,8 @@ class XmlResourceRepositoryImpl(
     override fun toggleUntranslatable(key: String, isUntranslatable: Boolean) {
         WriteCommandAction.runWriteCommandAction(project, "Toggle Untranslatable", "KmpResourceEditor", {
             try {
-                val tag = getRootTag()?.subTags?.find { it.getAttributeValue("name") == key } ?: return@runWriteCommandAction
+                val tag =
+                    getRootTag()?.subTags?.find { it.getAttributeValue("name") == key } ?: return@runWriteCommandAction
                 if (isUntranslatable) tag.setAttribute("translatable", "false")
                 else tag.getAttribute("translatable")?.delete()
                 CodeStyleManager.getInstance(project).reformat(tag)
@@ -131,9 +149,19 @@ class XmlResourceRepositoryImpl(
 
     private fun mergeResource(existing: XmlResource, incoming: XmlResource, localeTag: String): XmlResource {
         return when (existing) {
-            is StringResource -> existing.copy(values = existing.values + (localeTag to ((incoming as StringResource).values[null] ?: "")))
-            is PluralsResource -> existing.copy(localizedItems = existing.localizedItems + (localeTag to ((incoming as PluralsResource).localizedItems[null] ?: emptyMap())))
-            is StringArrayResource -> existing.copy(localizedItems = existing.localizedItems + (localeTag to ((incoming as StringArrayResource).localizedItems[null] ?: emptyList())))
+            is StringResource -> existing.copy(
+                values = existing.values + (localeTag to ((incoming as StringResource).values[null] ?: ""))
+            )
+
+            is PluralsResource -> existing.copy(
+                localizedItems = existing.localizedItems + (localeTag to ((incoming as PluralsResource).localizedItems[null]
+                    ?: emptyMap()))
+            )
+
+            is StringArrayResource -> existing.copy(
+                localizedItems = existing.localizedItems + (localeTag to ((incoming as StringArrayResource).localizedItems[null]
+                    ?: emptyList()))
+            )
         }
     }
 

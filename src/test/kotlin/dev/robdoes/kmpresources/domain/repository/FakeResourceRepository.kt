@@ -2,12 +2,16 @@ package dev.robdoes.kmpresources.domain.repository
 
 import dev.robdoes.kmpresources.domain.model.*
 
-
 class FakeResourceRepository : ResourceRepository {
 
     val inMemoryStorage = mutableListOf<XmlResource>()
 
     override fun loadResources(): List<XmlResource> {
+        return inMemoryStorage.toList()
+    }
+
+    // NEU: Diese Methode hat im Interface gefehlt. Für den Test geben wir einfach den Speicher zurück.
+    override fun parseResourcesFromDisk(): List<XmlResource> {
         return inMemoryStorage.toList()
     }
 

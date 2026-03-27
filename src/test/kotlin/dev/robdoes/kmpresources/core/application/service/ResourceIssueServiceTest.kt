@@ -2,6 +2,7 @@ package dev.robdoes.kmpresources.core.application.service
 
 import com.intellij.openapi.application.runWriteAction
 import com.intellij.openapi.components.service
+import com.intellij.psi.PsiDocumentManager
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import kotlinx.coroutines.runBlocking
 import kotlin.test.assertEquals
@@ -41,12 +42,11 @@ class ResourceIssueServiceTest : BasePlatformTestCase() {
                 <string name="another_unused">Also unused</string>
             </resources>
         """.trimIndent()
-        val xmlFile = myFixture.addFileToProject("composeResources/values/strings.xml", xmlContent)
 
-        myFixture.addFileToProject(
-            "src/commonMain/kotlin/App.kt",
-            "val text = Res.string.used_key"
-        )
+        val xmlFile = myFixture.addFileToProject("composeResources/values/strings.xml", xmlContent)
+        myFixture.addFileToProject("src/commonMain/kotlin/App.kt", "val text = Res.string.used_key")
+
+        PsiDocumentManager.getInstance(project).commitAllDocuments()
 
         val issueService = project.service<ResourceIssueService>()
 
