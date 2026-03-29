@@ -5,7 +5,7 @@ import dev.robdoes.kmpresources.domain.repository.FakeResourceRepository
 import dev.robdoes.kmpresources.domain.repository.LocaleRepository
 import dev.robdoes.kmpresources.domain.repository.ResourceRepository
 import kotlinx.coroutines.runBlocking
-import java.util.Locale
+import java.util.*
 import kotlin.test.assertEquals
 
 class AddLocaleUseCaseTest : BasePlatformTestCase() {

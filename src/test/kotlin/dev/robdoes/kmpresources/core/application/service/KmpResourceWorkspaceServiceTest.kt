@@ -3,7 +3,6 @@ package dev.robdoes.kmpresources.core.application.service
 import com.intellij.openapi.components.service
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import kotlinx.coroutines.runBlocking
-import kotlin.test.assertEquals
 
 class KmpResourceWorkspaceServiceTest : BasePlatformTestCase() {
 

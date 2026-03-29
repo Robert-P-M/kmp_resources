@@ -5,7 +5,6 @@ import com.intellij.psi.XmlElementFactory
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import dev.robdoes.kmpresources.domain.model.StringResource
 import kotlin.test.assertEquals
-import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 
 class XmlResourceWriterTest : BasePlatformTestCase() {

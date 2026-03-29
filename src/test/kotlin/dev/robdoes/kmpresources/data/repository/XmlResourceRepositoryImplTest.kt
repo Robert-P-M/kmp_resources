@@ -27,9 +27,10 @@ class XmlResourceRepositoryImpl(
         return project.service<KmpResourceWorkspaceService>().getResourceStateFlow(file).value
     }
 
-    override fun parseResourcesFromDisk(): List<XmlResource> {
+    override suspend fun parseResourcesFromDisk(): List<XmlResource> {
         return runReadAction {
-            val defaultPsiFile = PsiManager.getInstance(project).findFile(file) as? XmlFile ?: return@runReadAction emptyList()
+            val defaultPsiFile =
+                PsiManager.getInstance(project).findFile(file) as? XmlFile ?: return@runReadAction emptyList()
             val defaultResources = XmlResourceParser.parse(defaultPsiFile)
             val localeFiles = XmlLocaleFileManager.findRelatedLocaleFiles(project, file)
 
@@ -115,7 +116,7 @@ class XmlResourceRepositoryImpl(
         }
     }
 
-    override fun toggleUntranslatable(key: String, isUntranslatable: Boolean) {
+    override suspend fun toggleUntranslatable(key: String, isUntranslatable: Boolean) {
         val relatedFiles = runReadAction { XmlLocaleFileManager.findRelatedLocaleFiles(project, file) }
         val psiFilesToModify = mutableListOf<XmlFile>()
 
@@ -133,7 +134,7 @@ class XmlResourceRepositoryImpl(
         KmpActionRunner.runWriteCommand(project, "Toggle Untranslatable", psiFilesToModify) {
             val defaultXmlFile = psiFilesToModify.firstOrNull { it.virtualFile == file }
             if (defaultXmlFile != null) {
-                XmlResourceWriter.setUntranslatable(project, defaultXmlFile, key, isUntranslatable)
+                XmlResourceWriter.setUntranslatable(defaultXmlFile, key, isUntranslatable)
             }
 
             if (isUntranslatable) {
@@ -152,11 +153,15 @@ class XmlResourceRepositoryImpl(
             is StringResource -> existing.copy(
                 values = existing.values + (localeTag to ((incoming as StringResource).values[null] ?: ""))
             )
+
             is PluralsResource -> existing.copy(
-                localizedItems = existing.localizedItems + (localeTag to ((incoming as PluralsResource).localizedItems[null] ?: emptyMap()))
+                localizedItems = existing.localizedItems + (localeTag to ((incoming as PluralsResource).localizedItems[null]
+                    ?: emptyMap()))
             )
+
             is StringArrayResource -> existing.copy(
-                localizedItems = existing.localizedItems + (localeTag to ((incoming as StringArrayResource).localizedItems[null] ?: emptyList()))
+                localizedItems = existing.localizedItems + (localeTag to ((incoming as StringArrayResource).localizedItems[null]
+                    ?: emptyList()))
             )
         }
     }

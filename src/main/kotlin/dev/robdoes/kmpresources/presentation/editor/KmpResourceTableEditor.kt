@@ -6,8 +6,8 @@ import com.intellij.openapi.actionSystem.ActionManager
 import com.intellij.openapi.actionSystem.DefaultActionGroup
 import com.intellij.openapi.application.EDT
 import com.intellij.openapi.application.readAction
+import com.intellij.openapi.command.CommandProcessor
 import com.intellij.openapi.components.service
-import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.fileEditor.FileEditor
 import com.intellij.openapi.fileEditor.FileEditorLocation
 import com.intellij.openapi.fileEditor.FileEditorState
@@ -242,16 +242,14 @@ class KmpResourceTableEditor(
     private fun applyInlineEditAndReload(localeTag: String?, editAction: suspend () -> Unit) {
         project.service<KmpProjectScopeService>().coroutineScope.launch(Dispatchers.Default) {
             editAction()
-
-            withContext(Dispatchers.EDT) {
-                FileDocumentManager.getInstance().saveAllDocuments()
-                file.parent?.parent?.refresh(true, true)
-            }
-
             project.service<KmpResourceWorkspaceService>().forceReload(file)
 
-            withContext(Dispatchers.EDT) {
-                if (localeTag == null) KmpGradleSyncHelper.triggerGenerateAccessors(project, file)
+            if (localeTag == null) {
+                withContext(Dispatchers.EDT) {
+                    CommandProcessor.getInstance().runUndoTransparentAction {
+                        KmpGradleSyncHelper.triggerGenerateAccessors(project, file)
+                    }
+                }
             }
         }
     }

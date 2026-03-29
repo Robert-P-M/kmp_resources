@@ -1,6 +1,9 @@
 package dev.robdoes.kmpresources.domain.usecase
 
-import dev.robdoes.kmpresources.domain.model.*
+import dev.robdoes.kmpresources.domain.model.PluralsResource
+import dev.robdoes.kmpresources.domain.model.ResourceType
+import dev.robdoes.kmpresources.domain.model.StringArrayResource
+import dev.robdoes.kmpresources.domain.model.StringResource
 import dev.robdoes.kmpresources.domain.repository.FakeResourceRepository
 import kotlinx.coroutines.runBlocking
 import org.junit.Test
@@ -26,7 +29,10 @@ class DeleteResourceUseCaseTest {
         // Assert
         val remaining = repo.loadResources()
         assertEquals(expected = 1, actual = remaining.size, message = "There should be exactly 1 resource left")
-        assertFalse(actual = remaining.any { it.key == "app_name" }, message = "The deleted resource 'app_name' should not exist anymore")
+        assertFalse(
+            actual = remaining.any { it.key == "app_name" },
+            message = "The deleted resource 'app_name' should not exist anymore"
+        )
     }
 
     @Test
@@ -40,7 +46,12 @@ class DeleteResourceUseCaseTest {
         val deleteUseCase = DeleteResourceUseCase(repo, loadUseCase)
 
         // Act
-        deleteUseCase(key = "item_count", resourceType = ResourceType.Plural, isSubItem = true, subItemIdentifier = "one")
+        deleteUseCase(
+            key = "item_count",
+            resourceType = ResourceType.Plural,
+            isSubItem = true,
+            subItemIdentifier = "one"
+        )
 
         // Assert
         val pluralRes = repo.loadResources().first() as PluralsResource
@@ -74,6 +85,10 @@ class DeleteResourceUseCaseTest {
         val defaultItems = arrayRes.localizedItems[null] ?: emptyList()
         assertEquals(expected = 2, actual = defaultItems.size, message = "The array should now contain 2 items")
         assertEquals(expected = "First", actual = defaultItems[0], message = "First item should remain unchanged")
-        assertEquals(expected = "Third", actual = defaultItems[1], message = "Third item should have shifted to index 1")
+        assertEquals(
+            expected = "Third",
+            actual = defaultItems[1],
+            message = "Third item should have shifted to index 1"
+        )
     }
 }

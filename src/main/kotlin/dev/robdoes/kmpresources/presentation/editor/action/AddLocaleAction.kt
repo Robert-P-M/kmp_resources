@@ -6,23 +6,29 @@ import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.DataContext
 import com.intellij.openapi.actionSystem.DefaultActionGroup
 import com.intellij.openapi.actionSystem.ex.ComboBoxAction
-import com.intellij.openapi.ui.popup.*
-import com.intellij.openapi.ui.popup.util.BaseListPopupStep
+import com.intellij.openapi.ui.popup.JBPopup
+import com.intellij.openapi.ui.popup.JBPopupFactory
+import com.intellij.openapi.ui.popup.JBPopupListener
+import com.intellij.openapi.ui.popup.LightweightWindowEvent
 import com.intellij.ui.JBColor
+import com.intellij.ui.SearchTextField
+import com.intellij.ui.components.JBList
+import com.intellij.ui.components.JBScrollPane
+import com.intellij.util.ui.JBUI
 import dev.robdoes.kmpresources.core.infrastructure.i18n.KmpResourcesBundle
 import dev.robdoes.kmpresources.core.shared.LocaleInfo
 import dev.robdoes.kmpresources.core.shared.LocaleProvider
-import javax.swing.Icon
-import javax.swing.JComponent
+import java.awt.BorderLayout
+import java.awt.Dimension
+import javax.swing.*
 
 class AddLocaleAction(
-    private val onLocaleSelected: (LocaleInfo) -> Unit
+    private val onLocaleSelected: (LocaleInfo) -> Unit,
 ) : ComboBoxAction() {
 
-    private val existingLocales = emptySet<String>()
-    override fun getActionUpdateThread(): ActionUpdateThread {
-        return ActionUpdateThread.BGT
-    }
+    var existingLocales: Set<String> = emptySet()
+
+    override fun getActionUpdateThread() = ActionUpdateThread.BGT
 
     override fun update(e: AnActionEvent) {
         super.update(e)
@@ -31,58 +37,126 @@ class AddLocaleAction(
         e.presentation.icon = AllIcons.General.Add
     }
 
-    override fun createPopupActionGroup(button: JComponent, dataContext: DataContext): DefaultActionGroup {
-        return DefaultActionGroup()
-    }
+    override fun createPopupActionGroup(button: JComponent, dataContext: DataContext) = DefaultActionGroup()
 
     override fun createActionPopup(
         context: DataContext,
         component: JComponent,
-        disposeCallback: Runnable?
+        disposeCallback: Runnable?,
     ): JBPopup {
         val allLocales = LocaleProvider.getAvailableLocales()
+        val popupPanel = buildSearchableLocalePanel(
+            allLocales = allLocales,
+            onLocaleSelected = { locale ->
+                onLocaleSelected(locale)
+            },
+            disposeCallback = disposeCallback,
+        )
 
-        val listStep = object : BaseListPopupStep<LocaleInfo>(
-            KmpResourcesBundle.message("action.table.add.locale.popup.title"),
-            allLocales
-        ) {
-            override fun getTextFor(value: LocaleInfo): String {
-                val flag = if (value.flagEmoji.isNotEmpty()) "${value.flagEmoji} " else ""
-                return "$flag${value.displayName} (${value.languageTag})"
-            }
+        val popup = JBPopupFactory.getInstance()
+            .createComponentPopupBuilder(popupPanel, popupPanel.getClientProperty("searchField") as? JComponent)
+            .setTitle(KmpResourcesBundle.message("action.table.add.locale.popup.title"))
+            .setResizable(false)
+            .setMovable(false)
+            .setRequestFocus(true)
+            .setMinSize(Dimension(360, 60))
+            .createPopup()
 
-            override fun getIconFor(value: LocaleInfo): Icon? = null
-
-            override fun getForegroundFor(value: LocaleInfo): java.awt.Color? {
-                return if (existingLocales.contains(value.languageTag)) JBColor.GRAY
-                else super.getForegroundFor(value)
-            }
-
-            override fun isSelectable(value: LocaleInfo): Boolean {
-                return !existingLocales.contains(value.languageTag)
-            }
-
-            override fun onChosen(selectedValue: LocaleInfo, finalChoice: Boolean): PopupStep<*>? {
-                if (finalChoice) {
-                    return doFinalStep {
-                        onLocaleSelected(selectedValue)
-                    }
-                }
-                return FINAL_CHOICE
-            }
-        }
-
-        val popup = JBPopupFactory.getInstance().createListPopup(listStep)
-
-        if (disposeCallback != null) {
+        popupPanel.putClientProperty("popupRef", popup)
+        disposeCallback?.let {
             popup.addListener(object : JBPopupListener {
-                override fun onClosed(event: LightweightWindowEvent) {
-                    disposeCallback.run()
-                }
+                override fun onClosed(event: LightweightWindowEvent) = it.run()
             })
         }
-
-        popup.setMinimumSize(java.awt.Dimension(350, 300))
         return popup
+    }
+
+    private fun buildSearchableLocalePanel(
+        allLocales: List<LocaleInfo>,
+        onLocaleSelected: (LocaleInfo) -> Unit,
+        disposeCallback: Runnable?,
+    ): JPanel {
+        val searchField = SearchTextField(false).apply {
+            textEditor.emptyText.text = "Search language or country…"
+            border = JBUI.Borders.empty(4, 8)
+        }
+
+        val listModel = javax.swing.DefaultListModel<LocaleInfo>()
+        val list = JBList(listModel).apply {
+            selectionMode = ListSelectionModel.SINGLE_SELECTION
+            cellRenderer = LocaleListCellRenderer(existingLocales)
+        }
+
+        fun refreshList(query: String) {
+            listModel.clear()
+            val q = query.trim().lowercase()
+            val (general, regional) = allLocales.partition { !it.languageTag.contains('-') }
+            sequenceOf(general, regional)
+                .flatten()
+                .filter { locale ->
+                    q.isEmpty() ||
+                            locale.displayName.lowercase().contains(q) ||
+                            locale.languageTag.lowercase().contains(q)
+                }
+                .forEach { listModel.addElement(it) }
+        }
+
+        refreshList("")
+
+        searchField.addDocumentListener(object : com.intellij.ui.DocumentAdapter() {
+            override fun textChanged(e: javax.swing.event.DocumentEvent) {
+                refreshList(searchField.text)
+            }
+        })
+
+        list.addListSelectionListener {
+            if (!it.valueIsAdjusting) {
+                val selected = list.selectedValue ?: return@addListSelectionListener
+                if (existingLocales.contains(selected.languageTag)) return@addListSelectionListener
+                onLocaleSelected(selected)
+                val popupRef = (list.parent?.parent?.parent as? JPanel)
+                    ?.getClientProperty("popupRef") as? JBPopup
+                popupRef?.cancel()
+            }
+        }
+
+        val ROW_HEIGHT = 26
+        val MAX_VISIBLE = 10
+        val scrollPane = JBScrollPane(list).apply {
+            preferredSize = Dimension(360, ROW_HEIGHT * MAX_VISIBLE)
+            border = BorderFactory.createEmptyBorder()
+        }
+
+        return JPanel(BorderLayout()).apply {
+            border = JBUI.Borders.empty(4)
+            preferredSize = Dimension(360, ROW_HEIGHT * MAX_VISIBLE + 40)
+            add(searchField, BorderLayout.NORTH)
+            add(scrollPane, BorderLayout.CENTER)
+            putClientProperty("searchField", searchField)
+        }
+    }
+
+    private class LocaleListCellRenderer(
+        private val existingLocales: Set<String>,
+    ) : DefaultListCellRenderer() {
+        override fun getListCellRendererComponent(
+            list: JList<*>?,
+            value: Any?,
+            index: Int,
+            isSelected: Boolean,
+            cellHasFocus: Boolean,
+        ): java.awt.Component {
+            val label = super.getListCellRendererComponent(
+                list, value, index, isSelected, cellHasFocus,
+            ) as JLabel
+            val locale = value as? LocaleInfo ?: return label
+            val flag = locale.flagEmoji.takeIf { it.isNotEmpty() }?.let { "$it " } ?: ""
+            label.text = "$flag${locale.displayName}  ${locale.languageTag}"
+            if (existingLocales.contains(locale.languageTag)) {
+                label.foreground = JBColor.GRAY
+                label.isEnabled = false
+            }
+            return label
+        }
     }
 }

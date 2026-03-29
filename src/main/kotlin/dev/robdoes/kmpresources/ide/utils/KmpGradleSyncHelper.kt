@@ -25,9 +25,10 @@ object KmpGradleSyncHelper {
         }
 
         project.service<KmpProjectScopeService>().coroutineScope.launch {
-            val module = readAction { ModuleUtilCore.findModuleForFile(contextFile, project) } ?: return@launch
-            val basePath =
-                readAction { ExternalSystemApiUtil.getExternalProjectPath(module) ?: project.basePath } ?: return@launch
+            val module = readAction { ModuleUtilCore.findModuleForFile(contextFile, project) }
+            val basePath = readAction {
+                module?.let { ExternalSystemApiUtil.getExternalProjectPath(it) }
+            } ?: project.basePath ?: return@launch
 
             val settings = ExternalSystemTaskExecutionSettings().apply {
                 externalProjectPath = basePath

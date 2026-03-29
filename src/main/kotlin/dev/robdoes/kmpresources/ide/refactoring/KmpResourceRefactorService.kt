@@ -14,6 +14,7 @@ import com.intellij.psi.search.PsiSearchHelper
 import com.intellij.psi.xml.XmlFile
 import dev.robdoes.kmpresources.core.infrastructure.coroutines.withEdtContext
 import dev.robdoes.kmpresources.core.shared.ResourceKeyNormalizer
+import dev.robdoes.kmpresources.presentation.editor.search.KmpUsageSearchScope
 import org.jetbrains.kotlin.idea.KotlinFileType
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.psi.KtImportDirective
@@ -62,8 +63,12 @@ object KmpResourceRefactorService {
     ): List<SmartPsiElementPointer<KtFile>>? {
         val module = readAction { ModuleUtilCore.findModuleForFile(xmlFile, project) } ?: return null
 
+
+
         return readAction {
             val moduleScope = GlobalSearchScope.moduleScope(module)
+            val filteredScope = KmpUsageSearchScope(moduleScope)
+
             val normalizedOldKey = ResourceKeyNormalizer.normalize(oldKey)
             val pointers = mutableListOf<SmartPsiElementPointer<KtFile>>()
             val psiManager = PsiManager.getInstance(project)
@@ -71,7 +76,7 @@ object KmpResourceRefactorService {
 
             PsiSearchHelper.getInstance(project).processAllFilesWithWord(
                 normalizedOldKey,
-                moduleScope,
+                filteredScope,
                 { psiFile ->
                     if (psiFile.fileType == KotlinFileType.INSTANCE) {
                         val ktFile = psiManager.findFile(psiFile.virtualFile) as? KtFile

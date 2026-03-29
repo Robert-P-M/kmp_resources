@@ -19,8 +19,20 @@ class UpdateInlinePluralUseCaseTest {
         val updateUseCase = UpdateInlinePluralUseCase(repo, loadUseCase)
 
         // Act - Update existing & Add new
-        updateUseCase(key = "apples", localeTag = null, isUntranslatable = false, quantity = "one", newValue = "One apple")
-        updateUseCase(key = "apples", localeTag = null, isUntranslatable = false, quantity = "other", newValue = "Many apples")
+        updateUseCase(
+            key = "apples",
+            localeTag = null,
+            isUntranslatable = false,
+            quantity = "one",
+            newValue = "One apple"
+        )
+        updateUseCase(
+            key = "apples",
+            localeTag = null,
+            isUntranslatable = false,
+            quantity = "other",
+            newValue = "Many apples"
+        )
 
         // Assert
         val updatedPlural = repo.loadResources().first() as PluralsResource
@@ -33,7 +45,13 @@ class UpdateInlinePluralUseCaseTest {
     @Test
     fun `invoke with blank value should remove the quantity`() = runBlocking {
         val repo = FakeResourceRepository()
-        repo.saveResource(PluralsResource("dogs", false, mapOf(null to mapOf("one" to "1 dog", "other" to "Many dogs"))))
+        repo.saveResource(
+            PluralsResource(
+                "dogs",
+                false,
+                mapOf(null to mapOf("one" to "1 dog", "other" to "Many dogs"))
+            )
+        )
 
         val updateUseCase = UpdateInlinePluralUseCase(repo, LoadResourcesUseCase(repo))
 

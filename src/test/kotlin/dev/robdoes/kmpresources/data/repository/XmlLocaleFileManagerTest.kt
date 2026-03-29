@@ -2,7 +2,6 @@ package dev.robdoes.kmpresources.data.repository
 
 import com.intellij.openapi.application.runReadAction
 import com.intellij.openapi.components.service
-import com.intellij.psi.PsiManager
 import com.intellij.psi.xml.XmlFile
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import com.intellij.util.ui.UIUtil

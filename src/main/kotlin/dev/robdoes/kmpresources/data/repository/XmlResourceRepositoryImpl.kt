@@ -123,7 +123,7 @@ class XmlResourceRepositoryImpl(
         KmpActionRunner.runWriteCommand(project, "Toggle Untranslatable", psiFilesToModify) {
             val defaultXmlFile = psiFilesToModify.firstOrNull { it.virtualFile == file }
             if (defaultXmlFile != null) {
-                XmlResourceWriter.setUntranslatable(project, defaultXmlFile, key, isUntranslatable)
+                XmlResourceWriter.setUntranslatable(defaultXmlFile, key, isUntranslatable)
             }
 
             if (isUntranslatable) {
