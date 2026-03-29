@@ -4,9 +4,7 @@ import com.intellij.ide.highlighter.XmlFileType
 import com.intellij.openapi.application.edtWriteAction
 import com.intellij.openapi.application.readAction
 import com.intellij.openapi.project.Project
-import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VfsUtil
-import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiManager
 import com.intellij.psi.search.FileTypeIndex
 import com.intellij.psi.search.GlobalSearchScope
@@ -30,15 +28,15 @@ class XmlLocaleRepository(
 
             xmlFiles.filter { file ->
                 !file.isDirectory &&
-                        (file.name == "strings.xml" || file.name == "string.xml") &&
                         file.parent?.name == "values" &&
                         file.path.contains("composeResources")
             }.mapNotNull { vFile ->
                 val xml = psiManager.findFile(vFile) as? XmlFile ?: return@mapNotNull null
+
                 if (xml.rootTag?.name == "resources") {
                     LocaleContext(
                         defaultValuesDirPath = vFile.parent.path,
-                        defaultStringsFilePath = vFile.path
+                        defaultStringsFilePath = vFile.path // Das ist z.B. .../errors.xml
                     )
                 } else null
             }
@@ -51,7 +49,10 @@ class XmlLocaleRepository(
                 VfsUtil.findFileByIoFile(File(context.defaultValuesDirPath), true) ?: return@readAction false
             val targetDirName = buildLocaleDirName(locale)
             val targetDir = defaultDir.parent?.findChild(targetDirName) ?: return@readAction false
-            val stringsFile = targetDir.findChild("strings.xml") ?: targetDir.findChild("string.xml")
+
+            val fileName = File(context.defaultStringsFilePath).name
+            val stringsFile = targetDir.findChild(fileName)
+
             stringsFile != null
         }
     }
@@ -69,8 +70,9 @@ class XmlLocaleRepository(
             val targetDir = parent.findChild(targetDirName)
                 ?: parent.createChildDirectory(this, targetDirName)
 
-            val stringsFile = targetDir.findChild("strings.xml")
-                ?: targetDir.createChildData(this, "strings.xml")
+            val fileName = File(context.defaultStringsFilePath).name
+            val stringsFile = targetDir.findChild(fileName)
+                ?: targetDir.createChildData(this, fileName)
 
             if (stringsFile.contentsToByteArray().isEmpty()) {
                 val initialContent = """
@@ -95,7 +97,10 @@ class XmlLocaleRepository(
         val parent = defaultDir.parentFile
         val dirName = buildLocaleDirName(locale)
         val localeDir = File(parent, dirName)
-        val stringsFile = File(localeDir, "strings.xml")
+
+        val fileName = File(context.defaultStringsFilePath).name
+        val stringsFile = File(localeDir, fileName)
+
         return LocaleContext(
             defaultValuesDirPath = localeDir.path,
             defaultStringsFilePath = stringsFile.path

@@ -1,20 +1,18 @@
 package dev.robdoes.kmpresources.data.repository
 
 import com.intellij.openapi.application.readAction
-import com.intellij.openapi.application.runReadAction
-import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.components.service
-import com.intellij.openapi.diagnostic.Logger
+import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.PsiManager
-import com.intellij.psi.XmlElementFactory
-import com.intellij.psi.codeStyle.CodeStyleManager
 import com.intellij.psi.xml.XmlFile
-import com.intellij.psi.xml.XmlTag
 import dev.robdoes.kmpresources.core.application.service.KmpResourceWorkspaceService
-import dev.robdoes.kmpresources.domain.model.*
+import dev.robdoes.kmpresources.core.infrastructure.utils.KmpActionRunner
+import dev.robdoes.kmpresources.domain.model.ResourceType
+import dev.robdoes.kmpresources.domain.model.XmlResource
+import dev.robdoes.kmpresources.domain.model.mergeWith
 import dev.robdoes.kmpresources.domain.repository.ResourceRepository
 
 class XmlResourceRepositoryImpl(
@@ -22,16 +20,15 @@ class XmlResourceRepositoryImpl(
     private val file: VirtualFile
 ) : ResourceRepository {
 
-    private val logger = Logger.getInstance(XmlResourceRepositoryImpl::class.java)
 
     override fun loadResources(): List<XmlResource> {
         return project.service<KmpResourceWorkspaceService>().getResourceStateFlow(file).value
     }
 
-    override fun parseResourcesFromDisk(): List<XmlResource> {
-        return runReadAction {
+    override suspend fun parseResourcesFromDisk(): List<XmlResource> {
+        return readAction {
             val defaultPsiFile =
-                PsiManager.getInstance(project).findFile(file) as? XmlFile ?: return@runReadAction emptyList()
+                PsiManager.getInstance(project).findFile(file) as? XmlFile ?: return@readAction emptyList()
             val defaultResources = XmlResourceParser.parse(defaultPsiFile)
             val localeFiles = XmlLocaleFileManager.findRelatedLocaleFiles(project, file)
 
@@ -42,7 +39,7 @@ class XmlResourceRepositoryImpl(
                 localizedRes.forEach { res ->
                     val existing = resourceMap[res.key]
                     if (existing != null) {
-                        resourceMap[res.key] = mergeResource(existing, res, localeTag)
+                        resourceMap[res.key] = existing.mergeWith(res, localeTag)
                     }
                 }
             }
@@ -52,10 +49,11 @@ class XmlResourceRepositoryImpl(
 
     override suspend fun saveResource(resource: XmlResource) {
         val localesInResource = resource.localizedValues.keys
+        val targetFilesMap = mutableMapOf<String?, VirtualFile>()
 
-        localesInResource.forEach { localeTag ->
+        for (localeTag in localesInResource) {
             if (localeTag == null) {
-                saveToSpecificFile(file, resource, null)
+                targetFilesMap[null] = file
             } else {
                 val related = readAction { XmlLocaleFileManager.findRelatedLocaleFiles(project, file) }
                 var targetFile = related[localeTag]?.virtualFile
@@ -64,106 +62,78 @@ class XmlResourceRepositoryImpl(
                     targetFile = XmlLocaleFileManager.createLocaleFileInternal(file, localeTag)
                 }
 
-                targetFile?.let {
-                    saveToSpecificFile(it, resource, localeTag)
+                if (targetFile != null) {
+                    targetFilesMap[localeTag] = targetFile
                 }
+            }
+        }
+
+        if (targetFilesMap.isEmpty()) return
+
+        val psiFilesMap = readAction {
+            targetFilesMap.mapNotNull { (locale, vFile) ->
+                val xmlFile = PsiManager.getInstance(project).findFile(vFile) as? XmlFile
+                if (xmlFile != null) locale to xmlFile else null
+            }.toMap()
+        }
+
+        KmpActionRunner.runWriteCommand(project, "Save KMP Resource", psiFilesMap.values.toList()) {
+            psiFilesMap.forEach { (localeTag, psiFile) ->
+                XmlResourceWriter.writeResource(project, psiFile, resource, localeTag)
             }
         }
     }
 
-    private fun saveToSpecificFile(targetFile: VirtualFile, resource: XmlResource, localeTag: String?) {
-        val psiDocumentManager = PsiDocumentManager.getInstance(project)
-        psiDocumentManager.commitAllDocuments()
-
-        WriteCommandAction.runWriteCommandAction(project, "Save KMP Resource ($localeTag)", "KmpResourceEditor", {
-            try {
-                val psiFile = PsiManager.getInstance(project).findFile(targetFile) as? XmlFile ?: return@runWriteCommandAction
-                val rootTag = psiFile.rootTag ?: return@runWriteCommandAction
-
-                val factory = XmlElementFactory.getInstance(project)
-                val newTag = XmlResourceWriter.createResourceTag(factory, resource, localeTag)
-
-                val existingTag = rootTag.subTags.find {
-                    it.name == resource.xmlTag && it.getAttributeValue("name") == resource.key
-                }
-
-                if (existingTag != null) {
-                    if (resource.isEmptyForLocale(localeTag) && localeTag != null) {
-                        existingTag.delete()
-                    } else {
-                        existingTag.replace(newTag)
-                    }
-                } else if (!resource.isEmptyForLocale(localeTag)) {
-                    rootTag.add(newTag)
-                }
-
-                CodeStyleManager.getInstance(project).reformat(psiFile)
-            } catch (e: Exception) {
-                logger.error("Error saving to $localeTag", e)
-            }
-        })
-    }
-
-    override fun deleteResource(key: String, type: ResourceType) {
+    override suspend fun deleteResource(key: String, type: ResourceType) {
         val filesToDeleteFrom = mutableListOf(file)
-        filesToDeleteFrom.addAll(
-            XmlLocaleFileManager.findRelatedLocaleFiles(
-                project,
-                file
-            ).values.map { it.virtualFile })
 
-        PsiDocumentManager.getInstance(project).commitAllDocuments()
-
-        filesToDeleteFrom.forEach { f ->
-            WriteCommandAction.runWriteCommandAction(project, "Delete KMP Resource", "KmpResourceEditor", {
-                val psiFile = PsiManager.getInstance(project).findFile(f) as? XmlFile
-                psiFile?.rootTag?.subTags?.find {
-                    it.name == type.xmlTag && it.getAttributeValue("name") == key
-                }?.delete()
-            })
+        val localeFiles = readAction {
+            XmlLocaleFileManager.findRelatedLocaleFiles(project, file).values.map { it.virtualFile }
         }
-    }
+        filesToDeleteFrom.addAll(localeFiles)
 
-    override fun toggleUntranslatable(key: String, isUntranslatable: Boolean) {
-        WriteCommandAction.runWriteCommandAction(project, "Toggle Untranslatable", "KmpResourceEditor", {
-            try {
-                val tag =
-                    getRootTag()?.subTags?.find { it.getAttributeValue("name") == key } ?: return@runWriteCommandAction
-                if (isUntranslatable) tag.setAttribute("translatable", "false")
-                else tag.getAttribute("translatable")?.delete()
-                CodeStyleManager.getInstance(project).reformat(tag)
-            } catch (e: Exception) {
-                logger.error("Error toggling translatable for $key", e)
-            }
-        })
+        val psiFiles = readAction {
+            filesToDeleteFrom.mapNotNull { PsiManager.getInstance(project).findFile(it) as? XmlFile }
+        }
 
-        if (isUntranslatable) {
-            val relatedFiles = XmlLocaleFileManager.findRelatedLocaleFiles(project, file)
-            relatedFiles.forEach { (_, psiFile) ->
-                WriteCommandAction.runWriteCommandAction(project, "Clean Translations", "KmpResourceEditor", {
-                    psiFile.rootTag?.subTags?.find { it.getAttributeValue("name") == key }?.delete()
-                })
+        if (psiFiles.isEmpty()) return
+
+        KmpActionRunner.runWriteCommand(project, "Delete KMP Resource", psiFiles) {
+            psiFiles.forEach { psiFile ->
+                XmlResourceWriter.deleteResource(psiFile, key, type)
             }
         }
     }
 
-    private fun mergeResource(existing: XmlResource, incoming: XmlResource, localeTag: String): XmlResource {
-        return when (existing) {
-            is StringResource -> existing.copy(
-                values = existing.values + (localeTag to ((incoming as StringResource).values[null] ?: ""))
-            )
+    override suspend fun toggleUntranslatable(key: String, isUntranslatable: Boolean) {
+        val relatedFiles = readAction { XmlLocaleFileManager.findRelatedLocaleFiles(project, file) }
+        val psiFilesToModify = mutableListOf<XmlFile>()
 
-            is PluralsResource -> existing.copy(
-                localizedItems = existing.localizedItems + (localeTag to ((incoming as PluralsResource).localizedItems[null]
-                    ?: emptyMap()))
-            )
+        readAction {
+            val defaultXmlFile = PsiManager.getInstance(project).findFile(file) as? XmlFile
+            if (defaultXmlFile != null) psiFilesToModify.add(defaultXmlFile)
 
-            is StringArrayResource -> existing.copy(
-                localizedItems = existing.localizedItems + (localeTag to ((incoming as StringArrayResource).localizedItems[null]
-                    ?: emptyList()))
-            )
+            if (isUntranslatable) {
+                psiFilesToModify.addAll(relatedFiles.values)
+            }
         }
-    }
 
-    private fun getRootTag(): XmlTag? = (PsiManager.getInstance(project).findFile(file) as? XmlFile)?.rootTag
+        if (psiFilesToModify.isEmpty()) return
+
+        KmpActionRunner.runWriteCommand(project, "Toggle Untranslatable", psiFilesToModify) {
+            val defaultXmlFile = psiFilesToModify.firstOrNull { it.virtualFile == file }
+            if (defaultXmlFile != null) {
+                XmlResourceWriter.setUntranslatable(project, defaultXmlFile, key, isUntranslatable)
+            }
+
+            if (isUntranslatable) {
+                psiFilesToModify.filter { it.virtualFile != file }.forEach { psiFile ->
+                    XmlResourceWriter.deleteResourceByKey(psiFile, key)
+                }
+            }
+            PsiDocumentManager.getInstance(project).commitAllDocuments()
+            FileDocumentManager.getInstance().saveAllDocuments()
+        }
+
+    }
 }

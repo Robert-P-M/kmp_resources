@@ -28,7 +28,7 @@ class KmpResourceProjectViewDecorator : ProjectViewNodeDecorator {
         val file = node.virtualFile ?: return
         if (!file.isValid) return
 
-        if (file.name == "strings.xml" && file.path.contains("composeResources")) {
+        if (file.extension == "xml" && file.parent?.name?.startsWith("values") == true && file.path.contains("composeResources")) {
             val project = node.project ?: return
             val path = file.path
 

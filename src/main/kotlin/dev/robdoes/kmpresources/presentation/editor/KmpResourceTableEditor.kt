@@ -20,6 +20,7 @@ import com.intellij.psi.search.GlobalSearchScope
 import dev.robdoes.kmpresources.core.application.service.KmpResourceWorkspaceService
 import dev.robdoes.kmpresources.core.application.service.ResourceUsageService
 import dev.robdoes.kmpresources.core.infrastructure.coroutines.KmpProjectScopeService
+import dev.robdoes.kmpresources.core.infrastructure.coroutines.awaitSmartMode
 import dev.robdoes.kmpresources.core.infrastructure.coroutines.withEdtContext
 import dev.robdoes.kmpresources.core.infrastructure.i18n.KmpResourcesBundle
 import dev.robdoes.kmpresources.core.shared.ResourceKeyNormalizer
@@ -32,9 +33,7 @@ import dev.robdoes.kmpresources.presentation.editor.model.ResourceFilter
 import dev.robdoes.kmpresources.presentation.editor.search.KmpUsageSearchScope
 import dev.robdoes.kmpresources.presentation.editor.ui.ResourceEditPanel
 import dev.robdoes.kmpresources.presentation.editor.ui.ResourceTablePanel
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.*
 import java.awt.BorderLayout
 import java.beans.PropertyChangeListener
 import javax.swing.JComponent
@@ -47,6 +46,7 @@ class KmpResourceTableEditor(
     private val repository: ResourceRepository
 ) : UserDataHolderBase(), FileEditor {
 
+    private val editorScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     private val scannerService = project.service<ResourceUsageService>()
 
@@ -79,7 +79,7 @@ class KmpResourceTableEditor(
 
         wireUpCallbacks()
 
-        project.service<KmpProjectScopeService>().coroutineScope.launch {
+        editorScope.launch {
             project.service<KmpResourceWorkspaceService>().getResourceStateFlow(file).collect {
                 reloadTableData()
             }
@@ -89,13 +89,20 @@ class KmpResourceTableEditor(
             DumbService.DUMB_MODE,
             object : DumbService.DumbModeListener {
                 override fun exitDumbMode() {
-                    reloadTableData()
+                    project.service<KmpProjectScopeService>().coroutineScope.launch {
+                        project.service<KmpResourceWorkspaceService>().forceReload(file)
+                    }
                 }
             }
         )
+        project.service<KmpProjectScopeService>().coroutineScope.launch {
+            project.awaitSmartMode()
+            project.service<KmpResourceWorkspaceService>().forceReload(file)
+        }
 
 
     }
+
 
     private fun wireUpCallbacks() {
 
@@ -150,8 +157,13 @@ class KmpResourceTableEditor(
                 ) == Messages.YES
             } else true
 
-            if (proceed) toggleUntranslatableUseCase(key, isUn)
-            reloadTableData()
+            if (proceed) {
+                applyInlineEditAndReload(null) {
+                    toggleUntranslatableUseCase(key, isUn)
+                }
+            } else {
+                reloadTableData()
+            }
         }
 
         editPanel.onSaveRequested = { resourceToSave ->
@@ -230,10 +242,15 @@ class KmpResourceTableEditor(
     private fun applyInlineEditAndReload(localeTag: String?, editAction: suspend () -> Unit) {
         project.service<KmpProjectScopeService>().coroutineScope.launch(Dispatchers.Default) {
             editAction()
+
             withContext(Dispatchers.EDT) {
                 FileDocumentManager.getInstance().saveAllDocuments()
                 file.parent?.parent?.refresh(true, true)
-                reloadTableData()
+            }
+
+            project.service<KmpResourceWorkspaceService>().forceReload(file)
+
+            withContext(Dispatchers.EDT) {
                 if (localeTag == null) KmpGradleSyncHelper.triggerGenerateAccessors(project, file)
             }
         }
@@ -273,6 +290,8 @@ class KmpResourceTableEditor(
     override fun addPropertyChangeListener(listener: PropertyChangeListener) {}
     override fun removePropertyChangeListener(listener: PropertyChangeListener) {}
     override fun getCurrentLocation(): FileEditorLocation? = null
-    override fun dispose() {}
+    override fun dispose() {
+        editorScope.cancel()
+    }
 }
 

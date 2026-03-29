@@ -22,7 +22,12 @@ class KmpGotoDeclarationHandler : GotoDeclarationHandler {
 
         if (tags.isEmpty()) return null
 
-        return tags.map { KmpResourceTarget(it, resolved.key) }.toTypedArray()
+        val defaultTag = tags.find { tag ->
+            val dirName = tag.containingFile?.virtualFile?.parent?.name
+            dirName == "values"
+        } ?: tags.first()
+
+        return arrayOf(KmpResourceTarget(defaultTag, resolved.key))
     }
 
     override fun getActionText(context: DataContext): String =

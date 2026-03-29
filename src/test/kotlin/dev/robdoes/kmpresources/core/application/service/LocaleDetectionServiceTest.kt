@@ -37,8 +37,8 @@ class LocaleDetectionServiceTest : BasePlatformTestCase() {
     fun testGetActiveLocalesIgnoresInvalidPathsAndNames() = runBlocking {
         // Arrange: Create files that should NOT be detected
 
-        // 1. Wrong file name
-        myFixture.addFileToProject("composeResources/values-it/colors.xml", "<resources/>")
+        // 1. Wrong file content (e.g. no <resources> tag, which is the new condition)
+        myFixture.addFileToProject("composeResources/values-it/colors.xml", "<palette/>")
         // 2. Wrong base path (not in composeResources)
         myFixture.addFileToProject("androidApp/src/main/res/values-ru/strings.xml", "<resources/>")
         // 3. Default values folder (doesn't start with 'values-')

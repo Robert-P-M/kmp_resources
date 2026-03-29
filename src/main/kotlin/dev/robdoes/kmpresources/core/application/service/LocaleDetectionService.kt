@@ -4,8 +4,10 @@ import com.intellij.ide.highlighter.XmlFileType
 import com.intellij.openapi.application.readAction
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.project.Project
+import com.intellij.psi.PsiManager
 import com.intellij.psi.search.FileTypeIndex
 import com.intellij.psi.search.GlobalSearchScope
+import com.intellij.psi.xml.XmlFile
 import dev.robdoes.kmpresources.core.infrastructure.i18n.KmpResourcesBundle
 import dev.robdoes.kmpresources.core.shared.LocaleInfo
 import dev.robdoes.kmpresources.core.shared.LocaleProvider
@@ -21,15 +23,18 @@ class LocaleDetectionService(private val project: Project) {
             val xmlFiles = FileTypeIndex.getFiles(XmlFileType.INSTANCE, scope)
 
             for (file in xmlFiles) {
-                if (file.name != "strings.xml" && file.name != "string.xml") continue
-
+                if (file.extension != "xml") continue
                 if (!file.path.contains("composeResources")) continue
 
                 val parentDir = file.parent ?: continue
 
                 if (parentDir.name.startsWith("values-")) {
-                    val localeTag = parentDir.name.substringAfter("values-")
-                    result.add(localeTag)
+                    val xmlFile = PsiManager.getInstance(project).findFile(file) as? XmlFile ?: continue
+
+                    if (xmlFile.rootTag?.name == "resources") {
+                        val localeTag = parentDir.name.substringAfter("values-")
+                        result.add(localeTag)
+                    }
                 }
             }
 

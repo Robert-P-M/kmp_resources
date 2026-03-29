@@ -1,9 +1,5 @@
 package dev.robdoes.kmpresources.domain.model
 
-import com.intellij.psi.XmlElementFactory
-import com.intellij.psi.xml.XmlTag
-import dev.robdoes.kmpresources.data.repository.XmlResourceWriter
-
 sealed interface ComposeResource {
     val key: String
 }
@@ -15,7 +11,6 @@ sealed interface XmlResource : ComposeResource {
     val xmlTag: String get() = type.xmlTag
 
     fun isEmptyForLocale(localeTag: String?): Boolean
-    fun writeContentToTag(factory: XmlElementFactory, tag: XmlTag, localeTag: String?)
 }
 
 data class StringResource(
@@ -28,9 +23,6 @@ data class StringResource(
 
     val defaultValue: String get() = values[null] ?: ""
     override fun isEmptyForLocale(localeTag: String?): Boolean = values[localeTag].isNullOrBlank()
-    override fun writeContentToTag(factory: XmlElementFactory, tag: XmlTag, localeTag: String?) {
-        XmlResourceWriter.appendEscapedText(factory, tag, values[localeTag] ?: "")
-    }
 }
 
 data class PluralsResource(
@@ -40,15 +32,11 @@ data class PluralsResource(
 ) : XmlResource {
     override val type = ResourceType.Plural
     override val localizedValues: Map<String?, Any> = localizedItems
-    override fun isEmptyForLocale(localeTag: String?): Boolean = localizedItems[localeTag].isNullOrEmpty()
-    override fun writeContentToTag(factory: XmlElementFactory, tag: XmlTag, localeTag: String?) {
-        val items = localizedItems[localeTag] ?: emptyMap()
-        items.forEach { (qty, value) ->
-            val itemTag = factory.createTagFromText("<item quantity=\"$qty\"/>")
-            XmlResourceWriter.appendEscapedText(factory, itemTag, value)
-            tag.add(itemTag)
-        }
+    override fun isEmptyForLocale(localeTag: String?): Boolean {
+        val items = localizedItems[localeTag]
+        return items.isNullOrEmpty() || items.values.all { it.isBlank() }
     }
+
 }
 
 data class StringArrayResource(
@@ -58,13 +46,9 @@ data class StringArrayResource(
 ) : XmlResource {
     override val type = ResourceType.Array
     override val localizedValues: Map<String?, Any> = localizedItems
-    override fun isEmptyForLocale(localeTag: String?): Boolean = localizedItems[localeTag].isNullOrEmpty()
-    override fun writeContentToTag(factory: XmlElementFactory, tag: XmlTag, localeTag: String?) {
-        val items = localizedItems[localeTag] ?: emptyList()
-        items.forEach { value ->
-            val itemTag = factory.createTagFromText("<item/>")
-            XmlResourceWriter.appendEscapedText(factory, itemTag, value)
-            tag.add(itemTag)
-        }
+    override fun isEmptyForLocale(localeTag: String?): Boolean {
+        val items = localizedItems[localeTag]
+        return items.isNullOrEmpty() || items.all { it.isBlank() }
     }
+
 }

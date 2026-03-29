@@ -1,8 +1,10 @@
 <!-- Plugin Configuration File. Read more: https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html -->
 <idea-plugin>
     <id>dev.robdoes.kmpresources</id>
+
+    <resource-bundle>messages.KmpResourcesBundle</resource-bundle>
     <name>KMP Resources</name>
-    <vendor email="hello@robdoes.dev" url="https://robdoes.dev">robdoes.dev</vendor>
+    <vendor email="kmp-resources@rob-does.dev" url="https://robdoes.dev">robdoes.dev</vendor>
     <depends>com.intellij.modules.platform</depends>
     <depends>org.jetbrains.kotlin</depends>
 
@@ -20,6 +22,7 @@
     ]]></description>
 
     <extensions defaultExtensionNs="com.intellij">
+        <errorHandler implementation="dev.robdoes.kmpresources.core.infrastructure.error.KmpErrorReportSubmitter"/>
         <fileBasedIndex implementation="dev.robdoes.kmpresources.core.infrastructure.index.KmpResourceUsageIndex"/>
         <fileEditorProvider implementation="dev.robdoes.kmpresources.presentation.editor.KmpResourceEditorProvider"/>
         <gotoDeclarationHandler implementation="dev.robdoes.kmpresources.ide.navigation.KmpGotoDeclarationHandler"/>

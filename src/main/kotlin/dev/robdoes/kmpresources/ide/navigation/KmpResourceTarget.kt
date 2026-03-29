@@ -1,17 +1,13 @@
 package dev.robdoes.kmpresources.ide.navigation
 
 import com.intellij.navigation.ItemPresentation
-import com.intellij.openapi.application.EDT
-import com.intellij.openapi.components.service
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
 import com.intellij.psi.impl.FakePsiElement
 import com.intellij.psi.xml.XmlTag
-import dev.robdoes.kmpresources.core.infrastructure.coroutines.KmpProjectScopeService
 import dev.robdoes.kmpresources.presentation.editor.KmpResourceTableEditor
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import javax.swing.Icon
 
 class KmpResourceTarget(
@@ -34,13 +30,20 @@ class KmpResourceTarget(
         val virtualFile = xmlTag.containingFile?.virtualFile ?: return
         val fileEditorManager = FileEditorManager.getInstance(project)
 
-        fileEditorManager.openFile(virtualFile, requestFocus)
-        fileEditorManager.setSelectedEditor(virtualFile, "KmpResourceTableEditor")
+        val module = com.intellij.openapi.module.ModuleUtilCore.findModuleForFile(virtualFile, project)
+        val modulePath = module?.name ?: "KMP Module"
+
+        val kmpVirtualFile = dev.robdoes.kmpresources.presentation.editor.KmpResourceVirtualFile(
+            modulePath,
+            virtualFile
+        )
+
+        fileEditorManager.openFile(kmpVirtualFile, requestFocus)
 
         val rawXmlName = xmlTag.getAttributeValue("name") ?: kotlinKeyName
 
-        project.service<KmpProjectScopeService>().coroutineScope.launch(Dispatchers.EDT) {
-            val editors = fileEditorManager.getEditors(virtualFile)
+        ApplicationManager.getApplication().invokeLater {
+            val editors = fileEditorManager.getEditors(kmpVirtualFile)
             val tableEditor = editors.find { it is KmpResourceTableEditor } as? KmpResourceTableEditor
             tableEditor?.scrollToKey(rawXmlName)
         }

@@ -12,19 +12,25 @@ import dev.robdoes.kmpresources.data.repository.XmlResourceRepositoryFactory
 class KmpResourceEditorProvider : FileEditorProvider, DumbAware {
 
     override fun accept(project: Project, file: VirtualFile): Boolean {
-        if (file.name != "string.xml") return false
-        return file.path.contains("/composeResources/")
+        return file is KmpResourceVirtualFile
     }
 
     override fun createEditor(project: Project, file: VirtualFile): FileEditor {
+        val kmpVirtualFile = file as KmpResourceVirtualFile
         val factory = project.service<XmlResourceRepositoryFactory>()
-        val repository = factory.create(file)
-        return KmpResourceTableEditor(project = project, file = file, repository = repository)
+
+        val repository = factory.create(kmpVirtualFile.defaultStringsFile)
+
+        return KmpResourceTableEditor(
+            project = project,
+            file = kmpVirtualFile.defaultStringsFile,
+            repository = repository
+        )
     }
 
     override fun getEditorTypeId(): String = "KmpResourceTableEditor"
 
     override fun getPolicy(): FileEditorPolicy {
-        return FileEditorPolicy.PLACE_BEFORE_DEFAULT_EDITOR
+        return FileEditorPolicy.HIDE_DEFAULT_EDITOR
     }
 }
