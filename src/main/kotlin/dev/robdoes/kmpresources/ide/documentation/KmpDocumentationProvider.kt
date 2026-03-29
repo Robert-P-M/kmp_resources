@@ -16,6 +16,7 @@ import com.intellij.psi.xml.XmlTag
 import dev.robdoes.kmpresources.core.infrastructure.coroutines.KmpProjectScopeService
 import dev.robdoes.kmpresources.core.infrastructure.i18n.KmpResourcesBundle
 import dev.robdoes.kmpresources.core.infrastructure.resolver.KmpResourceResolver
+import dev.robdoes.kmpresources.domain.model.ResourceType
 import dev.robdoes.kmpresources.ide.navigation.KmpResourceTarget
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -40,7 +41,9 @@ class KmpDocumentationProvider : AbstractDocumentationProvider() {
         if (element !is KmpResourceTarget) return null
 
         val tag = element.parent as? XmlTag ?: return null
-        val resourceType = tag.name
+
+        // FIX: Typensicher auflösen
+        val resourceType = ResourceType.fromXmlTag(tag.name) ?: return null
 
         val sb = StringBuilder()
 
@@ -52,7 +55,7 @@ class KmpDocumentationProvider : AbstractDocumentationProvider() {
         }
 
         sb.append(DocumentationMarkup.DEFINITION_START)
-        sb.append("${KmpResourcesBundle.message("doc.popup.header.resource")} <b>${element.name}</b> ($resourceType) <br>")
+        sb.append("${KmpResourcesBundle.message("doc.popup.header.resource")} <b>${element.name}</b> (${resourceType.xmlTag}) <br>")
         sb.append("${KmpResourcesBundle.message("doc.popup.header.locale")} <i>$localeName</i>")
         sb.append(DocumentationMarkup.DEFINITION_END)
 
@@ -60,11 +63,11 @@ class KmpDocumentationProvider : AbstractDocumentationProvider() {
         sb.append("<b>${KmpResourcesBundle.message("doc.popup.content.value")}</b><br>")
 
         when (resourceType) {
-            "string" -> {
+            ResourceType.String -> {
                 sb.append(tag.value.text)
             }
 
-            "plurals" -> {
+            ResourceType.Plural -> {
                 val items = tag.findSubTags("item")
                 sb.append("<ul>")
                 for (item in items) {
@@ -74,7 +77,7 @@ class KmpDocumentationProvider : AbstractDocumentationProvider() {
                 sb.append("</ul>")
             }
 
-            "string-array" -> {
+            ResourceType.Array -> {
                 val items = tag.findSubTags("item")
                 sb.append("<ol>")
                 for (item in items) {

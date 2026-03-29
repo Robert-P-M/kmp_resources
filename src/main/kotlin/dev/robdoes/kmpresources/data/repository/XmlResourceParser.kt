@@ -11,27 +11,37 @@ object XmlResourceParser {
         val rootTag = psiFile.rootTag ?: return emptyList()
 
         for (tag in rootTag.subTags) {
-            val name = tag.getAttributeValue("name") ?: continue
+            val key = tag.getAttributeValue("name") ?: continue
+            if (key.isBlank()) continue
+
             val isUntranslatable = tag.getAttributeValue("translatable") == "false"
 
-            val type = ResourceType.fromXmlTag(tag.name) ?: continue
-
-            when (type) {
+            when (ResourceType.fromXmlTag(tag.name)) {
                 ResourceType.String -> {
-                    resources.add(StringResource(name, isUntranslatable, mapOf(null to getDecodedText(tag))))
+                    val value = getDecodedText(tag)
+                    resources.add(StringResource(key, isUntranslatable, mapOf(null to value)))
                 }
 
                 ResourceType.Plural -> {
-                    val items = tag.findSubTags("item").associate {
-                        (it.getAttributeValue("quantity") ?: "unknown") to getDecodedText(it)
+                    val items = mutableMapOf<String, String>()
+                    tag.findSubTags("item").forEach { itemTag ->
+                        val quantity = itemTag.getAttributeValue("quantity") ?: return@forEach
+                        val value = getDecodedText(itemTag)
+                        items[quantity] = value
                     }
-                    resources.add(PluralsResource(name, isUntranslatable, mapOf(null to items)))
+                    resources.add(PluralsResource(key, isUntranslatable, mapOf(null to items)))
                 }
 
                 ResourceType.Array -> {
-                    val items = tag.findSubTags("item").map { getDecodedText(it) }
-                    resources.add(StringArrayResource(name, isUntranslatable, mapOf(null to items)))
+                    val items = mutableListOf<String>()
+                    tag.findSubTags("item").forEach { itemTag ->
+                        val value = getDecodedText(itemTag)
+                        items.add(value)
+                    }
+                    resources.add(StringArrayResource(key, isUntranslatable, mapOf(null to items)))
                 }
+
+                null -> continue
             }
         }
         return resources

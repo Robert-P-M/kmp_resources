@@ -11,8 +11,8 @@ class ResourceIssueServiceTest : BasePlatformTestCase() {
 
     fun testFindAllResourceFilesFindsOnlyValidKmpStringsFiles() = runBlocking {
         // Arrange
-        val validFile = myFixture.addFileToProject("composeResources/values/strings.xml", "<resources></resources>")
-        myFixture.addFileToProject("composeResources/values/colors.xml", "<resources></resources>")
+        val validFile1 = myFixture.addFileToProject("composeResources/values/strings.xml", "<resources></resources>")
+        val validFile2 = myFixture.addFileToProject("composeResources/values/colors.xml", "<resources></resources>")
         myFixture.addFileToProject("androidApp/src/main/res/values/strings.xml", "<resources></resources>")
 
         val issueService = project.service<ResourceIssueService>()
@@ -22,15 +22,13 @@ class ResourceIssueServiceTest : BasePlatformTestCase() {
 
         // Assert
         assertEquals(
-            expected = 1,
+            expected = 2,
             actual = files.size,
-            message = "Should only find strings.xml files that are inside a 'composeResources' directory"
+            message = "Should find all XML files with <resources> tag inside composeResources/values"
         )
-        assertEquals(
-            expected = validFile.virtualFile.path,
-            actual = files[0].path,
-            message = "The found file should be the correct valid composeResources file"
-        )
+        // Check if both valid files are found (order might vary, so we check if the paths exist)
+        val filePaths = files.map { it.path }
+        assertContainsElements(filePaths, validFile1.virtualFile.path, validFile2.virtualFile.path)
     }
 
     fun testCountIssuesCorrectlyIdentifiesUnusedKeys() = runBlocking {

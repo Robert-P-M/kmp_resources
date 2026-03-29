@@ -3,6 +3,7 @@ package dev.robdoes.kmpresources.ide.intentions
 import com.intellij.codeInsight.intention.PriorityAction
 import com.intellij.codeInsight.intention.PsiElementBaseIntentionAction
 import com.intellij.icons.AllIcons
+import com.intellij.ide.highlighter.XmlFileType
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.runReadAction
 import com.intellij.openapi.command.WriteCommandAction
@@ -14,7 +15,7 @@ import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.util.Iconable
 import com.intellij.psi.*
 import com.intellij.psi.codeStyle.CodeStyleManager
-import com.intellij.psi.search.FilenameIndex
+import com.intellij.psi.search.FileTypeIndex
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.xml.XmlFile
 import dev.robdoes.kmpresources.core.infrastructure.i18n.KmpResourcesBundle
@@ -62,10 +63,13 @@ class KmpCreateResourceIntention : PsiElementBaseIntentionAction(), PriorityActi
 
         val stringsFile = runReadAction {
             val scope = GlobalSearchScope.projectScope(project)
-            val allFiles = FilenameIndex.getVirtualFilesByName("strings.xml", scope) +
-                    FilenameIndex.getVirtualFilesByName("string.xml", scope)
 
-            val composeResFiles = allFiles.filter { it.path.contains("composeResources") }
+            val composeResFiles = FileTypeIndex.getFiles(XmlFileType.INSTANCE, scope).filter {
+                it.extension == "xml" && it.parent?.name == "values" && it.path.contains("composeResources")
+            }.filter {
+                val xml = PsiManager.getInstance(project).findFile(it) as? XmlFile
+                xml?.rootTag?.name == "resources"
+            }
 
             val currentVFile = element.containingFile?.originalFile?.virtualFile
             if (currentVFile != null) {
@@ -112,28 +116,15 @@ class KmpCreateResourceIntention : PsiElementBaseIntentionAction(), PriorityActi
 
             CodeStyleManager.getInstance(project).reformat(addedTag)
 
-            val documentManager = PsiDocumentManager.getInstance(project)
-            val document = documentManager.getDocument(xmlFile)
-            if (document != null) {
-                documentManager.commitDocument(document)
-            }
+
+            addKotlinImport(project, ktFilePointer?.element, basePackage, resolved)
         })
 
         PsiDocumentManager.getInstance(project).commitAllDocuments()
         FileDocumentManager.getInstance().saveAllDocuments()
 
-        if (ApplicationManager.getApplication().isUnitTestMode) {
-            WriteCommandAction.runWriteCommandAction(project, "Add KMP Import", commandGroup, {
-                addKotlinImport(project, ktFilePointer?.element, basePackage, resolved)
-            })
-        } else {
-            KmpGradleSyncHelper.triggerGenerateAccessors(project, stringsFile) {
-                ApplicationManager.getApplication().invokeLater {
-                    WriteCommandAction.runWriteCommandAction(project, "Add KMP Import", commandGroup, {
-                        addKotlinImport(project, ktFilePointer?.element, basePackage, resolved)
-                    })
-                }
-            }
+        if (!ApplicationManager.getApplication().isUnitTestMode) {
+            KmpGradleSyncHelper.triggerGenerateAccessors(project, stringsFile) {}
         }
     }
 
@@ -153,7 +144,7 @@ class KmpCreateResourceIntention : PsiElementBaseIntentionAction(), PriorityActi
         if (ktFile == null || basePackage == null) return
         val importList = ktFile.importList ?: return
 
-        val targetFqName = "$basePackage.${resolved.type.kotlinAccessor}.${resolved.key}"
+        val targetFqName = "$basePackage.${resolved.key}"
 
         val alreadyImported = ktFile.importDirectives.any {
             it.importedFqName?.asString() == targetFqName ||

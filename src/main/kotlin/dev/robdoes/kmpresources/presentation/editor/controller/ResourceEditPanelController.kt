@@ -3,9 +3,11 @@ package dev.robdoes.kmpresources.presentation.editor.controller
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.Messages
 import dev.robdoes.kmpresources.core.infrastructure.i18n.KmpResourcesBundle
-import dev.robdoes.kmpresources.domain.model.*
+import dev.robdoes.kmpresources.domain.model.PluralsResource
+import dev.robdoes.kmpresources.domain.model.StringArrayResource
+import dev.robdoes.kmpresources.domain.model.StringResource
+import dev.robdoes.kmpresources.domain.model.XmlResource
 import dev.robdoes.kmpresources.domain.usecase.ResourceKeyValidator
-import javax.swing.JTextField
 
 class ResourceEditPanelController(private val project: Project) {
 
@@ -33,10 +35,12 @@ class ResourceEditPanelController(private val project: Project) {
                 val items = pluralValues.filterValues { it.isNotBlank() }
                 PluralsResource(key, isUntranslatable, mapOf(null to items))
             }
+
             "string-array" -> {
                 val items = arrayValues.filter { it.isNotBlank() }
                 StringArrayResource(key, isUntranslatable, mapOf(null to items))
             }
+
             else -> null
         }
     }

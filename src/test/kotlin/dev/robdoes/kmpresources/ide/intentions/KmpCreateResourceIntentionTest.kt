@@ -47,7 +47,7 @@ class KmpCreateResourceIntentionTest : BasePlatformTestCase() {
         // Assert 3: Verify the import was added to the Kotlin file
         val ktText = myFixture.file.text
         assertTrue(
-            actual = ktText.contains("import kmpresources.generated.resources.Res.string.missing_key"),
+            actual = ktText.contains("import kmpresources.generated.resources.missing_key"),
             message = "The specific import for the new key should be added to the Kotlin file"
         )
     }

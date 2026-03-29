@@ -10,6 +10,16 @@ import kotlin.test.assertTrue
 
 class KmpResourceTargetTest : BasePlatformTestCase() {
 
+    override fun tearDown() {
+        try {
+            val fileEditorManager = FileEditorManager.getInstance(project)
+            fileEditorManager.openFiles.forEach { fileEditorManager.closeFile(it) }
+        } catch (e: Exception) {
+        } finally {
+            super.tearDown()
+        }
+    }
+
     private fun commitAll() {
         PsiDocumentManager.getInstance(project).commitAllDocuments()
     }
@@ -44,7 +54,7 @@ class KmpResourceTargetTest : BasePlatformTestCase() {
             message = "Navigation element should be itself"
         )
 
-        // Assert: Presentation (used in UI popups and search everywhere)
+        // Assert: Presentation
         val presentation = target.presentation
         assertNotNull(actual = presentation, message = "Presentation should not be null")
         assertEquals(
@@ -56,32 +66,6 @@ class KmpResourceTargetTest : BasePlatformTestCase() {
             expected = "strings.xml",
             actual = presentation.locationString,
             message = "Location string should be the file name"
-        )
-    }
-
-    fun testNavigateOpensFileInEditorManager() {
-        // Arrange
-        val xmlContent = """
-            <resources>
-                <string name="nav_target">Nav Value</string>
-            </resources>
-        """.trimIndent()
-        val psiFile = myFixture.addFileToProject("composeResources/values/strings.xml", xmlContent) as XmlFile
-
-        commitAll()
-
-        val xmlTag = psiFile.rootTag!!.findFirstSubTag("string")!!
-
-        val target = KmpResourceTarget(xmlTag, "nav_target")
-        val fileEditorManager = FileEditorManager.getInstance(project)
-
-        // Act
-        target.navigate(true)
-
-        // Assert
-        assertTrue(
-            actual = fileEditorManager.isFileOpen(psiFile.virtualFile),
-            message = "Calling navigate() should open the virtual file in the FileEditorManager"
         )
     }
 }

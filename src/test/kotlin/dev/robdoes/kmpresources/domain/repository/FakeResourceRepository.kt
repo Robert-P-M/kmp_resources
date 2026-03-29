@@ -10,8 +10,7 @@ class FakeResourceRepository : ResourceRepository {
         return inMemoryStorage.toList()
     }
 
-    // NEU: Diese Methode hat im Interface gefehlt. Für den Test geben wir einfach den Speicher zurück.
-    override fun parseResourcesFromDisk(): List<XmlResource> {
+    override suspend fun parseResourcesFromDisk(): List<XmlResource> {
         return inMemoryStorage.toList()
     }
 
@@ -32,11 +31,11 @@ class FakeResourceRepository : ResourceRepository {
         }
     }
 
-    override fun deleteResource(key: String, type: ResourceType) {
+    override suspend fun deleteResource(key: String, type: ResourceType) {
         inMemoryStorage.removeIf { it.key == key && it.type == type }
     }
 
-    override fun toggleUntranslatable(key: String, isUntranslatable: Boolean) {
+    override suspend fun toggleUntranslatable(key: String, isUntranslatable: Boolean) {
         val existingIndex = inMemoryStorage.indexOfFirst { it.key == key }
         if (existingIndex == -1) return
 

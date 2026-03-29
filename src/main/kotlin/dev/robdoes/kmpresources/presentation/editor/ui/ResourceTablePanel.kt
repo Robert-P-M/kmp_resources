@@ -10,6 +10,7 @@ import com.intellij.ui.table.JBTable
 import dev.robdoes.kmpresources.core.application.service.LocaleDetectionService
 import dev.robdoes.kmpresources.core.application.service.ResourceUsageService
 import dev.robdoes.kmpresources.core.infrastructure.coroutines.KmpProjectScopeService
+import dev.robdoes.kmpresources.core.infrastructure.coroutines.awaitSmartMode
 import dev.robdoes.kmpresources.core.infrastructure.i18n.KmpResourcesBundle
 import dev.robdoes.kmpresources.core.shared.LocaleInfo
 import dev.robdoes.kmpresources.domain.model.ResourceType
@@ -189,6 +190,8 @@ class ResourceTablePanel(private val project: Project, private val scannerServic
         val scope = project.service<KmpProjectScopeService>().coroutineScope
 
         scope.launch(Dispatchers.Default) {
+            project.awaitSmartMode()
+
             val detectionService = project.service<LocaleDetectionService>()
             val activeLocales = detectionService.getActiveLocales()
 
@@ -208,16 +211,16 @@ class ResourceTablePanel(private val project: Project, private val scannerServic
 
                 tableModel.setDataVector(newRows.toTypedArray(), getFullColumnIdentifiers(activeLocales))
                 setupColumns()
-                controller
-                    .validateResources(resources, activeLocales) { key, mainStatus, subStatuses ->
-                        val mainRow = findModelRowForKey(key)
-                        if (mainRow != -1) {
-                            tableModel.setValueAt(mainStatus, mainRow, ResourceColumn.STATUS.index)
-                            subStatuses.forEach { (subId, status) ->
-                                updateSubItemStatus(mainRow, subId, status)
-                            }
+
+                controller.validateResources(resources, activeLocales) { key, mainStatus, subStatuses ->
+                    val mainRow = findModelRowForKey(key)
+                    if (mainRow != -1) {
+                        tableModel.setValueAt(mainStatus, mainRow, ResourceColumn.STATUS.index)
+                        subStatuses.forEach { (subId, status) ->
+                            updateSubItemStatus(mainRow, subId, status)
                         }
                     }
+                }
             }
         }
     }
@@ -249,7 +252,12 @@ class ResourceTablePanel(private val project: Project, private val scannerServic
 
     private fun getFullColumnIdentifiers(locales: List<LocaleInfo>): Array<String> {
         val titles = ResourceColumn.entries.map { KmpResourcesBundle.message(it.titleKey) }.toMutableList()
-        locales.forEach { titles.add("${it.flagEmoji} ${it.languageTag}".trim()) }
+
+        locales.forEach { locale ->
+            val flag = if (locale.flagEmoji.isNotEmpty()) "${locale.flagEmoji} " else ""
+            titles.add("$flag${locale.displayName} (${locale.languageTag})")
+        }
+
         return titles.toTypedArray()
     }
 

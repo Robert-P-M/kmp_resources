@@ -12,6 +12,9 @@ import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.project.DumbService
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
+import com.intellij.openapi.vfs.VirtualFileManager
+import com.intellij.openapi.vfs.newvfs.BulkFileListener
+import com.intellij.openapi.vfs.newvfs.events.VFileEvent
 import com.intellij.openapi.wm.ToolWindow
 import com.intellij.ui.ColoredTreeCellRenderer
 import com.intellij.ui.JBColor
@@ -20,6 +23,7 @@ import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.treeStructure.Tree
 import dev.robdoes.kmpresources.core.application.service.ResourceIssueService
 import dev.robdoes.kmpresources.core.infrastructure.coroutines.KmpProjectScopeService
+import dev.robdoes.kmpresources.core.infrastructure.coroutines.awaitSmartMode
 import dev.robdoes.kmpresources.core.infrastructure.i18n.KmpResourcesBundle
 import dev.robdoes.kmpresources.core.shared.LocaleProvider
 import dev.robdoes.kmpresources.presentation.view.invalidateProjectViewCache
@@ -42,6 +46,11 @@ data class LocaleFileNodeData(
     val issueCount: Int
 )
 
+data class ResourceViewNodeData(
+    val modulePath: String,
+    val defaultFile: VirtualFile?
+)
+
 class KmpResourcesToolWindowPanel(
     private val project: Project,
     private val toolWindow: ToolWindow
@@ -56,13 +65,32 @@ class KmpResourcesToolWindowPanel(
         setupTree()
         add(JBScrollPane(tree), BorderLayout.CENTER)
 
-        project.messageBus.connect(toolWindow.disposable).subscribe(
+        val connection = project.messageBus.connect(toolWindow.disposable)
+
+        connection.subscribe(
             DumbService.DUMB_MODE,
             object : DumbService.DumbModeListener {
                 override fun exitDumbMode() {
                     invalidateProjectViewCache()
                     ProjectView.getInstance(project).refresh()
                     refreshData()
+                }
+            }
+        )
+        connection.subscribe(
+            VirtualFileManager.VFS_CHANGES,
+            object : BulkFileListener {
+                override fun after(events: List<VFileEvent>) {
+                    val isKmpResourceChanged = events.any { event ->
+                        val changedFile = event.file ?: return@any false
+                        changedFile.path.contains("/composeResources/values") && changedFile.extension == "xml"
+                    }
+
+                    if (isKmpResourceChanged) {
+                        invalidateProjectViewCache()
+                        ProjectView.getInstance(project).refresh()
+                        refreshData()
+                    }
                 }
             }
         )
@@ -97,6 +125,11 @@ class KmpResourcesToolWindowPanel(
                     append(userObject.moduleName, SimpleTextAttributes.REGULAR_BOLD_ATTRIBUTES)
                 }
 
+                is ResourceViewNodeData -> {
+                    icon = AllIcons.Nodes.DataTables
+                    append("Resource View", SimpleTextAttributes.REGULAR_BOLD_ATTRIBUTES)
+                }
+
                 is LocaleFileNodeData -> {
                     val localeInfo = if (userObject.localeTag != null) {
                         LocaleProvider.getAvailableLocales().find { it.languageTag == userObject.localeTag }
@@ -127,14 +160,30 @@ class KmpResourcesToolWindowPanel(
     private fun handleDoubleClick(e: MouseEvent) {
         val path = tree.getPathForLocation(e.x, e.y) ?: return
         val node = path.lastPathComponent as? DefaultMutableTreeNode ?: return
-        val data = node.userObject as? LocaleFileNodeData ?: return
+        val fileEditorManager = FileEditorManager.getInstance(project)
 
-        FileEditorManager.getInstance(project).openFile(data.file, true)
+        when (val data = node.userObject) {
+            is LocaleFileNodeData -> {
+                fileEditorManager.openFile(data.file, true)
+            }
+
+            is ResourceViewNodeData -> {
+                val file = data.defaultFile ?: return
+
+                val kmpVirtualFile = dev.robdoes.kmpresources.presentation.editor.KmpResourceVirtualFile(
+                    data.modulePath,
+                    file
+                )
+
+                fileEditorManager.openFile(kmpVirtualFile, true)
+            }
+        }
     }
 
     fun refreshData() {
+
         project.service<KmpProjectScopeService>().coroutineScope.launch {
-            DumbService.getInstance(project).waitForSmartMode()
+            project.awaitSmartMode()
             val issueService = project.service<ResourceIssueService>()
             val files = issueService.findAllResourceFiles()
 
@@ -162,6 +211,10 @@ class KmpResourcesToolWindowPanel(
 
                 structure.keys.sorted().forEach { modulePath ->
                     val moduleNode = DefaultMutableTreeNode(ModuleNodeData(modulePath))
+
+                    val defaultLocaleData = structure[modulePath]?.find { it.localeTag == null }
+
+                    moduleNode.add(DefaultMutableTreeNode(ResourceViewNodeData(modulePath, defaultLocaleData?.file)))
 
                     structure[modulePath]?.sortedBy { it.localeTag ?: "" }?.forEach { localeData ->
                         moduleNode.add(DefaultMutableTreeNode(localeData))

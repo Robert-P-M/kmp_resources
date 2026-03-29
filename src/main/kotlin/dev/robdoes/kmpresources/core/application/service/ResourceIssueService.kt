@@ -8,10 +8,11 @@ import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.progress.ProcessCanceledException
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
+import com.intellij.psi.PsiManager
 import com.intellij.psi.search.FileTypeIndex
 import com.intellij.psi.search.GlobalSearchScope
+import com.intellij.psi.xml.XmlFile
 import dev.robdoes.kmpresources.data.repository.XmlResourceRepositoryFactory
-import dev.robdoes.kmpresources.domain.usecase.LoadResourcesUseCase
 
 @Service(Service.Level.PROJECT)
 class ResourceIssueService(private val project: Project) {
@@ -24,11 +25,9 @@ class ResourceIssueService(private val project: Project) {
         val repositoryFactory = project.service<XmlResourceRepositoryFactory>()
 
         return try {
-            val keys = readAction {
-                val repository = repositoryFactory.create(file)
-                val resources = repository.parseResourcesFromDisk()
-                resources.map { it.key }
-            }
+            val repository = repositoryFactory.create(file)
+            val resources = repository.parseResourcesFromDisk()
+            val keys = resources.map { it.key }
 
             var warnings = 0
             for (key in keys) {
@@ -51,12 +50,17 @@ class ResourceIssueService(private val project: Project) {
             readAction {
                 val resourceFiles = mutableListOf<VirtualFile>()
                 val projectScope = GlobalSearchScope.projectScope(project)
+                val psiManager = PsiManager.getInstance(project)
 
                 FileTypeIndex.getFiles(XmlFileType.INSTANCE, projectScope).forEach { file ->
-                    val isStringFile = file.name == "string.xml" || file.name == "strings.xml"
-
-                    if (isStringFile && file.path.contains("composeResources")) {
-                        resourceFiles.add(file)
+                    if (file.extension == "xml" && file.parent?.name?.startsWith("values") == true && file.path.contains(
+                            "composeResources"
+                        )
+                    ) {
+                        val xmlFile = psiManager.findFile(file) as? XmlFile
+                        if (xmlFile?.rootTag?.name == "resources") {
+                            resourceFiles.add(file)
+                        }
                     }
                 }
                 resourceFiles

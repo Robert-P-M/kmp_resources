@@ -5,6 +5,7 @@ import com.intellij.codeInspection.ProblemsHolder
 import com.intellij.psi.PsiElementVisitor
 import dev.robdoes.kmpresources.core.infrastructure.i18n.KmpResourcesBundle
 import dev.robdoes.kmpresources.core.infrastructure.resolver.KmpResourceResolver
+import dev.robdoes.kmpresources.domain.model.ResourceType
 import org.jetbrains.kotlin.psi.KtCallExpression
 import org.jetbrains.kotlin.psi.KtVisitorVoid
 
@@ -32,13 +33,16 @@ class KmpFormatInspection : LocalInspectionTool() {
 
                 val xmlTag = tags.first()
 
-                val xmlText = if (resolved.xmlTag == "plurals") {
-                    xmlTag.findSubTags("item").find { it.getAttributeValue("quantity") == "other" }?.value?.text ?: ""
+                val expectedArgsCount = if (resolved.type == ResourceType.Plural) {
+                    val items = xmlTag.findSubTags("item")
+                    if (items.isEmpty()) {
+                        0
+                    } else {
+                        items.maxOf { FormatArgumentAnalyzer.countRequiredArguments(it.value.text) }
+                    }
                 } else {
-                    xmlTag.value.text
+                    FormatArgumentAnalyzer.countRequiredArguments(xmlTag.value.text)
                 }
-
-                val expectedArgsCount = FormatArgumentAnalyzer.countRequiredArguments(xmlText)
 
                 val providedArgsCount = if (functionName == "pluralStringResource") {
                     valueArguments.size - 2

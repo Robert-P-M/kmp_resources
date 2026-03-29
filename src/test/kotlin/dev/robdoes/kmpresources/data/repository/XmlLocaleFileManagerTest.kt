@@ -1,15 +1,31 @@
 package dev.robdoes.kmpresources.data.repository
 
 import com.intellij.openapi.application.runReadAction
+import com.intellij.openapi.components.service
 import com.intellij.psi.PsiManager
 import com.intellij.psi.xml.XmlFile
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
-import kotlinx.coroutines.runBlocking
+import com.intellij.util.ui.UIUtil
+import dev.robdoes.kmpresources.core.infrastructure.coroutines.KmpProjectScopeService
+import kotlinx.coroutines.launch
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 class XmlLocaleFileManagerTest : BasePlatformTestCase() {
+
+    // FIX: Unser eigener Runner, der den EDT nicht blockiert, sondern am Leben hält!
+    private fun <T> runSuspendTest(block: suspend () -> T): T {
+        var result: Result<T>? = null
+        project.service<KmpProjectScopeService>().coroutineScope.launch {
+            result = runCatching { block() }
+        }
+        while (result == null) {
+            UIUtil.dispatchAllInvocationEvents() // Pumpt den UI-Thread
+            Thread.sleep(10)
+        }
+        return result!!.getOrThrow()
+    }
 
     fun testFindRelatedLocaleFilesFindsExistingTranslations() {
         // Arrange: Create a default file and two locale-specific files
@@ -45,7 +61,8 @@ class XmlLocaleFileManagerTest : BasePlatformTestCase() {
         )
     }
 
-    fun testCreateLocaleFileInternalCreatesNewDirectoryAndFile()  {
+    // FIX: runSuspendTest statt runBlocking
+    fun testCreateLocaleFileInternalCreatesNewDirectoryAndFile() = runSuspendTest {
         // Arrange
         val defaultFile = myFixture.addFileToProject("composeResources/values/strings.xml", "<resources/>").virtualFile
         val targetLocale = "it"
@@ -78,7 +95,8 @@ class XmlLocaleFileManagerTest : BasePlatformTestCase() {
         )
     }
 
-    fun testCreateLocaleFileInternalDoesNotOverwriteExistingContent()  {
+    // FIX: runSuspendTest statt runBlocking
+    fun testCreateLocaleFileInternalDoesNotOverwriteExistingContent() = runSuspendTest {
         // Arrange
         val defaultFile = myFixture.addFileToProject("composeResources/values/strings.xml", "<resources/>").virtualFile
         val existingContent = """<resources><string name="test">Ciao</string></resources>"""

@@ -10,7 +10,12 @@ class DeleteResourceUseCase(
     private val repository: ResourceRepository,
     private val loadResourcesUseCase: LoadResourcesUseCase
 ) {
-    suspend operator fun invoke(key: String, resourceType: ResourceType, isSubItem: Boolean, subItemIdentifier: String = "") {
+    suspend operator fun invoke(
+        key: String,
+        resourceType: ResourceType,
+        isSubItem: Boolean,
+        subItemIdentifier: String = ""
+    ) {
         if (isSubItem) {
             handleSubItemDeletion(key, subItemIdentifier)
         } else {

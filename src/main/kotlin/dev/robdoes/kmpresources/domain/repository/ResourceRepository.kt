@@ -5,8 +5,8 @@ import dev.robdoes.kmpresources.domain.model.XmlResource
 
 interface ResourceRepository {
     fun loadResources(): List<XmlResource>
-    fun parseResourcesFromDisk(): List<XmlResource>
+    suspend fun parseResourcesFromDisk(): List<XmlResource>
     suspend fun saveResource(resource: XmlResource)
-    fun deleteResource(key: String, type: ResourceType)
-    fun toggleUntranslatable(key: String, isUntranslatable: Boolean)
+    suspend fun deleteResource(key: String, type: ResourceType)
+    suspend fun toggleUntranslatable(key: String, isUntranslatable: Boolean)
 }

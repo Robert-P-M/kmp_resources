@@ -1,15 +1,29 @@
 package dev.robdoes.kmpresources.ide.documentation
 
+import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.PsiManager
 import com.intellij.psi.xml.XmlFile
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import com.intellij.util.ui.UIUtil
 import dev.robdoes.kmpresources.ide.navigation.KmpResourceTarget
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class KmpDocumentationProviderCoverageTest : BasePlatformTestCase() {
+
+    override fun tearDown() {
+        try {
+            UIUtil.dispatchAllInvocationEvents()
+
+            val fileEditorManager = FileEditorManager.getInstance(project)
+            fileEditorManager.openFiles.forEach { fileEditorManager.closeFile(it) }
+        } catch (e: Exception) {
+        } finally {
+            super.tearDown()
+        }
+    }
 
     private fun commitAll() {
         PsiDocumentManager.getInstance(project).commitAllDocuments()
@@ -20,7 +34,6 @@ class KmpDocumentationProviderCoverageTest : BasePlatformTestCase() {
 
         val provider = KmpDocumentationProvider()
 
-        // Hits: resolveReference(contextElement ?: return null)
         assertNull(
             actual = provider.getCustomDocumentationElement(myFixture.editor, myFixture.file, null, 0),
             message = "Should return null if contextElement is null"
@@ -28,13 +41,11 @@ class KmpDocumentationProviderCoverageTest : BasePlatformTestCase() {
 
         val nonResourceElement = myFixture.file.findElementAt(myFixture.caretOffset)
 
-        // Hits: resolveReference returns null
         assertNull(
             actual = provider.getCustomDocumentationElement(myFixture.editor, myFixture.file, nonResourceElement, 0),
             message = "Should return null if element under caret is not a KMP resource reference"
         )
 
-        // Hits: if (element !is KmpResourceTarget) return null
         assertNull(
             actual = provider.generateDoc(nonResourceElement, null),
             message = "Should return null if target element is not a KmpResourceTarget"
@@ -124,7 +135,6 @@ class KmpDocumentationProviderCoverageTest : BasePlatformTestCase() {
             message = "Should return null if the locale file path cannot be resolved"
         )
 
-        // Using URL here ensures compatibility with the TempFileSystem used in our tests
         val validLink = "locale_${xmlPsi.virtualFile.url}"
         val resolvedTarget = provider.getDocumentationElementForLink(psiManager, validLink, target)
 

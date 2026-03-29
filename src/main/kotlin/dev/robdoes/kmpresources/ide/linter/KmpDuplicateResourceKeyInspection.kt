@@ -7,6 +7,7 @@ import com.intellij.psi.XmlElementVisitor
 import com.intellij.psi.xml.XmlAttribute
 import com.intellij.psi.xml.XmlTag
 import dev.robdoes.kmpresources.core.infrastructure.i18n.KmpResourcesBundle
+import dev.robdoes.kmpresources.domain.model.ResourceType
 
 class KmpDuplicateResourceKeyInspection : LocalInspectionTool() {
 
@@ -16,15 +17,15 @@ class KmpDuplicateResourceKeyInspection : LocalInspectionTool() {
                 if (tag.name != "resources") return
 
                 val containingFile = tag.containingFile ?: return
-                if (containingFile.name != "strings.xml" && containingFile.name != "string.xml") return
-                if (!containingFile.virtualFile.path.contains("composeResources")) return
+                val vFile = containingFile.virtualFile ?: return
+
+                if (vFile.extension != "xml") return
+                if (!vFile.path.contains("composeResources") || !vFile.parent.name.startsWith("values")) return
 
                 val seenKeys = mutableSetOf<String>()
 
                 for (subTag in tag.subTags) {
-                    val resourceType = subTag.name
-                    if (resourceType != "string" && resourceType != "plurals" && resourceType != "string-array") continue
-
+                    if (ResourceType.fromXmlTag(subTag.name) == null) continue
                     val keyName = subTag.getAttributeValue("name") ?: continue
                     if (keyName.isBlank()) continue
 

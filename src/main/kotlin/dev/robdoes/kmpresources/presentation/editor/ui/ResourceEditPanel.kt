@@ -3,7 +3,6 @@ package dev.robdoes.kmpresources.presentation.editor.ui
 import com.intellij.icons.AllIcons
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.ComboBox
-import com.intellij.openapi.ui.Messages
 import com.intellij.ui.JBColor
 import com.intellij.ui.components.JBLabel
 import com.intellij.ui.components.JBScrollPane
@@ -14,11 +13,7 @@ import com.intellij.ui.dsl.builder.panel
 import com.intellij.util.ui.JBUI
 import com.intellij.util.ui.UIUtil
 import dev.robdoes.kmpresources.core.infrastructure.i18n.KmpResourcesBundle
-import dev.robdoes.kmpresources.domain.model.PluralsResource
-import dev.robdoes.kmpresources.domain.model.ResourceType
-import dev.robdoes.kmpresources.domain.model.StringArrayResource
-import dev.robdoes.kmpresources.domain.model.StringResource
-import dev.robdoes.kmpresources.domain.model.XmlResource
+import dev.robdoes.kmpresources.domain.model.*
 import dev.robdoes.kmpresources.domain.usecase.ResourceKeyValidator
 import dev.robdoes.kmpresources.presentation.editor.controller.ResourceEditPanelController
 import java.awt.*

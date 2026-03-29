@@ -1,7 +1,6 @@
 package dev.robdoes.kmpresources.data.repository
 
 import com.intellij.openapi.application.edtWriteAction
-import com.intellij.openapi.application.runWriteAction
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiManager
@@ -24,10 +23,10 @@ object XmlLocaleFileManager {
             }.toMap()
     }
 
-    fun createLocaleFileInternal(defaultFile: VirtualFile, localeTag: String): VirtualFile? {
-        return runWriteAction {
-            val defaultDir = defaultFile.parent ?: return@runWriteAction null
-            val composeResourcesDir = defaultDir.parent ?: return@runWriteAction null
+    suspend fun createLocaleFileInternal(defaultFile: VirtualFile, localeTag: String): VirtualFile? {
+        return edtWriteAction {
+            val defaultDir = defaultFile.parent ?: return@edtWriteAction null
+            val composeResourcesDir = defaultDir.parent ?: return@edtWriteAction null
             val targetDirName = "values-$localeTag"
 
             val targetDir = composeResourcesDir.findChild(targetDirName)
