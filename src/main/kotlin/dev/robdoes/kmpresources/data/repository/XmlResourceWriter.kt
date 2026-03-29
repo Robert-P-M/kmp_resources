@@ -2,7 +2,6 @@ package dev.robdoes.kmpresources.data.repository
 
 import com.intellij.openapi.project.Project
 import com.intellij.psi.XmlElementFactory
-import com.intellij.psi.codeStyle.CodeStyleManager
 import com.intellij.psi.xml.XmlFile
 import com.intellij.psi.xml.XmlTag
 import com.intellij.xml.util.XmlStringUtil
@@ -29,7 +28,6 @@ object XmlResourceWriter {
             rootTag.add(newTag)
         }
 
-        CodeStyleManager.getInstance(project).reformat(psiFile)
     }
 
     fun deleteResource(psiFile: XmlFile, key: String, type: ResourceType) {
@@ -44,14 +42,13 @@ object XmlResourceWriter {
         targetTag?.delete()
     }
 
-    fun setUntranslatable(project: Project, psiFile: XmlFile, key: String, isUntranslatable: Boolean) {
+    fun setUntranslatable(psiFile: XmlFile, key: String, isUntranslatable: Boolean) {
         val tag = psiFile.rootTag?.subTags?.find { it.getAttributeValue("name") == key } ?: return
         if (isUntranslatable) {
             tag.setAttribute("translatable", "false")
         } else {
             tag.getAttribute("translatable")?.delete()
         }
-        CodeStyleManager.getInstance(project).reformat(tag)
     }
 
     fun createResourceTag(factory: XmlElementFactory, resource: XmlResource, localeTag: String?): XmlTag {

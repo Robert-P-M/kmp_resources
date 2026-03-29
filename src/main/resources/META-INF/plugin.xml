@@ -65,6 +65,27 @@
                 implementation="dev.robdoes.kmpresources.presentation.view.KmpResourceProjectViewDecorator"/>
 
     </extensions>
+    <actions>
+        <group
+                id="dev.robdoes.kmpresources.MainToolbarGroup"
+                icon="MyIcons.ToolbarAppAction"
+                popup="true">
+
+            <action
+                    id="dev.robdoes.kmpresources.OpenResourceEditor"
+                    class="dev.robdoes.kmpresources.presentation.toolbar.KmpOpenResourceEditorAction"
+                    icon="AllIcons.FileTypes.Xml"/>
+
+            <action
+                    id="dev.robdoes.kmpresources.RunGradleSync"
+                    class="dev.robdoes.kmpresources.presentation.toolbar.KmpRunGradleSyncAction"
+                    icon="AllIcons.Actions.Refresh"/>
+
+            <add-to-group group-id="MainToolbarRight" anchor="last"/>
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+        </group>
+    </actions>
+
     <extensions defaultExtensionNs="org.jetbrains.kotlin">
         <supportsKotlinPluginMode supportsK1="true" supportsK2="true"/>
     </extensions>

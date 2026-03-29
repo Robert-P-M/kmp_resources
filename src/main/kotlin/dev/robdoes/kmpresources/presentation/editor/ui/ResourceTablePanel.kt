@@ -86,35 +86,41 @@ class ResourceTablePanel(private val project: Project, private val scannerServic
 
             override fun setValueAt(aValue: Any?, row: Int, column: Int) {
                 val oldValue = getValueAt(row, column)
-                super.setValueAt(aValue, row, column)
                 if (oldValue == aValue) return
 
                 val type = getValueAt(row, ResourceColumn.TYPE.index) as? String ?: return
                 val parentKey = getParentKeyNameForRow(row) ?: return
                 val isUn = getValueAt(row, ResourceColumn.UNTRANSLATABLE.index) as? Boolean ?: false
                 val localeTag = dynamicLocaleColumns[column]
-
                 val staticCol = ResourceColumn.fromIndex(column)
-                if (staticCol == ResourceColumn.DEFAULT_VALUE || dynamicLocaleColumns.containsKey(column)) {
-                    val newValue = aValue as? String ?: ""
-                    when {
-                        type == "string" -> onInlineStringEdited?.invoke(parentKey, localeTag, isUn, newValue)
-                        type in validQuantities -> onInlinePluralEdited?.invoke(
-                            parentKey,
-                            localeTag,
-                            isUn,
-                            type,
-                            newValue
-                        )
 
-                        type.startsWith("item[") -> {
-                            val idx = type.substringAfter("[").substringBefore("]")
-                                .let { if (it == "+") -1 else it.toIntOrNull() ?: -1 }
-                            onInlineArrayEdited?.invoke(parentKey, localeTag, isUn, idx, newValue)
+                when {
+                    staticCol == ResourceColumn.DEFAULT_VALUE || dynamicLocaleColumns.containsKey(column) -> {
+                        val newValue = aValue as? String ?: ""
+                        when {
+                            type == "string" -> onInlineStringEdited?.invoke(parentKey, localeTag, isUn, newValue)
+                            type in validQuantities -> onInlinePluralEdited?.invoke(
+                                parentKey,
+                                localeTag,
+                                isUn,
+                                type,
+                                newValue
+                            )
+
+                            type.startsWith("item[") -> {
+                                val idx = type.substringAfter("[").substringBefore("]")
+                                    .let { if (it == "+") -1 else it.toIntOrNull() ?: -1 }
+                                onInlineArrayEdited?.invoke(parentKey, localeTag, isUn, idx, newValue)
+                            }
                         }
                     }
-                } else if (staticCol == ResourceColumn.UNTRANSLATABLE) {
-                    onUntranslatableToggled?.invoke(parentKey, aValue as? Boolean ?: false)
+
+                    staticCol == ResourceColumn.UNTRANSLATABLE -> {
+                        super.setValueAt(aValue, row, column)
+                        onUntranslatableToggled?.invoke(parentKey, aValue as? Boolean ?: false)
+                    }
+
+                    else -> super.setValueAt(aValue, row, column)
                 }
             }
         }

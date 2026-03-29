@@ -34,6 +34,7 @@ import java.awt.BorderLayout
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
 import javax.swing.JPanel
+import javax.swing.JTree
 import javax.swing.tree.DefaultMutableTreeNode
 import javax.swing.tree.DefaultTreeModel
 import javax.swing.tree.TreeSelectionModel
@@ -43,12 +44,13 @@ data class LocaleFileNodeData(
     val file: VirtualFile,
     val localeTag: String?,
     val displayName: String,
-    val issueCount: Int
 )
 
 data class ResourceViewNodeData(
     val modulePath: String,
-    val defaultFile: VirtualFile?
+    val defaultFile: VirtualFile?,
+    val unusedKeysCount: Int,
+    val hasMissingTranslations: Boolean
 )
 
 class KmpResourcesToolWindowPanel(
@@ -85,7 +87,6 @@ class KmpResourcesToolWindowPanel(
                         val changedFile = event.file ?: return@any false
                         changedFile.path.contains("/composeResources/values") && changedFile.extension == "xml"
                     }
-
                     if (isKmpResourceChanged) {
                         invalidateProjectViewCache()
                         ProjectView.getInstance(project).refresh()
@@ -94,7 +95,10 @@ class KmpResourcesToolWindowPanel(
                 }
             }
         )
-        refreshData()
+
+        DumbService.getInstance(project).runWhenSmart {
+            refreshData()
+        }
     }
 
     private fun setupTree() {
@@ -114,7 +118,7 @@ class KmpResourcesToolWindowPanel(
 
     private fun createTreeRenderer() = object : ColoredTreeCellRenderer() {
         override fun customizeCellRenderer(
-            tree: javax.swing.JTree, value: Any?, selected: Boolean,
+            tree: JTree, value: Any?, selected: Boolean,
             expanded: Boolean, leaf: Boolean, row: Int, hasFocus: Boolean
         ) {
             val userObject = (value as? DefaultMutableTreeNode)?.userObject ?: return
@@ -127,7 +131,36 @@ class KmpResourcesToolWindowPanel(
 
                 is ResourceViewNodeData -> {
                     icon = AllIcons.Nodes.DataTables
-                    append("Resource View", SimpleTextAttributes.REGULAR_BOLD_ATTRIBUTES)
+                    append(
+                        KmpResourcesBundle.message("ui.toolwindow.node.resource_view"),
+                        SimpleTextAttributes.REGULAR_BOLD_ATTRIBUTES
+                    )
+
+                    if (userObject.unusedKeysCount == 0 && !userObject.hasMissingTranslations) {
+                        val okText = KmpResourcesBundle.message("ui.toolwindow.issue.suffix.ok")
+                        append(" ($okText)", SimpleTextAttributes(SimpleTextAttributes.STYLE_PLAIN, JBColor.GREEN))
+                    } else {
+                        append(" (", SimpleTextAttributes.REGULAR_ATTRIBUTES)
+
+                        if (userObject.hasMissingTranslations) {
+                            val missingText = KmpResourcesBundle.message("ui.toolwindow.issue.missing_translations")
+                            append(missingText, SimpleTextAttributes(SimpleTextAttributes.STYLE_PLAIN, JBColor.ORANGE))
+                        }
+
+                        if (userObject.hasMissingTranslations && userObject.unusedKeysCount > 0) {
+                            append(" | ", SimpleTextAttributes.REGULAR_ATTRIBUTES)
+                        }
+
+                        if (userObject.unusedKeysCount > 0) {
+                            val unusedText = KmpResourcesBundle.message(
+                                "ui.toolwindow.issue.unused_keys",
+                                userObject.unusedKeysCount
+                            )
+                            append(unusedText, SimpleTextAttributes.ERROR_ATTRIBUTES)
+                        }
+
+                        append(")", SimpleTextAttributes.REGULAR_ATTRIBUTES)
+                    }
                 }
 
                 is LocaleFileNodeData -> {
@@ -137,20 +170,14 @@ class KmpResourcesToolWindowPanel(
 
                     icon = AllIcons.FileTypes.Xml
 
+
+
                     if (userObject.localeTag == null) {
                         append("default", SimpleTextAttributes.REGULAR_ATTRIBUTES)
                     } else {
                         val flag = localeInfo?.flagEmoji?.let { "$it " } ?: ""
                         val languageName = localeInfo?.displayName ?: userObject.displayName
                         append("$flag$languageName (${userObject.localeTag})", SimpleTextAttributes.REGULAR_ATTRIBUTES)
-                    }
-
-                    if (userObject.issueCount > 0) {
-                        val issueSuffix = KmpResourcesBundle.message("ui.toolwindow.issue.suffix.issues")
-                        append(" (${userObject.issueCount} $issueSuffix)", SimpleTextAttributes.ERROR_ATTRIBUTES)
-                    } else if (userObject.issueCount == 0) {
-                        val okText = KmpResourcesBundle.message("ui.toolwindow.issue.suffix.ok")
-                        append(" ($okText)", SimpleTextAttributes(SimpleTextAttributes.STYLE_PLAIN, JBColor.GREEN))
                     }
                 }
             }
@@ -180,18 +207,21 @@ class KmpResourcesToolWindowPanel(
         }
     }
 
-    fun refreshData() {
 
+    fun refreshData() {
         project.service<KmpProjectScopeService>().coroutineScope.launch {
             project.awaitSmartMode()
+
             val issueService = project.service<ResourceIssueService>()
             val files = issueService.findAllResourceFiles()
 
+            if (files.isEmpty()) return@launch
+
             val structure = mutableMapOf<String, MutableList<LocaleFileNodeData>>()
+            val moduleIssues = mutableMapOf<String, Int>()
+            val missingTranslationsMap = mutableMapOf<String, Boolean>()
 
             for (file in files) {
-                val issueCount = issueService.countIssues(file)
-
                 val modulePath = file.path
                     .substringAfter(project.basePath ?: "")
                     .substringBefore("/src/")
@@ -203,18 +233,46 @@ class KmpResourcesToolWindowPanel(
                 val displayLocale = localeTag ?: "default"
 
                 structure.getOrPut(modulePath) { mutableListOf() }
-                    .add(LocaleFileNodeData(file, localeTag, displayLocale, issueCount))
+                    .add(LocaleFileNodeData(file, localeTag, displayLocale))
+
+                if (localeTag == null) {
+                    moduleIssues[modulePath] = issueService.countIssues(file)
+                }
             }
+
+            for ((modulePath, nodes) in structure) {
+                val defaultFile = nodes.find { it.localeTag == null }?.file
+                val localizedFiles = nodes.filter { it.localeTag != null }.map { it.file }
+
+                if (defaultFile != null && localizedFiles.isNotEmpty()) {
+                    missingTranslationsMap[modulePath] =
+                        issueService.hasMissingTranslations(defaultFile, localizedFiles)
+                } else {
+                    missingTranslationsMap[modulePath] = false
+                }
+            }
+
 
             withContext(Dispatchers.EDT) {
                 rootNode.removeAllChildren()
 
                 structure.keys.sorted().forEach { modulePath ->
                     val moduleNode = DefaultMutableTreeNode(ModuleNodeData(modulePath))
-
                     val defaultLocaleData = structure[modulePath]?.find { it.localeTag == null }
 
-                    moduleNode.add(DefaultMutableTreeNode(ResourceViewNodeData(modulePath, defaultLocaleData?.file)))
+                    val issues = moduleIssues[modulePath] ?: 0
+                    val hasMissing = missingTranslationsMap[modulePath] ?: false
+
+                    moduleNode.add(
+                        DefaultMutableTreeNode(
+                            ResourceViewNodeData(
+                                modulePath = modulePath,
+                                defaultFile = defaultLocaleData?.file,
+                                unusedKeysCount = issues,
+                                hasMissingTranslations = hasMissing
+                            )
+                        )
+                    )
 
                     structure[modulePath]?.sortedBy { it.localeTag ?: "" }?.forEach { localeData ->
                         moduleNode.add(DefaultMutableTreeNode(localeData))
@@ -223,7 +281,6 @@ class KmpResourcesToolWindowPanel(
                 }
 
                 treeModel.nodeStructureChanged(rootNode)
-
                 for (i in 0 until tree.rowCount) tree.expandRow(i)
             }
         }

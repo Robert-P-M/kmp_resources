@@ -72,4 +72,31 @@ class ResourceIssueService(private val project: Project) {
             emptyList()
         }
     }
+
+    suspend fun hasMissingTranslations(defaultFile: VirtualFile, localizedFiles: List<VirtualFile>): Boolean {
+        return readAction {
+            val psiManager = PsiManager.getInstance(project)
+            val defaultXml = psiManager.findFile(defaultFile) as? XmlFile ?: return@readAction false
+
+            val defaultKeysToTranslate = defaultXml.rootTag?.subTags
+                ?.filter { it.getAttributeValue("translatable") != "false" }
+                ?.mapNotNull { it.getAttributeValue("name") }
+                ?.toSet() ?: emptySet()
+
+            if (defaultKeysToTranslate.isEmpty()) return@readAction false
+
+            for (localeFile in localizedFiles) {
+                val localeXml = psiManager.findFile(localeFile) as? XmlFile ?: continue
+                val localeKeys = localeXml.rootTag?.subTags
+                    ?.mapNotNull { it.getAttributeValue("name") }
+                    ?.toSet() ?: emptySet()
+
+                if (!localeKeys.containsAll(defaultKeysToTranslate)) {
+                    return@readAction true
+                }
+            }
+
+            false
+        }
+    }
 }

@@ -2,7 +2,6 @@ package dev.robdoes.kmpresources.domain.usecase
 
 import dev.robdoes.kmpresources.domain.model.StringResource
 import dev.robdoes.kmpresources.domain.repository.FakeResourceRepository
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Test
 import kotlin.test.assertFalse
