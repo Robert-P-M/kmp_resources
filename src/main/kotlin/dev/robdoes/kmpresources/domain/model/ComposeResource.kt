@@ -21,7 +21,6 @@ data class StringResource(
     override val type = ResourceType.String
     override val localizedValues: Map<String?, Any> = values
 
-    val defaultValue: String get() = values[null] ?: ""
     override fun isEmptyForLocale(localeTag: String?): Boolean = values[localeTag].isNullOrBlank()
 }
 

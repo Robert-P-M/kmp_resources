@@ -256,7 +256,7 @@ class KmpResourceTableEditor(
 
     private fun triggerNativeFindUsages(keyName: String) {
         val normalizedKey = ResourceKeyNormalizer.normalize(keyName)
-        val searchRegex = "Res\\.(string|plurals|array)\\.$normalizedKey|name=\"$keyName\""
+        val searchRegex = "Res\\.(string|plurals|array)\\.$normalizedKey|name\\s*=\\s*[\"']$keyName[\"']"
 
         val findModel = FindModel().apply {
             stringToFind = searchRegex

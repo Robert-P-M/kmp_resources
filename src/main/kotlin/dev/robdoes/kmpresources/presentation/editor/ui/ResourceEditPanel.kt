@@ -3,6 +3,7 @@ package dev.robdoes.kmpresources.presentation.editor.ui
 import com.intellij.icons.AllIcons
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.ComboBox
+import com.intellij.ui.DocumentAdapter
 import com.intellij.ui.JBColor
 import com.intellij.ui.components.JBLabel
 import com.intellij.ui.components.JBScrollPane
@@ -20,9 +21,7 @@ import java.awt.*
 import java.awt.event.KeyAdapter
 import java.awt.event.KeyEvent
 import javax.swing.*
-import javax.swing.text.AbstractDocument
-import javax.swing.text.AttributeSet
-import javax.swing.text.DocumentFilter
+import javax.swing.event.DocumentEvent
 
 class ResourceEditPanel(project: Project) : JPanel(BorderLayout()) {
 
@@ -74,23 +73,11 @@ class ResourceEditPanel(project: Project) : JPanel(BorderLayout()) {
             JBUI.Borders.empty(5, 10, 10, 10)
         )
 
-        (keyField.document as AbstractDocument).documentFilter = object : DocumentFilter() {
-            override fun insertString(fb: FilterBypass, offset: Int, string: String?, attr: AttributeSet?) {
-                if (string != null && ResourceKeyValidator.isValid(string)) {
-                    super.insertString(fb, offset, string, attr)
-                } else {
-                    Toolkit.getDefaultToolkit().beep()
-                }
+        keyField.document.addDocumentListener(object : DocumentAdapter() {
+            override fun textChanged(e: DocumentEvent) {
+                validateInput()
             }
-
-            override fun replace(fb: FilterBypass, offset: Int, length: Int, text: String?, attrs: AttributeSet?) {
-                if (text != null && ResourceKeyValidator.isValid(text)) {
-                    super.replace(fb, offset, length, text, attrs)
-                } else {
-                    Toolkit.getDefaultToolkit().beep()
-                }
-            }
-        }
+        })
 
         validQuantities.forEach { q ->
             pluralValueFields[q] = JBTextField(35).apply {
@@ -166,10 +153,10 @@ class ResourceEditPanel(project: Project) : JPanel(BorderLayout()) {
                 if (e.keyCode == KeyEvent.VK_ENTER || e.keyCode == KeyEvent.VK_TAB) {
                     e.consume()
                     if (e.source == keyField && typeComboBox.selectedItem == "string") {
-                        if (e.keyCode == KeyEvent.VK_ENTER) submit()
+                        if (e.keyCode == KeyEvent.VK_ENTER && mainActionButton.isEnabled) submit()
                         else stringValueField.requestFocusInWindow()
                     } else if (e.source == stringValueField) {
-                        if (e.keyCode == KeyEvent.VK_ENTER) submit()
+                        if (e.keyCode == KeyEvent.VK_ENTER && mainActionButton.isEnabled) submit()
                     }
                 }
             }
@@ -183,6 +170,25 @@ class ResourceEditPanel(project: Project) : JPanel(BorderLayout()) {
         }, BorderLayout.CENTER)
 
         updateFormVisibility("string")
+    }
+
+    private fun validateInput() {
+        val text = keyField.text
+        val isValidFormat = ResourceKeyValidator.isValid(text)
+        val isNotEmpty = text.isNotBlank()
+
+        val isKeyValid = isValidFormat && isNotEmpty
+
+        if (!isValidFormat && text.isNotEmpty()) {
+            keyField.putClientProperty("JComponent.outline", "error")
+            keyField.toolTipText = KmpResourcesBundle.message("dialog.error.validation.key")
+        } else {
+            keyField.putClientProperty("JComponent.outline", null)
+            keyField.toolTipText = null
+        }
+
+        saveKeyButton.isEnabled = isKeyValid
+        mainActionButton.isEnabled = isKeyValid
     }
 
     private fun updateFormVisibility(selectedType: String) {
@@ -253,7 +259,8 @@ class ResourceEditPanel(project: Project) : JPanel(BorderLayout()) {
 
         mainActionButton.text = KmpResourcesBundle.message("ui.panel.btn.add")
         mainActionButton.icon = AllIcons.General.Add
-        mainActionButton.isEnabled = true
+
+        validateInput()
 
         isVisible = true
         keyField.requestFocusInWindow()
@@ -294,13 +301,17 @@ class ResourceEditPanel(project: Project) : JPanel(BorderLayout()) {
             }
         }
 
-        mainActionButton.isEnabled = true
         mainActionButton.text = KmpResourcesBundle.message("ui.panel.btn.update")
         mainActionButton.icon = AllIcons.Actions.Edit
+
+        validateInput()
+
         isVisible = true
     }
 
     private fun submit() {
+        if (!mainActionButton.isEnabled) return
+
         val resourceToSave = controller.buildResourceFromInput(
             key = keyField.text.trim(),
             type = typeComboBox.selectedItem as String,
@@ -314,5 +325,4 @@ class ResourceEditPanel(project: Project) : JPanel(BorderLayout()) {
             onSaveRequested?.invoke(resourceToSave)
         }
     }
-
 }

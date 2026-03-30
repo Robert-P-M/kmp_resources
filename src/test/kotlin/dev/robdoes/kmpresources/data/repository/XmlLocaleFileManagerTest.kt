@@ -6,6 +6,8 @@ import com.intellij.psi.xml.XmlFile
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import com.intellij.util.ui.UIUtil
 import dev.robdoes.kmpresources.core.infrastructure.coroutines.KmpProjectScopeService
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -13,17 +15,24 @@ import kotlin.test.assertTrue
 
 class XmlLocaleFileManagerTest : BasePlatformTestCase() {
 
-    // FIX: Unser eigener Runner, der den EDT nicht blockiert, sondern am Leben hält!
+    @OptIn(ExperimentalCoroutinesApi::class)
     private fun <T> runSuspendTest(block: suspend () -> T): T {
-        var result: Result<T>? = null
+        val deferred = CompletableDeferred<T>()
+
         project.service<KmpProjectScopeService>().coroutineScope.launch {
-            result = runCatching { block() }
+            try {
+                deferred.complete(block())
+            } catch (e: Throwable) {
+                deferred.completeExceptionally(e)
+            }
         }
-        while (result == null) {
-            UIUtil.dispatchAllInvocationEvents() // Pumpt den UI-Thread
-            Thread.sleep(10)
+
+        while (!deferred.isCompleted) {
+            UIUtil.dispatchAllInvocationEvents()
+            Thread.sleep(1)
         }
-        return result!!.getOrThrow()
+
+        return deferred.getCompleted()
     }
 
     fun testFindRelatedLocaleFilesFindsExistingTranslations() {
@@ -46,6 +55,7 @@ class XmlLocaleFileManagerTest : BasePlatformTestCase() {
             actual = relatedFiles.size,
             message = "Should find exactly 2 related files (de and es), ignoring the wrong file name in fr"
         )
+
         assertTrue(
             actual = relatedFiles.containsKey("de"),
             message = "The 'de' locale should be found"
@@ -54,13 +64,13 @@ class XmlLocaleFileManagerTest : BasePlatformTestCase() {
             actual = relatedFiles.containsKey("es"),
             message = "The 'es' locale should be found"
         )
+
         assertTrue(
             actual = relatedFiles["de"] is XmlFile,
             message = "The returned file must be parsed as an XmlFile"
         )
     }
 
-    // FIX: runSuspendTest statt runBlocking
     fun testCreateLocaleFileInternalCreatesNewDirectoryAndFile() = runSuspendTest {
         // Arrange
         val defaultFile = myFixture.addFileToProject("composeResources/values/strings.xml", "<resources/>").virtualFile
@@ -94,7 +104,6 @@ class XmlLocaleFileManagerTest : BasePlatformTestCase() {
         )
     }
 
-    // FIX: runSuspendTest statt runBlocking
     fun testCreateLocaleFileInternalDoesNotOverwriteExistingContent() = runSuspendTest {
         // Arrange
         val defaultFile = myFixture.addFileToProject("composeResources/values/strings.xml", "<resources/>").virtualFile

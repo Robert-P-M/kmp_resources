@@ -26,8 +26,6 @@
         <fileBasedIndex implementation="dev.robdoes.kmpresources.core.infrastructure.index.KmpResourceUsageIndex"/>
         <fileEditorProvider implementation="dev.robdoes.kmpresources.presentation.editor.KmpResourceEditorProvider"/>
         <gotoDeclarationHandler implementation="dev.robdoes.kmpresources.ide.navigation.KmpGotoDeclarationHandler"/>
-        <lang.documentationProvider language="kotlin"
-                                    implementationClass="dev.robdoes.kmpresources.ide.documentation.KmpDocumentationProvider"/>
         <intentionAction>
             <language>kotlin</language>
             <className>dev.robdoes.kmpresources.ide.intentions.KmpCreateResourceIntention</className>
@@ -62,7 +60,15 @@
                     factoryClass="dev.robdoes.kmpresources.presentation.toolwindow.KmpResourcesToolWindowFactory"/>
 
         <projectViewNodeDecorator
+                order="first"
                 implementation="dev.robdoes.kmpresources.presentation.view.KmpResourceProjectViewDecorator"/>
+
+        <platform.backend.documentation.psiTargetProvider
+                id="kmpResourceDocProvider"
+                order="first"
+                implementation="dev.robdoes.kmpresources.ide.documentation.KmpDocumentationTargetProvider"/>
+        <platform.backend.documentation.linkHandler
+                implementation="dev.robdoes.kmpresources.ide.documentation.KmpDocumentationLinkHandler"/>
 
     </extensions>
     <actions>

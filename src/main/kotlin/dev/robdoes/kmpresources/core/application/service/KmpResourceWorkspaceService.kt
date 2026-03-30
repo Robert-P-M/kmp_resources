@@ -7,6 +7,7 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.openapi.vfs.VirtualFileManager
 import com.intellij.openapi.vfs.newvfs.BulkFileListener
+import com.intellij.openapi.vfs.newvfs.events.VFileDeleteEvent
 import com.intellij.openapi.vfs.newvfs.events.VFileEvent
 import com.intellij.psi.PsiDocumentManager
 import dev.robdoes.kmpresources.core.infrastructure.coroutines.KmpProjectScopeService
@@ -33,19 +34,29 @@ class KmpResourceWorkspaceService(private val project: Project) {
             VirtualFileManager.VFS_CHANGES,
             object : BulkFileListener {
                 override fun after(events: List<VFileEvent>) {
-                    val changedKmpFiles = events.mapNotNull { it.file }.filter {
-                        it.path.contains("/composeResources/values") && it.extension == "xml"
+
+                    var needsReload = false
+                    for (event in events) {
+                        val path = event.path
+                        if (path.contains("/composeResources/values") && path.endsWith(".xml")) {
+                            if (event is VFileDeleteEvent) {
+                                fileStates.remove(event.file.url)
+                            } else {
+                                needsReload = true
+                            }
+                        }
                     }
-                    if (changedKmpFiles.isNotEmpty()) {
+
+                    if (needsReload) {
                         scope.launch(Dispatchers.Default) {
-                            fileStates
-                                .keys
-                                .forEach { url ->
-                                    val vFile = VirtualFileManager.getInstance().findFileByUrl(url)
-                                    if (vFile != null && vFile.isValid) {
-                                        reloadFromDisk(vFile)
-                                    }
+                            fileStates.keys.toList().forEach { url ->
+                                val vFile = VirtualFileManager.getInstance().findFileByUrl(url)
+                                if (vFile != null && vFile.isValid) {
+                                    reloadFromDisk(vFile)
+                                } else {
+                                    fileStates.remove(url)
                                 }
+                            }
                         }
                     }
                 }

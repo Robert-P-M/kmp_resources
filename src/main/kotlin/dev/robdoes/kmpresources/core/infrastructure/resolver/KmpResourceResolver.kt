@@ -65,12 +65,19 @@ object KmpResourceResolver {
                 val map = mutableMapOf<ResolvedResource, MutableList<SmartPsiElementPointer<XmlTag>>>()
                 val pointerManager = SmartPointerManager.getInstance(project)
 
-                val scope = GlobalSearchScope.projectScope(project)
-                val xmlFiles = FileTypeIndex.getFiles(XmlFileType.INSTANCE, scope)
+                val composeScope = object : GlobalSearchScope(project) {
+                    override fun contains(file: com.intellij.openapi.vfs.VirtualFile): Boolean {
+                        return file.path.contains("/composeResources/")
+                    }
+
+                    override fun isSearchInModuleContent(aModule: com.intellij.openapi.module.Module) = true
+                    override fun isSearchInLibraries() = false
+                }
+                val searchScope = GlobalSearchScope.projectScope(project).intersectWith(composeScope)
+
+                val xmlFiles = FileTypeIndex.getFiles(XmlFileType.INSTANCE, searchScope)
 
                 for (vFile in xmlFiles) {
-                    if (!vFile.path.contains("/composeResources/")) continue
-
                     val xmlFile = PsiManager.getInstance(project).findFile(vFile) as? XmlFile ?: continue
                     val rootTag = xmlFile.rootTag ?: continue
 

@@ -1,13 +1,15 @@
 package dev.robdoes.kmpresources.ide.navigation
 
 import com.intellij.navigation.ItemPresentation
-import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.components.service
 import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
 import com.intellij.psi.impl.FakePsiElement
 import com.intellij.psi.xml.XmlTag
+import dev.robdoes.kmpresources.core.infrastructure.coroutines.KmpProjectScopeService
 import dev.robdoes.kmpresources.presentation.editor.KmpResourceTableEditor
+import kotlinx.coroutines.launch
 import javax.swing.Icon
 
 class KmpResourceTarget(
@@ -42,11 +44,13 @@ class KmpResourceTarget(
 
         val rawXmlName = xmlTag.getAttributeValue("name") ?: kotlinKeyName
 
-        ApplicationManager.getApplication().invokeLater {
-            val editors = fileEditorManager.getEditors(kmpVirtualFile)
-            val tableEditor = editors.find { it is KmpResourceTableEditor } as? KmpResourceTableEditor
-            tableEditor?.scrollToKey(rawXmlName)
-        }
+        project.service<KmpProjectScopeService>()
+            .coroutineScope
+            .launch {
+                val editors = fileEditorManager.getEditors(kmpVirtualFile)
+                val tableEditor = editors.find { it is KmpResourceTableEditor } as? KmpResourceTableEditor
+                tableEditor?.scrollToKey(rawXmlName)
+            }
     }
 
     override fun getPresentation(): ItemPresentation {
@@ -56,4 +60,5 @@ class KmpResourceTarget(
             override fun getIcon(unused: Boolean): Icon? = xmlTag.getIcon(0)
         }
     }
+
 }
