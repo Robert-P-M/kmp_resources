@@ -58,7 +58,7 @@
 
         <toolWindow id="KMP Resources"
                     anchor="bottom"
-                    icon="AllIcons.Toolwindows.ToolWindowInspection"
+                    icon="/icons/toolWindowIcon.svg"
                     factoryClass="dev.robdoes.kmpresources.presentation.toolwindow.KmpResourcesToolWindowFactory"/>
 
         <projectViewNodeDecorator
@@ -68,7 +68,7 @@
     <actions>
         <group
                 id="dev.robdoes.kmpresources.MainToolbarGroup"
-                icon="MyIcons.ToolbarAppAction"
+                icon="/icons/pluginIcon.svg"
                 popup="true">
 
             <action

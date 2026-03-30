@@ -1,6 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40">
-    <rect width="40" height="40" rx="8" fill="#4A90E2"/>
-    <text x="50%" y="50%" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="#FFFFFF"
-          text-anchor="middle" dominant-baseline="central">KMP
-    </text>
+<svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M33 4H4V23.44H10.2143V31L18.5 23.44H33V4Z" stroke="#3592C4" stroke-width="2" stroke-linejoin="round"/>
+<circle cx="30.9583" cy="31.9583" r="5.45833" stroke="#AFB1B3"/>
+<path d="M30.957 26.459C34.207 29.1673 34.207 34.7507 30.957 37.459" stroke="#AFB1B3" stroke-linejoin="round"/>
+<path d="M36.375 31.959L25.5417 31.959" stroke="#AFB1B3" stroke-linejoin="round"/>
+<path d="M30.957 37.459C27.707 34.7507 27.707 29.1673 30.957 26.459" stroke="#AFB1B3" stroke-linejoin="round"/>
 </svg>
