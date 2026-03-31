@@ -1,0 +1,14 @@
+<html lang="en">
+<body>
+Creates a missing Compose Multiplatform resource directly from a Kotlin reference.
+<p>
+    When you type a reference to a resource that doesn't exist yet (e.g., <code>Res.string.my_new_key</code>),
+    this quick fix allows you to generate the corresponding XML tag on the fly.
+</p>
+<p>
+    The quick fix prompts you for the default value and safely appends the new resource
+    to the <code>strings.xml</code> of your <b>current module</b>. Finally, it triggers a background Gradle Sync
+    to generate the required Kotlin accessors, ensuring a seamless workflow.
+</p>
+</body>
+</html>

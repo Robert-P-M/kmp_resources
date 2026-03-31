@@ -1,0 +1,98 @@
+<!-- Plugin Configuration File. Read more: https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html -->
+<idea-plugin>
+    <id>dev.robdoes.kmpresources</id>
+
+    <resource-bundle>messages.KmpResourcesBundle</resource-bundle>
+    <name>KMP Resources</name>
+    <vendor email="kmp-resources@rob-does.dev" url="https://robdoes.dev">robdoes.dev</vendor>
+    <depends>com.intellij.modules.platform</depends>
+    <depends>org.jetbrains.kotlin</depends>
+
+    <description><![CDATA[
+        <p>KMP Resources is an advanced Table Editor and Refactoring Tool for Compose Multiplatform projects.</p>
+
+        <h3>Features:</h3>
+        <ul>
+            <li><b>Table Editor:</b> View, filter, and edit all your strings, plurals, and string-arrays in a clean UI.</li>
+            <li><b>Safe Key Renaming:</b> Rename a resource key and instantly refactor all Kotlin usages (<code>Res.string.*</code>) across your module.</li>
+            <li><b>Format Argument Linter:</b> Real-time IDE inspections to prevent missing or mismatched format arguments (like <code>%1$s</code>) in your Compose Multiplatform code.</li>
+            <li><b>Quick Documentation:</b> Hover over any KMP resource in your code to see its actual value, type, and navigate directly to translations.</li>
+            <li><b>Gradle Sync:</b> Seamlessly triggers Compose resource generation in the background.</li>
+        </ul>
+    ]]></description>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <errorHandler implementation="dev.robdoes.kmpresources.core.infrastructure.error.KmpErrorReportSubmitter"/>
+        <fileBasedIndex implementation="dev.robdoes.kmpresources.core.infrastructure.index.KmpResourceUsageIndex"/>
+        <fileEditorProvider implementation="dev.robdoes.kmpresources.presentation.editor.KmpResourceEditorProvider"/>
+        <gotoDeclarationHandler implementation="dev.robdoes.kmpresources.ide.navigation.KmpGotoDeclarationHandler"/>
+        <intentionAction>
+            <language>kotlin</language>
+            <className>dev.robdoes.kmpresources.ide.intentions.KmpCreateResourceIntention</className>
+            <categoryKey>intention.category</categoryKey>
+            <bundleName>messages.KmpResourcesBundle</bundleName>
+        </intentionAction>
+        <localInspection
+                language="kotlin"
+                key="inspection.format.args.display_name"
+                groupKey="inspection.format.args.group_name"
+                bundle="messages.KmpResourcesBundle"
+                shortName="KmpFormat"
+                groupPath="Kotlin"
+                enabledByDefault="true"
+                level="ERROR"
+                implementationClass="dev.robdoes.kmpresources.ide.linter.KmpFormatInspection"/>
+
+        <localInspection
+                language="XML"
+                key="inspection.duplicate.key.display_name"
+                groupKey="inspection.format.args.group_name"
+                bundle="messages.KmpResourcesBundle"
+                shortName="KmpDuplicateResourceKey"
+                groupPath="XML"
+                enabledByDefault="true"
+                level="ERROR"
+                implementationClass="dev.robdoes.kmpresources.ide.linter.KmpDuplicateResourceKeyInspection"/>
+
+        <toolWindow id="KMP Resources"
+                    anchor="bottom"
+                    icon="/icons/toolWindowIcon.svg"
+                    factoryClass="dev.robdoes.kmpresources.presentation.toolwindow.KmpResourcesToolWindowFactory"/>
+
+        <projectViewNodeDecorator
+                order="first"
+                implementation="dev.robdoes.kmpresources.presentation.view.KmpResourceProjectViewDecorator"/>
+
+        <platform.backend.documentation.psiTargetProvider
+                id="kmpResourceDocProvider"
+                order="first"
+                implementation="dev.robdoes.kmpresources.ide.documentation.KmpDocumentationTargetProvider"/>
+        <platform.backend.documentation.linkHandler
+                implementation="dev.robdoes.kmpresources.ide.documentation.KmpDocumentationLinkHandler"/>
+
+    </extensions>
+    <actions>
+        <group
+                id="dev.robdoes.kmpresources.MainToolbarGroup"
+                icon="/icons/pluginIcon.svg"
+                popup="true">
+
+            <action
+                    id="toolbar.open.editor"
+                    class="dev.robdoes.kmpresources.presentation.toolbar.KmpOpenResourceEditorAction"
+                    icon="AllIcons.FileTypes.Xml"/>
+
+            <action
+                    id="toolbar.sync"
+                    class="dev.robdoes.kmpresources.presentation.toolbar.KmpRunGradleSyncAction"
+                    icon="AllIcons.Actions.Refresh"/>
+
+            <add-to-group group-id="MainToolbarRight" anchor="last"/>
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+        </group>
+    </actions>
+
+    <extensions defaultExtensionNs="org.jetbrains.kotlin">
+        <supportsKotlinPluginMode supportsK1="true" supportsK2="true"/>
+    </extensions>
+</idea-plugin>

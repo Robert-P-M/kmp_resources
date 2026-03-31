@@ -1,0 +1,9 @@
+.DS_Store
+.gradle
+.idea
+.intellijPlatform
+.kotlin
+.qodana
+build
+/export_plugin.py
+/plugin_export.txt
