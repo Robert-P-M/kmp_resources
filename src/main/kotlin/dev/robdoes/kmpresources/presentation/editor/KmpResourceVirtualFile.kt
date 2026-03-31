@@ -1,6 +1,7 @@
 package dev.robdoes.kmpresources.presentation.editor
 
 import com.intellij.openapi.fileTypes.FileType
+import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.testFramework.LightVirtualFile
 
@@ -43,5 +44,26 @@ internal class KmpResourceVirtualFile(
 
     override fun hashCode(): Int {
         return defaultStringsFile.path.hashCode()
+    }
+
+    companion object {
+        /**
+         * Safely and quickly computes the readable Gradle module path (e.g. "feature:timer:setup")
+         * without hitting the slow WorkspaceFileIndex. This is completely safe to call on the EDT.
+         */
+        fun computeModuleName(project: Project, file: VirtualFile): String {
+            val basePath = project.basePath ?: return file.parent.name
+
+            // Example: /Users/rob/projects/App/feature/timer/src/... -> /feature/timer/
+            val relativePath = file.path
+                .substringAfter(basePath)
+                .substringBefore("src")
+                .replace("\\\\", "/")
+                .removePrefix("/")
+                .removeSuffix("/")
+
+            // Convert path slashes to Gradle colons (feature/timer -> feature:timer)
+            return relativePath.replace("/", ":").ifEmpty { "app" }
+        }
     }
 }

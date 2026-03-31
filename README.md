@@ -1,5 +1,4 @@
-# KMP Resources
-
+# <img src="assets/pluginIcon.svg" width="36" align="center" alt="Icon" /> KMP Resources
 [![Build](https://img.shields.io/github/actions/workflow/status/Robert-P-M/kmp_resources/build.yml?branch=main)](https://github.com/Robert-P-M/kmp_resources/actions)
 [![Version](https://img.shields.io/jetbrains/plugin/v/MARKETPLACE_ID.svg)](https://plugins.jetbrains.com/plugin/MARKETPLACE_ID)
 [![Downloads](https://img.shields.io/jetbrains/plugin/d/MARKETPLACE_ID.svg)](https://plugins.jetbrains.com/plugin/MARKETPLACE_ID)

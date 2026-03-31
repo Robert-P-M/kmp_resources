@@ -30,11 +30,7 @@ internal class KmpOpenResourceEditorAction : AnAction() {
             val issueService = project.service<ResourceIssueService>()
             val files = issueService.findAllResourceFiles()
             val defaultFile = files.firstOrNull() ?: return@launch
-            val modulePath = defaultFile.path
-                .substringAfter(project.basePath ?: "")
-                .substringBefore("src")
-                .replace("\\\\", "/")
-                .removePrefix("/")
+            val modulePath = KmpResourceVirtualFile.computeModuleName(project, defaultFile)
             val kmpVirtualFile = KmpResourceVirtualFile(modulePath, defaultFile)
             withContext(Dispatchers.EDT) {
                 FileEditorManager.getInstance(project).openFile(kmpVirtualFile, true)

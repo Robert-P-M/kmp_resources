@@ -9,6 +9,7 @@ import com.intellij.psi.impl.FakePsiElement
 import com.intellij.psi.xml.XmlTag
 import dev.robdoes.kmpresources.core.infrastructure.coroutines.KmpProjectScopeService
 import dev.robdoes.kmpresources.presentation.editor.KmpResourceTableEditor
+import dev.robdoes.kmpresources.presentation.editor.KmpResourceVirtualFile
 import kotlinx.coroutines.launch
 import javax.swing.Icon
 
@@ -39,12 +40,15 @@ internal class KmpResourceTarget(
 
     override fun navigate(requestFocus: Boolean) {
         val virtualFile = xmlTag.containingFile?.virtualFile ?: return
+        val project = xmlTag.project
         val fileEditorManager = FileEditorManager.getInstance(project)
 
-        val module = com.intellij.openapi.module.ModuleUtilCore.findModuleForFile(virtualFile, project)
-        val modulePath = module?.name ?: "KMP Module"
+        val modulePath = KmpResourceVirtualFile.computeModuleName(
+            project,
+            virtualFile
+        )
 
-        val kmpVirtualFile = dev.robdoes.kmpresources.presentation.editor.KmpResourceVirtualFile(
+        val kmpVirtualFile = KmpResourceVirtualFile(
             modulePath,
             virtualFile
         )

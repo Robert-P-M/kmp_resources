@@ -26,6 +26,7 @@ import dev.robdoes.kmpresources.core.infrastructure.coroutines.KmpProjectScopeSe
 import dev.robdoes.kmpresources.core.infrastructure.coroutines.awaitSmartMode
 import dev.robdoes.kmpresources.core.infrastructure.i18n.KmpResourcesBundle
 import dev.robdoes.kmpresources.core.shared.LocaleProvider
+import dev.robdoes.kmpresources.presentation.editor.KmpResourceVirtualFile
 import dev.robdoes.kmpresources.presentation.view.invalidateProjectViewCache
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -337,11 +338,10 @@ internal class KmpResourcesToolWindowPanel(
             val missingTranslationsMap = mutableMapOf<String, Boolean>()
 
             for (file in files) {
-                val modulePath = file.path
-                    .substringAfter(project.basePath ?: "")
-                    .substringBefore("/src/")
-                    .replace("/", ":")
-                    .removePrefix(":")
+                val modulePath = KmpResourceVirtualFile.computeModuleName(
+                    project,
+                    file
+                )
 
                 val folderName = file.parent.name
                 val localeTag = if (folderName == "values") null else folderName.substringAfter("values-")
@@ -420,7 +420,7 @@ internal class KmpResourcesToolWindowPanel(
         val actionGroup = DefaultActionGroup().apply {
             add(object : AnAction(
                 KmpResourcesBundle.message("action.toolwindow.refresh.text"),
-                KmpResourcesBundle.message("action.toolwindow.refresh.desc"),
+                KmpResourcesBundle.message("action.toolwindow.refresh.description"),
                 AllIcons.Actions.Refresh
             ) {
                 override fun actionPerformed(e: AnActionEvent) {
