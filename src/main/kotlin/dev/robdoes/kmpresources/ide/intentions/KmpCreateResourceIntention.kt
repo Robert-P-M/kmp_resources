@@ -30,7 +30,34 @@ import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.psi.KtPsiFactory
 import javax.swing.Icon
 
-class KmpCreateResourceIntention : PsiElementBaseIntentionAction(), PriorityAction, Iconable {
+/**
+ * Provides an intention to create a missing resource (e.g., string, plural, or array)
+ * within the appropriate XML resource file in a cross-platform Kotlin Multiplatform Project (KMP) context.
+ *
+ * This class extends `PsiElementBaseIntentionAction` and is specifically designed to help developers
+ * resolve missing resources referenced in code by creating them dynamically in the corresponding
+ * XML resource file. The intention is shown when the caret is on a reference to a non-existent resource.
+ *
+ * Key functionality includes:
+ * - Checking the availability of the intention based on the context of the reference using `isAvailable`.
+ * - Resolving the reference to determine the missing resource's key and type.
+ * - Providing a user interface prompt to input the resource's value, unless running in unit test mode.
+ * - Finding the appropriate XML resource file for resource creation, taking into account project structure.
+ * - Generating and formatting the new resource XML element.
+ * - Enhancing Kotlin files with the necessary import statements for the newly created resource.
+ * - Optionally triggering Gradle synchronization to ensure consistent build accessors.
+ *
+ * This intention operates in a non-write action context (`startInWriteAction` set to false), as user input and
+ * resource resolution must occur before modifications are written. Write operations are executed as part of a
+ * write command action to ensure proper document changes and undo support.
+ *
+ * Built-in safeguards include error dialogs for invalid or incomplete project configurations, as well as
+ * graceful handling of null or empty user input.
+ *
+ * Implements `PriorityAction` to ensure this intention is displayed with high priority and `Iconable`
+ * to allow custom icons in the IDE's intention menu.
+ */
+internal class KmpCreateResourceIntention : PsiElementBaseIntentionAction(), PriorityAction, Iconable {
 
     override fun getPriority(): PriorityAction.Priority = PriorityAction.Priority.TOP
 
@@ -128,6 +155,17 @@ class KmpCreateResourceIntention : PsiElementBaseIntentionAction(), PriorityActi
         }
     }
 
+    /**
+     * Determines the base package name for resource classes from the given Kotlin file.
+     *
+     * This function scans the import directives of the provided Kotlin file to identify
+     * the base package of a resource class. It looks for imports that either end with ".Res"
+     * or contain ".generated.resources.", and extracts the substring before the last dot.
+     *
+     * @param ktFile The Kotlin file to inspect for resource-related import directives.
+     * @return The base package name for the resource class if found, or `null` if no valid
+     *         resource-related imports are detected.
+     */
     private fun getBaseResourcePackage(ktFile: KtFile): String? {
         return ktFile.importDirectives
             .mapNotNull { it.importedFqName?.asString() }
@@ -135,6 +173,16 @@ class KmpCreateResourceIntention : PsiElementBaseIntentionAction(), PriorityActi
             ?.substringBeforeLast(".")
     }
 
+    /**
+     * Adds an import statement to a Kotlin file if the specified fully qualified name is not already
+     * imported. If the exact target or a wildcard import for the base package exists, no changes
+     * are made. Otherwise, a new import directive is added to the import list of the file.
+     *
+     * @param project The current IntelliJ IDEA project context.
+     * @param ktFile The Kotlin file where the import should be added; can be null.
+     * @param basePackage The base package name to use when constructing the fully qualified name; can be null.
+     * @param resolved The resolved resource that contains the key to construct the fully qualified name.
+     */
     private fun addKotlinImport(
         project: Project,
         ktFile: KtFile?,

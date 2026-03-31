@@ -7,7 +7,7 @@ import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import kotlinx.coroutines.runBlocking
 import kotlin.test.assertEquals
 
-class ResourceIssueServiceTest : BasePlatformTestCase() {
+internal class ResourceIssueServiceTest : BasePlatformTestCase() {
 
     fun testFindAllResourceFilesFindsOnlyValidKmpStringsFiles() = runBlocking {
         // Arrange

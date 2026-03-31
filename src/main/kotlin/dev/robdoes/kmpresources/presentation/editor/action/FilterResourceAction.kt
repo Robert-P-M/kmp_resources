@@ -5,7 +5,17 @@ import com.intellij.openapi.actionSystem.ex.ComboBoxAction
 import dev.robdoes.kmpresources.presentation.editor.model.ResourceFilter
 import javax.swing.JComponent
 
-class FilterResourceAction(
+/**
+ * Represents an action that allows filtering resources through a dropdown combo box in the UI.
+ *
+ * This action dynamically updates its options and current selection based on the provided
+ * filter input and selection behavior. It uses the `ResourceFilter` enumeration as the source
+ * of filter options and updates its UI text to reflect the currently selected filter.
+ *
+ * @property getCurrentFilter A function that returns the currently selected resource filter.
+ * @property onFilterSelected A function that handles logic when a filter is selected from the dropdown.
+ */
+internal class FilterResourceAction(
     private val getCurrentFilter: () -> ResourceFilter,
     private val onFilterSelected: (ResourceFilter) -> Unit
 ) : ComboBoxAction() {

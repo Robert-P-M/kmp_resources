@@ -4,7 +4,7 @@ import org.junit.Test
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
-class ResourceKeyValidatorTest {
+internal class ResourceKeyValidatorTest {
 
     @Test
     fun `valid keys should return true`() {

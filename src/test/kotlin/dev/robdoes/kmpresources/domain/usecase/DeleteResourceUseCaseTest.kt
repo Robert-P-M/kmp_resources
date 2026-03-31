@@ -11,7 +11,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
-class DeleteResourceUseCaseTest {
+internal class DeleteResourceUseCaseTest {
 
     @Test
     fun `deleting a main resource should remove it completely from repository`() = runBlocking {

@@ -6,7 +6,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.Test
 import kotlin.test.assertEquals
 
-class UpdateInlineStringUseCaseTest {
+internal class UpdateInlineStringUseCaseTest {
 
     @Test
     fun `invoke should update the value of an existing string resource`() = runBlocking {

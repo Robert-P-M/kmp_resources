@@ -9,7 +9,7 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-class KmpResourceResolverTest : BasePlatformTestCase() {
+internal class KmpResourceResolverTest : BasePlatformTestCase() {
 
     private fun commitAll() {
         PsiDocumentManager.getInstance(project).commitAllDocuments()

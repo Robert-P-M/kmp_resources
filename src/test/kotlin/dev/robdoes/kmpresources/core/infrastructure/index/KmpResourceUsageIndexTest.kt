@@ -4,7 +4,7 @@ import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import com.intellij.util.indexing.FileBasedIndex
 import org.jetbrains.kotlin.idea.base.util.allScope
 
-class KmpResourceUsageIndexTest : BasePlatformTestCase() {
+internal class KmpResourceUsageIndexTest : BasePlatformTestCase() {
 
     fun testIndexParsesStandardAndNormalizedKeys() {
         // Arrange: Create a mock Kotlin file containing various resource usages

@@ -11,7 +11,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
-class XmlResourceParserTest : BasePlatformTestCase() {
+internal class XmlResourceParserTest : BasePlatformTestCase() {
 
     private fun commitAll() {
         PsiDocumentManager.getInstance(project).commitAllDocuments()

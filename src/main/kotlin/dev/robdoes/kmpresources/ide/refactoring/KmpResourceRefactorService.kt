@@ -22,7 +22,11 @@ import org.jetbrains.kotlin.psi.KtNameReferenceExpression
 import org.jetbrains.kotlin.psi.KtPsiFactory
 import org.jetbrains.kotlin.psi.psiUtil.collectDescendantsOfType
 
-object KmpResourceRefactorService {
+/**
+ * Provides services for refactoring resource keys in Kotlin Multiplatform (KMP) projects.
+ * This includes updating the resource key in XML files and propagating the change to related Kotlin code files.
+ */
+internal object KmpResourceRefactorService {
 
     suspend fun renameKeyInModule(
         project: Project,
@@ -56,6 +60,22 @@ object KmpResourceRefactorService {
         }
     }
 
+    /**
+     * Finds Kotlin files affected by the given old resource key within the specific module of a project.
+     *
+     * This method identifies all Kotlin source files in the module scope that:
+     * 1. Reference the given resource key (in its normalized form).
+     * 2. Belong to the module in which the specified XML file resides.
+     * 3. Are not located in excluded paths (e.g., `/generated/`, `/build/`).
+     *
+     * The identification is achieved by utilizing a custom search scope and
+     * leveraging the IntelliJ Platform's PSI search capabilities.
+     *
+     * @param project The IntelliJ project instance in which the search is performed.
+     * @param xmlFile The virtual file representing the XML file, used to determine the associated module.
+     * @param oldKey The resource key to search for, which will be normalized before usage.
+     * @return A list of smart pointers pointing to the affected Kotlin files, or null if the module cannot be determined.
+     */
     private suspend fun findAffectedFiles(
         project: Project,
         xmlFile: VirtualFile,
@@ -94,7 +114,31 @@ object KmpResourceRefactorService {
 }
 
 
+/**
+ * Provides functionality to update the name attribute of a specified resource key in an XML file.
+ *
+ * This utility is primarily used for modifying resource keys within XML resource files in a given project.
+ * It identifies the corresponding resource type and key, and updates the key to a new value.
+ *
+ * ### Responsibilities:
+ * - Locates the target XML tag based on the specified `resourceType` and `oldKey`.
+ * - Updates the `name` attribute of the identified tag to the provided `newKey`.
+ *
+ * @constructor Creates an instance of the XmlResourceUpdater object.
+ */
 private object XmlResourceUpdater {
+    /**
+     * Updates a resource key within an XML file for a specified resource type.
+     *
+     * This function locates the XML tag corresponding to the given resource type and old key,
+     * then updates its "name" attribute to the new key.
+     *
+     * @param project The IntelliJ project within which the resource key should be updated.
+     * @param xmlFile The virtual file representing the XML file to be updated.
+     * @param resourceType The type of the resource (e.g., "string", "string-array", etc.).
+     * @param oldKey The existing resource key to be replaced.
+     * @param newKey The new resource key to replace the old one.
+     */
     fun updateKey(project: Project, xmlFile: VirtualFile, resourceType: String, oldKey: String, newKey: String) {
         val psiXmlFile = PsiManager.getInstance(project).findFile(xmlFile) as? XmlFile
         val targetTag = psiXmlFile?.rootTag?.subTags?.find {
@@ -104,7 +148,27 @@ private object XmlResourceUpdater {
     }
 }
 
+/**
+ * Handles Kotlin code updates by replacing references to a specific resource key with a new key.
+ *
+ * This object is primarily utilized in cases where Kotlin files need to be updated after a resource key
+ * in an XML file has been renamed. It operates on usages of the specified key within Kotlin source files,
+ * ensuring that resource references are updated consistently.
+ */
 private object KotlinUsageUpdater {
+    /**
+     * Updates usages of a given resource key in the provided Kotlin file.
+     *
+     * This method searches for all references to the old resource key within the specified Kotlin file
+     * and replaces them with the new resource key. It accounts for both direct and indirect imports of the resource.
+     * If the resource type is "string-array," it is translated to "array" for reference purposes.
+     *
+     * @param ktFile The Kotlin file in which resource key usages will be updated.
+     * @param psiFactory A factory instance used to create new PSI elements, such as the updated key.
+     * @param resourceType The type of the resource (e.g., "string", "string-array").
+     * @param oldKey The existing resource key to be replaced.
+     * @param newKey The new resource key to replace the old one.
+     */
     fun updateUsages(ktFile: KtFile, psiFactory: KtPsiFactory, resourceType: String, oldKey: String, newKey: String) {
         val ktType = if (resourceType == "string-array") "array" else resourceType
         val fullOldReference = "Res.$ktType.$oldKey"
@@ -123,7 +187,27 @@ private object KotlinUsageUpdater {
     }
 }
 
+/**
+ * Utility object for updating import statements in Kotlin files.
+ *
+ * This object provides functionality for replacing occurrences of an old import key
+ * with a new import key in a Kotlin file. It is designed to work as part
+ * of a larger resource renaming operation, ensuring that import directives
+ * and relevant references in the file are updated consistently.
+ */
 private object KotlinImportUpdater {
+    /**
+     * Updates the import directives in the given Kotlin file by replacing occurrences of the old key with the new key.
+     *
+     * This method searches for all import directives in the specified Kotlin file that reference the given old key.
+     * Any matching import directives are updated by replacing the corresponding key with the new key. Only the
+     * last occurrence of the old key in each matching directive is replaced.
+     *
+     * @param ktFile The Kotlin file whose import directives are to be updated.
+     * @param psiFactory A factory instance used to create new PSI elements, such as the updated key.
+     * @param oldKey The existing resource key to be replaced in the import directives.
+     * @param newKey The new resource key to replace the old key.
+     */
     fun updateImports(ktFile: KtFile, psiFactory: KtPsiFactory, oldKey: String, newKey: String) {
         val imports = ktFile.importDirectives.filter { it.importedName?.asString() == oldKey }
         for (import in imports) {

@@ -6,7 +6,7 @@ import kotlinx.coroutines.runBlocking
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
-class ResourceUsageServiceTest : BasePlatformTestCase() {
+internal class ResourceUsageServiceTest : BasePlatformTestCase() {
 
     fun testIsResourceUsedReturnsFalseForBlankKey() = runBlocking {
         // Arrange

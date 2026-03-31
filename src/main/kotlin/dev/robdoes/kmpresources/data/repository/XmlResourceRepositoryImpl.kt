@@ -15,7 +15,8 @@ import dev.robdoes.kmpresources.domain.model.XmlResource
 import dev.robdoes.kmpresources.domain.model.mergeWith
 import dev.robdoes.kmpresources.domain.repository.ResourceRepository
 
-class XmlResourceRepositoryImpl(
+
+internal class XmlResourceRepositoryImpl(
     private val project: Project,
     private val file: VirtualFile
 ) : ResourceRepository {
@@ -46,6 +47,7 @@ class XmlResourceRepositoryImpl(
             resourceMap.values.toList()
         }
     }
+
 
     override suspend fun saveResource(resource: XmlResource) {
         val localesInResource = resource.localizedValues.keys
@@ -81,8 +83,11 @@ class XmlResourceRepositoryImpl(
             psiFilesMap.forEach { (localeTag, psiFile) ->
                 XmlResourceWriter.writeResource(project, psiFile, resource, localeTag)
             }
+            PsiDocumentManager.getInstance(project).commitAllDocuments()
+            FileDocumentManager.getInstance().saveAllDocuments()
         }
     }
+
 
     override suspend fun deleteResource(key: String, type: ResourceType) {
         val filesToDeleteFrom = mutableListOf(file)
@@ -102,8 +107,11 @@ class XmlResourceRepositoryImpl(
             psiFiles.forEach { psiFile ->
                 XmlResourceWriter.deleteResource(psiFile, key, type)
             }
+            PsiDocumentManager.getInstance(project).commitAllDocuments()
+            FileDocumentManager.getInstance().saveAllDocuments()
         }
     }
+
 
     override suspend fun toggleUntranslatable(key: String, isUntranslatable: Boolean) {
         val relatedFiles = readAction { XmlLocaleFileManager.findRelatedLocaleFiles(project, file) }

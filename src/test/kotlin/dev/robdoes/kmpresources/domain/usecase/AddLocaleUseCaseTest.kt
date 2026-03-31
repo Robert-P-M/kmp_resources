@@ -1,14 +1,12 @@
 package dev.robdoes.kmpresources.domain.usecase
 
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
-import dev.robdoes.kmpresources.domain.repository.FakeResourceRepository
 import dev.robdoes.kmpresources.domain.repository.LocaleRepository
-import dev.robdoes.kmpresources.domain.repository.ResourceRepository
 import kotlinx.coroutines.runBlocking
 import java.util.*
 import kotlin.test.assertEquals
 
-class AddLocaleUseCaseTest : BasePlatformTestCase() {
+internal class AddLocaleUseCaseTest : BasePlatformTestCase() {
 
     class FakeLocaleRepository : LocaleRepository {
         var contextsToReturn = listOf(AddLocaleUseCase.LocaleContext("path/values", "path/values/strings.xml"))
@@ -23,23 +21,14 @@ class AddLocaleUseCaseTest : BasePlatformTestCase() {
             createdLocales.add(locale)
         }
 
-        override fun createLocaleRepository(
-            context: AddLocaleUseCase.LocaleContext,
-            locale: Locale,
-            factory: (AddLocaleUseCase.LocaleContext) -> ResourceRepository
-        ): ResourceRepository {
-            return factory(context)
-        }
     }
 
     fun testInvokeAddsNewLocaleStructure() = runBlocking {
         // Arrange
         val fakeLocaleRepo = FakeLocaleRepository()
-        val fakeResourceRepo = FakeResourceRepository()
 
         val useCase = AddLocaleUseCase(
             localeRepository = fakeLocaleRepo,
-            resourceRepositoryFactory = { fakeResourceRepo }
         )
 
         // Act
@@ -63,11 +52,9 @@ class AddLocaleUseCaseTest : BasePlatformTestCase() {
         val fakeLocaleRepo = FakeLocaleRepository()
         fakeLocaleRepo.exists = true // Simulate that the locale directory already exists!
 
-        val fakeResourceRepo = FakeResourceRepository()
 
         val useCase = AddLocaleUseCase(
             localeRepository = fakeLocaleRepo,
-            resourceRepositoryFactory = { fakeResourceRepo }
         )
 
         // Act

@@ -2,7 +2,7 @@ package dev.robdoes.kmpresources.core.infrastructure.i18n
 
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 
-class KmpResourcesBundleTest : BasePlatformTestCase() {
+internal class KmpResourcesBundleTest : BasePlatformTestCase() {
 
     fun testMessageReturnsCorrectStringForValidKey() {
         // Act

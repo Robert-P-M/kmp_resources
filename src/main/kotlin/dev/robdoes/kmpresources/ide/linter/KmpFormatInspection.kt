@@ -9,7 +9,27 @@ import dev.robdoes.kmpresources.domain.model.ResourceType
 import org.jetbrains.kotlin.psi.KtCallExpression
 import org.jetbrains.kotlin.psi.KtVisitorVoid
 
-class KmpFormatInspection : LocalInspectionTool() {
+/**
+ * An inspection tool for validating the usage of string and plural resource formatting in Kotlin Multiplatform.
+ *
+ * This inspection verifies that the number of provided format arguments in calls to `stringResource`
+ * and `pluralStringResource` matches the expected number of arguments based on the corresponding
+ * resource definitions in the project's XML files.
+ *
+ * The inspection ensures proper resource usage to prevent runtime errors due to mismatch in format arguments.
+ *
+ * The validation process involves:
+ * - Resolving the reference to the resource being accessed.
+ * - Locating the corresponding XML tag for the resource in the project files.
+ * - Determining the expected number of formatting arguments from the XML tag.
+ * - Comparing the expected and actual arguments provided in the code.
+ *
+ * If a mismatch is found, a problem is reported to the user with a descriptive message.
+ *
+ * This class extends `LocalInspectionTool` and functions within IntelliJ-based IDEs
+ * to provide real-time inspection feedback in the editor.
+ */
+internal class KmpFormatInspection : LocalInspectionTool() {
 
     override fun buildVisitor(holder: ProblemsHolder, isOnTheFly: Boolean): PsiElementVisitor {
         return object : KtVisitorVoid() {

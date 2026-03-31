@@ -8,7 +8,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
-class UpdateInlinePluralUseCaseTest {
+internal class UpdateInlinePluralUseCaseTest {
 
     @Test
     fun `invoke should update an existing quantity or add a new one`() = runBlocking {

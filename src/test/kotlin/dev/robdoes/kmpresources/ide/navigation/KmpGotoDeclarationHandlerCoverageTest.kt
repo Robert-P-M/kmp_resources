@@ -6,7 +6,7 @@ import dev.robdoes.kmpresources.core.infrastructure.i18n.KmpResourcesBundle
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
-class KmpGotoDeclarationHandlerCoverageTest : BasePlatformTestCase() {
+internal class KmpGotoDeclarationHandlerCoverageTest : BasePlatformTestCase() {
 
     fun testCoverageNullSourceElement() {
         // Hits: if (sourceElement == null) return null (true branch)

@@ -40,7 +40,18 @@ import javax.swing.JComponent
 import javax.swing.JPanel
 
 
-class KmpResourceTableEditor(
+/**
+ * A specialized editor for managing KMP (Kotlin Multiplatform) resource tables within a project.
+ * This editor provides functionality for editing, adding, and deleting resources, supporting features like
+ * inline editing, filtering, and displaying resource usage.
+ *
+ * @constructor Creates an instance of the resource table editor.
+ *
+ * @param project The current IntelliJ project instance.
+ * @param file The virtual file being edited.
+ * @param repository The resource repository containing project resources.
+ */
+internal class KmpResourceTableEditor(
     private val project: Project,
     private val file: VirtualFile,
     private val repository: ResourceRepository
@@ -104,6 +115,28 @@ class KmpResourceTableEditor(
     }
 
 
+    /**
+     * Configures and binds the callback handlers for various user interactions within the resource table and editor panels.
+     *
+     * This method sets up the interaction logic between the table panel and the edit panel, handling operations such as:
+     * - Resource editing
+     * - Resource deletion
+     * - Usage discovery
+     * - Inline edits for strings, plurals, and arrays
+     * - Toggling the translatability of resources
+     * - Saving edited resources
+     *
+     * The callbacks ensure that actions are executed correctly within the project's coroutine scope and maintain
+     * synchronization with the UI thread where necessary.
+     *
+     * Key handlers include:
+     * - **Edit Requests**: Launches an edit operation on the selected resource.
+     * - **Delete Requests**: Handles deletion for main resources and sub-items, delegating to the controller as needed.
+     * - **Usage Requests**: Triggers find-usages functionality for the specific resource.
+     * - **Inline Edits**: Applies inline modifications to strings, plurals, or arrays and reloads the affected data.
+     * - **Translatability Toggles**: Prompts user confirmation for toggling a resource's translatability and updates it accordingly.
+     * - **Save Requests**: Saves the resource changes and updates the UI to reflect the results.
+     */
     private fun wireUpCallbacks() {
 
         tablePanel.onEditRequested = { key ->
@@ -184,6 +217,25 @@ class KmpResourceTableEditor(
         }
     }
 
+    /**
+     * Configures the toolbar for the resource editor panel.
+     *
+     * This method sets up an action toolbar with various actions to manage resources.
+     * It includes actions for adding, removing, filtering, and syncing resources, as well
+     * as a locale management feature. The toolbar is created using `DefaultActionGroup`
+     * and registered with the main panel of the editor.
+     *
+     * The following actions are added to the toolbar:
+     *
+     * - **Add Resource Key**: Opens the editing panel to create a new resource key.
+     * - **Remove Resource Key**: Removes the currently selected resource key from the table.
+     * - **Sync Gradle**: Synchronizes the Gradle project with the resource files.
+     * - **Filter Resources**: Applies a filter to the table to display a specific subset of resources.
+     * - **Add Locale**: Adds a new locale to the project by invoking a coroutine in the project scope.
+     *
+     * Separators are included to visually group related actions for better usability. The toolbar
+     * is bound to the `mainPanel` component for display.
+     */
     private fun setupToolbar() {
         val actionGroup = DefaultActionGroup().apply {
             add(AddResourceKeyAction {
@@ -230,6 +282,16 @@ class KmpResourceTableEditor(
     }
 
 
+    /**
+     * Reloads and updates the resource table data.
+     *
+     * This method fetches the latest resource data by invoking the `loadResourcesUseCase()` within a read action.
+     * The retrieved resources are then used to update the table panel's data, ensuring synchronization with the UI
+     * and executing updates on the Event Dispatch Thread (EDT) as required.
+     *
+     * Method execution is managed within a coroutine scope provided by the `KmpProjectScopeService`, ensuring proper
+     * lifecycle management aligned with the project context.
+     */
     private fun reloadTableData() {
         project.service<KmpProjectScopeService>().coroutineScope.launch(Dispatchers.Default) {
             val resources = readAction { loadResourcesUseCase() }
@@ -239,6 +301,17 @@ class KmpResourceTableEditor(
         }
     }
 
+    /**
+     * Applies an inline edit operation to resources and reloads the updated data in the project.
+     *
+     * This method executes a given editing action within a coroutine, ensuring proper lifecycle
+     * management and synchronization with the IntelliJ project model. If the `localeTag` parameter
+     * is null, it triggers the generation of Gradle accessors for the resource file, ensuring
+     * updates are reflected in the build system.
+     *
+     * @param localeTag The locale tag of the resource being edited, or null if the edit is not locale-specific.
+     * @param editAction A suspendable function representing the edit operation to be applied to the resources.
+     */
     private fun applyInlineEditAndReload(localeTag: String?, editAction: suspend () -> Unit) {
         project.service<KmpProjectScopeService>().coroutineScope.launch(Dispatchers.Default) {
             editAction()
@@ -254,9 +327,19 @@ class KmpResourceTableEditor(
         }
     }
 
+    /**
+     * Triggers the "Find Usages" functionality for resources matching the specified key name.
+     *
+     * This method normalizes the provided key name and constructs a regular expression
+     * to locate references to the resource throughout the project.
+     * The search focuses on Kotlin (`.kt`) and XML (`.xml`) files within the current project scope,
+     * excluding build directories and generated files.
+     *
+     * @param keyName The name of the key whose usages need to be searched for.
+     */
     private fun triggerNativeFindUsages(keyName: String) {
         val normalizedKey = ResourceKeyNormalizer.normalize(keyName)
-        val searchRegex = "Res\\.(string|plurals|array)\\.$normalizedKey|name=\"$keyName\""
+        val searchRegex = "Res\\.(string|plurals|array)\\.$normalizedKey|name\\s*=\\s*[\"']$keyName[\"']"
 
         val findModel = FindModel().apply {
             stringToFind = searchRegex
@@ -274,6 +357,17 @@ class KmpResourceTableEditor(
     }
 
 
+    /**
+     * Scrolls the resource table to the row corresponding to the given key, selects the row,
+     * and makes it visible within the viewport.
+     *
+     * This method searches through the resource table's model to locate the row where the
+     * value in the "KEY" column matches the provided key. If a matching row is found, it updates
+     * the table's selection, scrolls the row into view, and requests focus on the table.
+     *
+     * @param key The unique key corresponding to the row that needs to be scrolled to and selected.
+     *            This key must match the value in the "KEY" column of the resource table model.
+     */
     fun scrollToKey(key: String) {
         tablePanel.scrollToKey(key)
     }

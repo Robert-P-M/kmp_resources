@@ -5,7 +5,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
-class KmpDuplicateResourceKeyInspectionTest : BasePlatformTestCase() {
+internal class KmpDuplicateResourceKeyInspectionTest : BasePlatformTestCase() {
 
     override fun setUp() {
         super.setUp()

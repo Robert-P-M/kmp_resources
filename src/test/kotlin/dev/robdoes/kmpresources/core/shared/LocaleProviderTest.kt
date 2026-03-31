@@ -6,7 +6,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
-class LocaleProviderTest {
+internal class LocaleProviderTest {
 
     @Test
     fun `getAvailableLocales should return a sorted list of valid locales`() {

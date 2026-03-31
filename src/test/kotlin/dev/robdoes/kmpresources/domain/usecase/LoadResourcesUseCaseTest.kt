@@ -6,7 +6,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.Test
 import kotlin.test.assertEquals
 
-class LoadResourcesUseCaseTest {
+internal class LoadResourcesUseCaseTest {
     @Test
     fun `invoke should return all resources from the repository`() = runBlocking {
         val repo = FakeResourceRepository()

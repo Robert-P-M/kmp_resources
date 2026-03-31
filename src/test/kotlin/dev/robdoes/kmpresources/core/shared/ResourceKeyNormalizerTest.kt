@@ -3,7 +3,7 @@ package dev.robdoes.kmpresources.core.shared
 import org.junit.Test
 import kotlin.test.assertEquals
 
-class ResourceKeyNormalizerTest {
+internal class ResourceKeyNormalizerTest {
 
     @Test
     fun `normalize should not change keys without dots or dashes`() {

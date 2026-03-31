@@ -1,6 +1,14 @@
 package dev.robdoes.kmpresources.presentation.editor.model
 
-enum class ResourceColumn(val index: Int, val titleKey: String) {
+/**
+ * Represents the columns available in a resource table. Each column has an associated index
+ * and a key for retrieving localized titles.
+ *
+ * @property index The position of the column in the table.
+ * @property titleKey The resource key used for the column's localized title.
+ * @constructor Creates a column with a specified index and title key.
+ */
+internal enum class ResourceColumn(val index: Int, val titleKey: String) {
     STATUS(0, "ui.table.column.status"),
     KEY(1, "ui.table.column.key"),
     USAGE(2, "ui.table.column.usage"),

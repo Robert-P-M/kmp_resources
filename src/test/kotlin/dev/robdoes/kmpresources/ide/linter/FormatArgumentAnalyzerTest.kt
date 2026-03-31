@@ -4,7 +4,7 @@ import dev.robdoes.kmpresources.ide.linter.FormatArgumentAnalyzer.countRequiredA
 import org.junit.Test
 import kotlin.test.assertEquals
 
-class FormatArgumentAnalyzerTest {
+internal class FormatArgumentAnalyzerTest {
 
     @Test
     fun `strings without format arguments should return 0`() {

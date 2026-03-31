@@ -6,7 +6,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.Test
 import kotlin.test.assertEquals
 
-class UpdateInlineArrayUseCaseTest {
+internal class UpdateInlineArrayUseCaseTest {
 
     @Test
     fun `invoke should add a new item when index is -1`() = runBlocking {

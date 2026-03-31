@@ -7,7 +7,7 @@ import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-class SaveResourceUseCaseTest {
+internal class SaveResourceUseCaseTest {
     @Test
     fun `saveResource should add a new resource to the repository`() = runBlocking {
         val fakeRepo = FakeResourceRepository()

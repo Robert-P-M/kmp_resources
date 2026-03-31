@@ -7,7 +7,7 @@ import kotlinx.coroutines.runBlocking
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-class LocaleDetectionServiceTest : BasePlatformTestCase() {
+internal class LocaleDetectionServiceTest : BasePlatformTestCase() {
 
     fun testGetActiveLocalesFindsValidLocalesAndSortsThem() = runBlocking {
         // Arrange: Create files for German, French, and Spanish
