@@ -4,7 +4,7 @@ import com.intellij.testFramework.LightVirtualFile
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import kotlinx.coroutines.runBlocking
 
-class KmpResourceRefactorServiceCoverageTest : BasePlatformTestCase() {
+internal class KmpResourceRefactorServiceCoverageTest : BasePlatformTestCase() {
 
     fun testCoverageSameKeyReturnsEarly() = runBlocking {
         // Hits: if (oldKey == newKey) return

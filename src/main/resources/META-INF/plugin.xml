@@ -78,12 +78,12 @@
                 popup="true">
 
             <action
-                    id="dev.robdoes.kmpresources.OpenResourceEditor"
+                    id="toolbar.open.editor"
                     class="dev.robdoes.kmpresources.presentation.toolbar.KmpOpenResourceEditorAction"
                     icon="AllIcons.FileTypes.Xml"/>
 
             <action
-                    id="dev.robdoes.kmpresources.RunGradleSync"
+                    id="toolbar.sync"
                     class="dev.robdoes.kmpresources.presentation.toolbar.KmpRunGradleSyncAction"
                     icon="AllIcons.Actions.Refresh"/>
 

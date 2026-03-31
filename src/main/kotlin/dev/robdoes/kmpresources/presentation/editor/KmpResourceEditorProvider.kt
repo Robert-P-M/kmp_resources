@@ -9,7 +9,14 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
 import dev.robdoes.kmpresources.data.repository.XmlResourceRepositoryFactory
 
-class KmpResourceEditorProvider : FileEditorProvider, DumbAware {
+/**
+ * Provides a custom editor for KMP resource files.
+ *
+ * This class implements the `FileEditorProvider` interface and is responsible for
+ * registering a custom editor for `KmpResourceVirtualFile` instances. The provider
+ * supports opening, viewing, and editing KMP resource files in a specialized table editor.
+ */
+internal class KmpResourceEditorProvider : FileEditorProvider, DumbAware {
 
     override fun accept(project: Project, file: VirtualFile): Boolean {
         return file is KmpResourceVirtualFile

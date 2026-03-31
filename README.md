@@ -1,6 +1,6 @@
 # KMP Resources
 
-[![Build](https://github.com/Robert-P-M/kmp_resources/workflows/Build/badge.svg)](https://github.com/Robert-P-M/kmp_resources/actions)
+[![Build](https://img.shields.io/github/actions/workflow/status/Robert-P-M/kmp_resources/build.yml?branch=main)](https://github.com/Robert-P-M/kmp_resources/actions)
 [![Version](https://img.shields.io/jetbrains/plugin/v/MARKETPLACE_ID.svg)](https://plugins.jetbrains.com/plugin/MARKETPLACE_ID)
 [![Downloads](https://img.shields.io/jetbrains/plugin/d/MARKETPLACE_ID.svg)](https://plugins.jetbrains.com/plugin/MARKETPLACE_ID)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
@@ -27,22 +27,18 @@ IntelliJ IDEA and Android Studio.
 ### The Resources Table Editor
 
 Manage all your multiplatform strings, plurals, and arrays in one place.
-![Resources Table Editor](assets/table-editor.png)
+![Resources Table Editor](assets/table_editor.png)
 
-### Real-time Linter
+### Smart Inspections & Quick Documentation
 
-Instantly catch missing or mismatched format arguments before you compile.
-![Linter Popup](assets/linter-popup.png)
-
-### Quick Documentation & Locale Switching
-
-Hover over any key in your Kotlin code to see the actual translations and navigate between locales seamlessly.
-![Locale Popup](assets/locale-popup.png)
+Catch formatting errors in real-time before you compile, and hover over any key to view translations and switch locales
+seamlessly.
+![Linter and Locale Popup](assets/popup_locale_and_linter.png)
 
 ### Diagnostics Toolwindow
 
 Keep your project clean with an overview of missing translations and unused keys across all modules.
-![Toolwindow](assets/toolwindow.png)
+![Diagnostics Toolwindow](assets/tool_window.png)
 
 ---
 

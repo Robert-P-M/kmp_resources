@@ -16,7 +16,20 @@ import dev.robdoes.kmpresources.domain.usecase.SaveResourceUseCase
 import dev.robdoes.kmpresources.ide.refactoring.KmpResourceRefactorService
 import dev.robdoes.kmpresources.ide.utils.KmpGradleSyncHelper
 
-class KmpResourceTableEditorController(
+/**
+ * Controller responsible for handling resource table operations within a Kotlin Multiplatform Project.
+ *
+ * This class provides methods to manage actions related to resources, including deletion, saving, and
+ * locale addition, ensuring synchronization with project files and triggering updates where necessary.
+ *
+ * @constructor Creates an instance of the controller with the specified dependencies.
+ * @param project The current project instance.
+ * @param file The virtual file associated with the resource table being edited.
+ * @param scannerService The service responsible for checking resource usage in the project.
+ * @param deleteResourceUseCase Use case for handling resource deletion logic.
+ * @param saveResourceUseCase Use case for handling resource saving logic.
+ */
+internal class KmpResourceTableEditorController(
     private val project: Project,
     private val file: VirtualFile,
     private val scannerService: ResourceUsageService,
@@ -26,6 +39,16 @@ class KmpResourceTableEditorController(
     var onDataChanged: () -> Unit = {}
     var onShowUsagesRequested: (String) -> Unit = {}
 
+    /**
+     * Handles the deletion of a sub-item within a resource, such as a plural form or a string
+     * in a localized string array. Prompts for user confirmation if the resource type is plural.
+     *
+     * @param resource The XML resource where the sub-item resides. This includes the type and
+     *                 localized values of the resource.
+     * @param subItemIdentifier The identifier of the sub-item to be deleted. For example, in a
+     *                          plural resource, this might represent a specific quantity string
+     *                          like "one" or "many".
+     */
     suspend fun handleSubItemDeletion(resource: XmlResource, subItemIdentifier: String) {
         val isPlural = resource.type == ResourceType.Plural
         val proceed = withEdtContext {
@@ -48,6 +71,15 @@ class KmpResourceTableEditorController(
         }
     }
 
+    /**
+     * Handles the deletion of a main XML resource after checking its usage and providing user confirmations.
+     *
+     * This method first determines if the specified resource is currently in use within the project.
+     * If the resource is not in use, the user is prompted with a confirmation dialog before deletion.
+     * If the resource is in use, the user is presented with a warning dialog and an option to view usages.
+     *
+     * @param resource The XML resource to be deleted. The resource contains details such as its type and key.
+     */
     suspend fun handleMainResourceDeletion(resource: XmlResource) {
         val isUsed = scannerService.isResourceUsed(resource.key)
 
@@ -83,6 +115,25 @@ class KmpResourceTableEditorController(
         }
     }
 
+    /**
+     * Handles the saving of an XML resource, ensuring that duplicate keys are checked,
+     * and necessary refactoring or updates are performed in the module.
+     *
+     * This method verifies if the resource key conflicts with an existing resource's key
+     * and prompts the user with an error message if it does. Additionally, it manages the
+     * renaming of resource keys, updates the state of the module, and triggers necessary actions
+     * for synchronization and data updates.
+     *
+     * @param resourceToSave The [XmlResource] to be saved. This includes metadata, localized values,
+     *                       and the key for the resource.
+     * @param existingResource An optional [XmlResource] representing an existing resource with the
+     *                         same or a different key. If null, it indicates a new resource is being added.
+     * @param currentEditingOldKey An optional string representing the key currently being edited.
+     *                              This is used to handle key renaming when needed.
+     * @return A [Boolean] value indicating whether the resource was successfully saved.
+     *         Returns `true` if the save operation was successful and no conflicts were detected;
+     *         otherwise, returns `false`.
+     */
     suspend fun handleResourceSave(
         resourceToSave: XmlResource,
         existingResource: XmlResource?,
@@ -115,12 +166,20 @@ class KmpResourceTableEditorController(
         return true
     }
 
+    /**
+     * Handles the addition of a new locale to the project.
+     *
+     * This method leverages the `AddLocaleUseCase` to create the directory structure
+     * and necessary files for the specified **locale tag** in all available default locale contexts.
+     * If the operation fails, an error dialog will be displayed in the UI to inform the user.
+     *
+     * @param localeTag The BCP 47 language tag (e.g., "en-US") identifying the locale to be added.
+     */
     suspend fun handleAddLocale(localeTag: String) {
         val localeFactory = project.service<XmlLocaleRepositoryFactory>()
         val localeRepo = localeFactory.createLocaleRepository()
         val addLocaleUseCase = AddLocaleUseCase(
             localeRepository = localeRepo,
-            resourceRepositoryFactory = localeFactory.resourceRepositoryFactory()
         )
 
         try {

@@ -13,7 +13,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
-class XmlLocaleFileManagerTest : BasePlatformTestCase() {
+internal class XmlLocaleFileManagerTest : BasePlatformTestCase() {
 
     @OptIn(ExperimentalCoroutinesApi::class)
     private fun <T> runSuspendTest(block: suspend () -> T): T {

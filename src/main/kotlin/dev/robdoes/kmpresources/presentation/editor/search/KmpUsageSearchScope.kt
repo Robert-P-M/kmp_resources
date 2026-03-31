@@ -5,7 +5,17 @@ import com.intellij.psi.search.DelegatingGlobalSearchScope
 import com.intellij.psi.search.GlobalSearchScope
 import dev.robdoes.kmpresources.core.infrastructure.i18n.KmpResourcesBundle
 
-class KmpUsageSearchScope(baseScope: GlobalSearchScope) : DelegatingGlobalSearchScope(baseScope) {
+/**
+ * A custom implementation of [DelegatingGlobalSearchScope] that adjusts the search scope
+ * to exclude files generated during build processes or residing in build directories.
+ * Specifically, it limits the search to Kotlin (`.kt`) and XML (`.xml`) files.
+ *
+ * This scope ensures that the path of a file does not contain certain excluded patterns,
+ * thereby refining the set of files considered suitable for search operations.
+ *
+ * @param baseScope The base [GlobalSearchScope] to delegate to.
+ */
+internal class KmpUsageSearchScope(baseScope: GlobalSearchScope) : DelegatingGlobalSearchScope(baseScope) {
 
     override fun contains(file: VirtualFile): Boolean {
         val path = file.path

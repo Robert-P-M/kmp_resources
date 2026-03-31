@@ -7,7 +7,7 @@ import dev.robdoes.kmpresources.domain.model.StringResource
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
-class XmlResourceWriterTest : BasePlatformTestCase() {
+internal class XmlResourceWriterTest : BasePlatformTestCase() {
 
     fun testCreateResourceTagSetsCorrectAttributesAndDelegatesContent() {
         // Arrange

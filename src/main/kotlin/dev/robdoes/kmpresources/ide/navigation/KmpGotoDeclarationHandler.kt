@@ -7,7 +7,14 @@ import com.intellij.psi.PsiElement
 import dev.robdoes.kmpresources.core.infrastructure.i18n.KmpResourcesBundle
 import dev.robdoes.kmpresources.core.infrastructure.resolver.KmpResourceResolver
 
-class KmpGotoDeclarationHandler : GotoDeclarationHandler {
+/**
+ * Handles "Go To Declaration" functionality for Kotlin Multiplatform resource references.
+ *
+ * This handler allows navigation from Kotlin code elements referencing resources to their corresponding
+ * XML definitions in the project. It identifies the target XML tags by resolving resource keys and locating
+ * matching definitions in resource files.
+ */
+internal class KmpGotoDeclarationHandler : GotoDeclarationHandler {
 
     override fun getGotoDeclarationTargets(
         sourceElement: PsiElement?,

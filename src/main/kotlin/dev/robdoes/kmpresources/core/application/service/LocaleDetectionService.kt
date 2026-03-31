@@ -12,9 +12,28 @@ import dev.robdoes.kmpresources.core.infrastructure.i18n.KmpResourcesBundle
 import dev.robdoes.kmpresources.core.shared.LocaleInfo
 import dev.robdoes.kmpresources.core.shared.LocaleProvider
 
+/**
+ * Service for detecting and managing locales within a project.
+ *
+ * This service provides functionality to identify all active locales
+ * used in the project and to obtain the default locale. It scans the
+ * project's resource files to determine locale-specific resource configurations.
+ *
+ * @constructor Initializes the service with the given project instance.
+ */
 @Service(Service.Level.PROJECT)
-class LocaleDetectionService(private val project: Project) {
+internal class LocaleDetectionService(private val project: Project) {
 
+    /**
+     * Retrieves a list of active locales within the project's resources.
+     *
+     * This method scans the project's resource directories for locale-specific
+     * configurations (e.g., directories named `values-<localeTag>` containing valid
+     * XML resource files). It matches the found locale tags with the list of
+     * available locales and returns a list of matching `LocaleInfo` objects.
+     *
+     * @return A sorted list of `LocaleInfo` objects representing active locales in the project.
+     */
     suspend fun getActiveLocales(): List<LocaleInfo> {
         return readAction {
             val result = mutableSetOf<String>()
@@ -45,6 +64,15 @@ class LocaleDetectionService(private val project: Project) {
         }
     }
 
+    /**
+     * Retrieves the default locale for the project.
+     *
+     * This method returns a `LocaleInfo` object representing the default locale,
+     * which serves as a fallback when no specific locale is selected.
+     *
+     * @return A `LocaleInfo` object containing information about the default locale,
+     *         including its language tag, display name, and flag emoji (if applicable).
+     */
     suspend fun getDefaultLocale(): LocaleInfo {
         return LocaleInfo("default", KmpResourcesBundle.message("doc.popup.locale.default"), "")
     }

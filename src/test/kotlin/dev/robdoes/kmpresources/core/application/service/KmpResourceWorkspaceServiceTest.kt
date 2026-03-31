@@ -4,7 +4,7 @@ import com.intellij.openapi.components.service
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import kotlinx.coroutines.runBlocking
 
-class KmpResourceWorkspaceServiceTest : BasePlatformTestCase() {
+internal class KmpResourceWorkspaceServiceTest : BasePlatformTestCase() {
 
     fun testWorkspaceServiceCachesAndFlowsResources() = runBlocking {
         // Arrange

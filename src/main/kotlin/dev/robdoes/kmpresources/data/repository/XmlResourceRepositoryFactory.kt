@@ -6,8 +6,9 @@ import com.intellij.openapi.vfs.VirtualFile
 import dev.robdoes.kmpresources.domain.repository.ResourceRepository
 import dev.robdoes.kmpresources.domain.repository.ResourceRepositoryFactory
 
+
 @Service(Service.Level.PROJECT)
-class XmlResourceRepositoryFactory(private val project: Project) : ResourceRepositoryFactory {
+internal class XmlResourceRepositoryFactory(private val project: Project) : ResourceRepositoryFactory {
     override fun create(file: VirtualFile): ResourceRepository {
         return XmlResourceRepositoryImpl(project, file)
     }

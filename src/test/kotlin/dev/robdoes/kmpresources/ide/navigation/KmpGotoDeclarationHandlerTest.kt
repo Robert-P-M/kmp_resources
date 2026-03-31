@@ -5,7 +5,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
-class KmpGotoDeclarationHandlerTest : BasePlatformTestCase() {
+internal class KmpGotoDeclarationHandlerTest : BasePlatformTestCase() {
 
     fun testGotoDeclarationResolvesToXmlTag() {
         // Arrange

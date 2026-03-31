@@ -9,7 +9,7 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-class KmpDocumentationTest : BasePlatformTestCase() {
+internal class KmpDocumentationTest : BasePlatformTestCase() {
 
     override fun setUp() {
         super.setUp()

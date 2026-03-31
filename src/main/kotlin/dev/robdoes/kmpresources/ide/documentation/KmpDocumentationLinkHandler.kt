@@ -14,7 +14,22 @@ import dev.robdoes.kmpresources.ide.navigation.KmpResourceTarget
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
-class KmpDocumentationLinkHandler : DocumentationLinkHandler {
+/**
+ * Handles special link resolution functionality for KMP (multiplatform) documentation.
+ *
+ * This implementation resolves custom links in documentation popups, such as navigating to a specific
+ * resource or opening an editor for editing the resource directly. The functionality depends on the context
+ * of KMP-specific documentation targets.
+ *
+ * The handler performs the following actions based on the provided URL:
+ * - If the URL equals "kmp_edit": Launches a coroutine on the project-scoped coroutine context to close
+ *   any open popups and navigates to the resource editor.
+ * - If the URL starts with "locale_": Resolves and navigates to a specific locale version of a resource,
+ *   based on the target directory name indicated in the URL.
+ *
+ * For all other URLs or invalid targets, the link resolution returns null.
+ */
+internal class KmpDocumentationLinkHandler : DocumentationLinkHandler {
 
     override fun resolveLink(target: DocumentationTarget, url: String): LinkResolveResult? {
         if (target !is KmpDocumentationTarget) return null

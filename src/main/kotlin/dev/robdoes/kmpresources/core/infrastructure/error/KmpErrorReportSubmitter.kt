@@ -12,7 +12,23 @@ import java.awt.Component
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
-class KmpErrorReportSubmitter : ErrorReportSubmitter() {
+/**
+ * An implementation of `ErrorReportSubmitter` that handles the submission of error reports
+ * by creating a new issue on the GitHub repository associated with the plugin.
+ *
+ * This class gathers relevant information about the error, including the IDE version, plugin version,
+ * and stacktrace, and encodes it into a URL to open the user's default web browser. The user can review
+ * and submit the issue on the repository's issue tracker.
+ *
+ * Key Features:
+ * - Provides a custom action text to display in the error reporting UI.
+ * - Collects additional user-provided information along with IDE and plugin metadata.
+ * - Formats the collected data into a GitHub-compatible issue template.
+ * - Opens a new issue URL in the default browser for user review and submission.
+ *
+ * This reporter is specific to the `kmp_resources` plugin and utilizes its GitHub repository for tracking issues.
+ */
+internal class KmpErrorReportSubmitter : ErrorReportSubmitter() {
 
     override fun getReportActionText(): String {
         return "Report Issue to Author on GitHub"

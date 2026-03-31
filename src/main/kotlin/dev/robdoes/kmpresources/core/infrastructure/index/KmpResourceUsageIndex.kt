@@ -8,9 +8,36 @@ import org.jetbrains.kotlin.idea.KotlinFileType
 import org.jetbrains.kotlin.lexer.KotlinLexer
 import org.jetbrains.kotlin.lexer.KtTokens
 
-val KMP_RESOURCE_USAGE_INDEX_NAME = ID.create<String, Void>("dev.robdoes.kmpresources.UsageIndex")
+/**
+ * Identifier (ID) for the KMP Resource Usage Index.
+ *
+ * This ID is utilized to uniquely represent and manage the `KmpResourceUsageIndex`.
+ * It serves as a key for associating index-related operations, such as resource usage
+ * analysis and indexing within the context of Kotlin Multiplatform projects.
+ *
+ * The ID is registered with the specified name and is tied to the internal indexing mechanism.
+ */
+internal val KMP_RESOURCE_USAGE_INDEX_NAME = ID.create<String, Void>("dev.robdoes.kmpresources.UsageIndex")
 
-class KmpResourceUsageIndex : ScalarIndexExtension<String>() {
+/**
+ * Provides an implementation of a scalar index for analyzing Kotlin resource usage patterns.
+ *
+ * This class is responsible for indexing Kotlin code files to identify resource references
+ * such as strings, plurals, and arrays. It works in conjunction with IntelliJ's file-based
+ * indexing infrastructure to efficiently store and retrieve these resource references.
+ *
+ * The index captures resource usage following the pattern `Res.string.<resourceName>`,
+ * `Res.plurals.<resourceName>`, or `Res.array.<resourceName>`, where `<resourceName>`
+ * represents the specific name of the resource being used. This is achieved using a simple
+ * state machine lexer over the input content.
+ *
+ * Key attributes of this class include:
+ * - Scanning only Kotlin files while ignoring files in specific directories like `/build/` or `/generated/`.
+ * - Dependency on file content changes to update the index.
+ * - Providing a unique index name for retrieval and usage in the indexing framework.
+ * - Using a simple key descriptor for resource names that ensures efficient serialization.
+ */
+internal class KmpResourceUsageIndex : ScalarIndexExtension<String>() {
 
     override fun getName(): ID<String, Void> = KMP_RESOURCE_USAGE_INDEX_NAME
 

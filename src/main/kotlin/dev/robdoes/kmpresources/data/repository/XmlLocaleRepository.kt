@@ -10,13 +10,13 @@ import com.intellij.psi.search.FileTypeIndex
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.xml.XmlFile
 import dev.robdoes.kmpresources.domain.repository.LocaleRepository
-import dev.robdoes.kmpresources.domain.repository.ResourceRepository
 import dev.robdoes.kmpresources.domain.usecase.AddLocaleUseCase.LocaleContext
 import java.io.File
 import java.nio.charset.StandardCharsets
 import java.util.*
 
-class XmlLocaleRepository(
+
+internal class XmlLocaleRepository(
     private val project: Project
 ) : LocaleRepository {
 
@@ -82,29 +82,6 @@ class XmlLocaleRepository(
                 stringsFile.setBinaryContent(initialContent.toByteArray(StandardCharsets.UTF_8))
             }
         }
-    }
-
-    override fun createLocaleRepository(
-        context: LocaleContext,
-        locale: Locale,
-        factory: (LocaleContext) -> ResourceRepository
-    ): ResourceRepository {
-        return factory(contextForLocale(context, locale))
-    }
-
-    private fun contextForLocale(context: LocaleContext, locale: Locale): LocaleContext {
-        val defaultDir = File(context.defaultValuesDirPath)
-        val parent = defaultDir.parentFile
-        val dirName = buildLocaleDirName(locale)
-        val localeDir = File(parent, dirName)
-
-        val fileName = File(context.defaultStringsFilePath).name
-        val stringsFile = File(localeDir, fileName)
-
-        return LocaleContext(
-            defaultValuesDirPath = localeDir.path,
-            defaultStringsFilePath = stringsFile.path
-        )
     }
 
     private fun buildLocaleDirName(locale: Locale): String {

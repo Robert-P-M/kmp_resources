@@ -2,7 +2,7 @@ package dev.robdoes.kmpresources.domain.repository
 
 import dev.robdoes.kmpresources.domain.model.*
 
-class FakeResourceRepository : ResourceRepository {
+internal class FakeResourceRepository : ResourceRepository {
 
     val inMemoryStorage = mutableListOf<XmlResource>()
 

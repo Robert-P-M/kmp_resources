@@ -7,7 +7,7 @@ import org.junit.Test
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
-class ToggleUntranslatableUseCaseTest {
+internal class ToggleUntranslatableUseCaseTest {
 
     @Test
     fun testToggleUntranslatableFlag() = runBlocking {

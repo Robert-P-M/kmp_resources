@@ -2,7 +2,7 @@ package dev.robdoes.kmpresources.ide.linter
 
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 
-class KmpFormatInspectionTest : BasePlatformTestCase() {
+internal class KmpFormatInspectionTest : BasePlatformTestCase() {
 
     override fun setUp() {
         super.setUp()

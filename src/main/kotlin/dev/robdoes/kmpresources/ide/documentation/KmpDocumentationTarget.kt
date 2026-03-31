@@ -12,8 +12,18 @@ import com.intellij.psi.xml.XmlTag
 import dev.robdoes.kmpresources.core.infrastructure.i18n.KmpResourcesBundle
 import dev.robdoes.kmpresources.domain.model.ResourceType
 
+/**
+ * Represents a documentation target associated with a specific XML tag and key name in the context of KMP (Kotlin Multiplatform) resources.
+ *
+ * This class is designed to generate documentation for a resource defined in an XML file, such as string resources, plurals,
+ * or arrays. It provides mechanisms to compute the presentation, generate documentation content, and manage pointers to itself.
+ *
+ * @constructor Initializes the documentation target with the provided XML tag and key name.
+ * @property xmlTag The XML tag associated with this documentation target.
+ * @property keyName The key name of the resource represented by this documentation target.
+ */
 @Suppress("UnstableApiUsage")
-class KmpDocumentationTarget(
+internal class KmpDocumentationTarget(
     val xmlTag: XmlTag,
     val keyName: String
 ) : DocumentationTarget {
@@ -108,6 +118,14 @@ class KmpDocumentationTarget(
     }
 
 
+    /**
+     * Finds and returns a list of XML tags corresponding to localized variants of the given tag.
+     * The method searches for tags in sibling resource directories whose names start with "values".
+     *
+     * @param currentTag The XML tag for which localized variants are being searched.
+     * @param keyName The key name used to match the specific XML tag in localized files.
+     * @return A list of XML tags that match the specified tag and key in localized resource directories.
+     */
     private fun findAvailableLocales(currentTag: XmlTag, keyName: String): List<XmlTag> {
         val currentFile = currentTag.containingFile.virtualFile ?: return emptyList()
         val composeResourcesDir = currentFile.parent?.parent ?: return emptyList()

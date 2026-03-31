@@ -16,8 +16,23 @@ import com.intellij.openapi.vfs.VirtualFile
 import dev.robdoes.kmpresources.core.infrastructure.coroutines.KmpProjectScopeService
 import kotlinx.coroutines.launch
 
-object KmpGradleSyncHelper {
+/**
+ * Helper object that assists with synchronizing Kotlin Multiplatform projects in a Gradle environment.
+ *
+ * This utility is specifically created for situations where additional Gradle tasks need to be triggered
+ * within the context of an IntelliJ IDEA project. It ensures that the required tasks execute correctly
+ * and provides a callback mechanism upon successful task completion.
+ */
+internal object KmpGradleSyncHelper {
 
+    /**
+     * Triggers the Gradle task to generate resource accessors for the `commonMain` source set within a Kotlin Multiplatform project.
+     * This method ensures that the task execution is managed either synchronously or asynchronously depending on the environment.
+     *
+     * @param project The current IntelliJ IDEA project in which the Gradle task will be executed.
+     * @param contextFile The virtual file representing the context or location where the task is to be triggered.
+     * @param onSuccess A callback function that is executed upon the successful completion of the Gradle task. Defaults to a no-op.
+     */
     fun triggerGenerateAccessors(project: Project, contextFile: VirtualFile, onSuccess: () -> Unit = {}) {
         if (ApplicationManager.getApplication().isUnitTestMode) {
             onSuccess()

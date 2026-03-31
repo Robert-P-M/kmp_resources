@@ -1,168 +1,183 @@
 package dev.robdoes.kmpresources.data.repository
 
-import com.intellij.openapi.application.readAction
-import com.intellij.openapi.application.runReadAction
 import com.intellij.openapi.components.service
-import com.intellij.openapi.diagnostic.Logger
-import com.intellij.openapi.fileEditor.FileDocumentManager
-import com.intellij.openapi.project.Project
-import com.intellij.openapi.vfs.VirtualFile
-import com.intellij.psi.PsiDocumentManager
-import com.intellij.psi.PsiManager
-import com.intellij.psi.xml.XmlFile
-import dev.robdoes.kmpresources.core.application.service.KmpResourceWorkspaceService
-import dev.robdoes.kmpresources.core.infrastructure.coroutines.withEdtContext
-import dev.robdoes.kmpresources.core.infrastructure.utils.KmpActionRunner
-import dev.robdoes.kmpresources.domain.model.*
-import dev.robdoes.kmpresources.domain.repository.ResourceRepository
+import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import com.intellij.util.ui.UIUtil
+import dev.robdoes.kmpresources.core.infrastructure.coroutines.KmpProjectScopeService
+import dev.robdoes.kmpresources.domain.model.ResourceType
+import dev.robdoes.kmpresources.domain.model.StringResource
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.launch
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
-class XmlResourceRepositoryImpl(
-    private val project: Project,
-    private val file: VirtualFile
-) : ResourceRepository {
+internal class XmlResourceRepositoryImplTest : BasePlatformTestCase() {
 
-    private val logger = Logger.getInstance(XmlResourceRepositoryImpl::class.java)
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private fun <T> runSuspendTest(block: suspend () -> T): T {
+        val deferred = CompletableDeferred<T>()
 
-    override fun loadResources(): List<XmlResource> {
-        return project.service<KmpResourceWorkspaceService>().getResourceStateFlow(file).value
+        project.service<KmpProjectScopeService>().coroutineScope.launch {
+            try {
+                deferred.complete(block())
+            } catch (e: Throwable) {
+                deferred.completeExceptionally(e)
+            }
+        }
+
+        while (!deferred.isCompleted) {
+            UIUtil.dispatchAllInvocationEvents()
+            Thread.sleep(1)
+        }
+
+        return deferred.getCompleted()
     }
 
-    override suspend fun parseResourcesFromDisk(): List<XmlResource> {
-        return runReadAction {
-            val defaultPsiFile =
-                PsiManager.getInstance(project).findFile(file) as? XmlFile ?: return@runReadAction emptyList()
-            val defaultResources = XmlResourceParser.parse(defaultPsiFile)
-            val localeFiles = XmlLocaleFileManager.findRelatedLocaleFiles(project, file)
+    override fun setUp() {
+        super.setUp()
+        // Setup initial XML files before each test
+        myFixture.addFileToProject(
+            "composeResources/values/strings.xml",
+            """
+            <resources>
+                <string name="test_key">Default Value</string>
+                <string name="delete_me">To be deleted</string>
+            </resources>
+            """.trimIndent()
+        )
 
-            val resourceMap = defaultResources.associateBy { it.key }.toMutableMap()
-
-            localeFiles.forEach { (localeTag, psiFile) ->
-                val localizedRes = XmlResourceParser.parse(psiFile)
-                localizedRes.forEach { res ->
-                    val existing = resourceMap[res.key]
-                    if (existing != null) {
-                        resourceMap[res.key] = mergeResource(existing, res, localeTag)
-                    }
-                }
-            }
-            resourceMap.values.toList()
-        }
+        myFixture.addFileToProject(
+            "composeResources/values-de/strings.xml",
+            """
+            <resources>
+                <string name="test_key">Deutscher Wert</string>
+                <string name="delete_me">Wird geloescht</string>
+            </resources>
+            """.trimIndent()
+        )
     }
 
-    override suspend fun saveResource(resource: XmlResource) {
-        val localesInResource = resource.localizedValues.keys
-        val targetFilesMap = mutableMapOf<String?, VirtualFile>()
-
-        for (localeTag in localesInResource) {
-            if (localeTag == null) {
-                targetFilesMap[null] = file
-            } else {
-                val related = readAction { XmlLocaleFileManager.findRelatedLocaleFiles(project, file) }
-                var targetFile = related[localeTag]?.virtualFile
-
-                if (targetFile == null && !resource.isEmptyForLocale(localeTag)) {
-                    // FIX: Sicheres Dispatching, verhindert Deadlocks
-                    targetFile = withEdtContext {
-                        XmlLocaleFileManager.createLocaleFileInternal(file, localeTag)
-                    }
-                }
-
-                if (targetFile != null) {
-                    targetFilesMap[localeTag] = targetFile
-                }
-            }
-        }
-
-        if (targetFilesMap.isEmpty()) return
-
-        val psiFilesMap = KmpActionRunner.runRead {
-            targetFilesMap.mapNotNull { (locale, vFile) ->
-                val xmlFile = PsiManager.getInstance(project).findFile(vFile) as? XmlFile
-                if (xmlFile != null) locale to xmlFile else null
-            }.toMap()
-        }
-
-        // FIX: Sicheres Dispatching, verhindert Deadlocks
-        withEdtContext {
-            KmpActionRunner.runWriteCommand(project, "Save KMP Resource", psiFilesMap.values.toList()) {
-                psiFilesMap.forEach { (localeTag, psiFile) ->
-                    XmlResourceWriter.writeResource(project, psiFile, resource, localeTag)
-                }
-            }
-        }
+    private fun getRepository(): XmlResourceRepositoryImpl {
+        val defaultFile = myFixture.findFileInTempDir("composeResources/values/strings.xml")!!
+        return XmlResourceRepositoryImpl(project, defaultFile)
     }
 
-    override suspend fun deleteResource(key: String, type: ResourceType) {
-        val filesToDeleteFrom = mutableListOf(file)
+    fun testParseResourcesFromDiskMergesDefaultAndLocales() = runSuspendTest {
+        // Arrange
+        val repository = getRepository()
 
-        val localeFiles = readAction {
-            XmlLocaleFileManager.findRelatedLocaleFiles(project, file).values.map { it.virtualFile }
-        }
-        filesToDeleteFrom.addAll(localeFiles)
+        // Act
+        val resources = repository.parseResourcesFromDisk()
 
-        val psiFiles = KmpActionRunner.runRead {
-            filesToDeleteFrom.mapNotNull { PsiManager.getInstance(project).findFile(it) as? XmlFile }
-        }
+        // Assert
+        assertEquals(
+            expected = 2,
+            actual = resources.size,
+            message = "Should parse exactly two distinct keys"
+        )
 
-        if (psiFiles.isEmpty()) return
+        val testResource = resources.find { it.key == "test_key" } as? StringResource
+        assertNotNull("test_key should be parsed as a StringResource", testResource)
 
-        // FIX: Sicheres Dispatching, verhindert Deadlocks
-        withEdtContext {
-            KmpActionRunner.runWriteCommand(project, "Delete KMP Resource", psiFiles) {
-                psiFiles.forEach { psiFile ->
-                    XmlResourceWriter.deleteResource(psiFile, key, type)
-                }
-            }
-        }
+        assertEquals(
+            expected = "Default Value",
+            actual = testResource!!.values[null],
+            message = "Default value should be correctly parsed"
+        )
+        assertEquals(
+            expected = "Deutscher Wert",
+            actual = testResource.values["de"],
+            message = "German locale value should be correctly merged into the resource"
+        )
     }
 
-    override suspend fun toggleUntranslatable(key: String, isUntranslatable: Boolean) {
-        val relatedFiles = runReadAction { XmlLocaleFileManager.findRelatedLocaleFiles(project, file) }
-        val psiFilesToModify = mutableListOf<XmlFile>()
-
-        KmpActionRunner.runRead {
-            val defaultXmlFile = PsiManager.getInstance(project).findFile(file) as? XmlFile
-            if (defaultXmlFile != null) psiFilesToModify.add(defaultXmlFile)
-
-            if (isUntranslatable) {
-                psiFilesToModify.addAll(relatedFiles.values)
-            }
-        }
-
-        if (psiFilesToModify.isEmpty()) return
-
-        KmpActionRunner.runWriteCommand(project, "Toggle Untranslatable", psiFilesToModify) {
-            val defaultXmlFile = psiFilesToModify.firstOrNull { it.virtualFile == file }
-            if (defaultXmlFile != null) {
-                XmlResourceWriter.setUntranslatable(defaultXmlFile, key, isUntranslatable)
-            }
-
-            if (isUntranslatable) {
-                psiFilesToModify.filter { it.virtualFile != file }.forEach { psiFile ->
-                    XmlResourceWriter.deleteResourceByKey(psiFile, key)
-                }
-            }
-        }
-
-        PsiDocumentManager.getInstance(project).commitAllDocuments()
-        FileDocumentManager.getInstance().saveAllDocuments()
-    }
-
-    private fun mergeResource(existing: XmlResource, incoming: XmlResource, localeTag: String): XmlResource {
-        return when (existing) {
-            is StringResource -> existing.copy(
-                values = existing.values + (localeTag to ((incoming as StringResource).values[null] ?: ""))
+    fun testSaveResourceAddsNewStringAcrossLocales() = runSuspendTest {
+        // Arrange
+        val repository = getRepository()
+        val newResource = StringResource(
+            key = "new_key",
+            isUntranslatable = false,
+            values = mapOf(
+                null to "New Default",
+                "de" to "Neu Deutsch"
             )
+        )
 
-            is PluralsResource -> existing.copy(
-                localizedItems = existing.localizedItems + (localeTag to ((incoming as PluralsResource).localizedItems[null]
-                    ?: emptyMap()))
-            )
+        // Act
+        repository.saveResource(newResource)
 
-            is StringArrayResource -> existing.copy(
-                localizedItems = existing.localizedItems + (localeTag to ((incoming as StringArrayResource).localizedItems[null]
-                    ?: emptyList()))
-            )
-        }
+        // Assert
+        val defaultFile = myFixture.findFileInTempDir("composeResources/values/strings.xml")!!
+        val deFile = myFixture.findFileInTempDir("composeResources/values-de/strings.xml")!!
+
+        val defaultContent = String(defaultFile.contentsToByteArray(), Charsets.UTF_8)
+        val deContent = String(deFile.contentsToByteArray(), Charsets.UTF_8)
+
+        assertTrue(
+            actual = defaultContent.contains("""<string name="new_key">New Default</string>"""),
+            message = "Default file should contain the newly saved string"
+        )
+        assertTrue(
+            actual = deContent.contains("""<string name="new_key">Neu Deutsch</string>"""),
+            message = "German file should contain the newly saved localized string"
+        )
+    }
+
+    fun testDeleteResourceRemovesKeyFromAllLocales() = runSuspendTest {
+        // Arrange
+        val repository = getRepository()
+
+        // Act
+        repository.deleteResource("delete_me", ResourceType.String)
+
+        // Assert
+        val defaultFile = myFixture.findFileInTempDir("composeResources/values/strings.xml")!!
+        val deFile = myFixture.findFileInTempDir("composeResources/values-de/strings.xml")!!
+
+        val defaultContent = String(defaultFile.contentsToByteArray(), Charsets.UTF_8)
+        val deContent = String(deFile.contentsToByteArray(), Charsets.UTF_8)
+
+        assertFalse(
+            actual = defaultContent.contains("delete_me"),
+            message = "The key 'delete_me' should be removed from the default file"
+        )
+        assertFalse(
+            actual = deContent.contains("delete_me"),
+            message = "The key 'delete_me' should be removed from the German file"
+        )
+        assertTrue(
+            actual = defaultContent.contains("test_key"),
+            message = "Other keys should remain untouched"
+        )
+    }
+
+    fun testToggleUntranslatableAddsAttributeAndDeletesTranslations() = runSuspendTest {
+        // Arrange
+        val repository = getRepository()
+
+        // Act
+        // We set 'test_key' to untranslatable = true
+        repository.toggleUntranslatable("test_key", true)
+
+        // Assert
+        val defaultFile = myFixture.findFileInTempDir("composeResources/values/strings.xml")!!
+        val deFile = myFixture.findFileInTempDir("composeResources/values-de/strings.xml")!!
+
+        val defaultContent = String(defaultFile.contentsToByteArray(), Charsets.UTF_8)
+        val deContent = String(deFile.contentsToByteArray(), Charsets.UTF_8)
+
+        // 1. Check if the translatable attribute was added to the default file
+        assertTrue(
+            actual = defaultContent.contains("""<string name="test_key" translatable="false">Default Value</string>"""),
+            message = "Default file should now have translatable='false' attribute"
+        )
+
+        // 2. Check if the translation was deleted from the German file
+        assertFalse(
+            actual = deContent.contains("test_key"),
+            message = "The localized 'test_key' MUST be deleted from the German file when marked as untranslatable"
+        )
     }
 }

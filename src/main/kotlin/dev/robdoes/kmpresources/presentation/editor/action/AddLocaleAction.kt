@@ -22,7 +22,19 @@ import java.awt.BorderLayout
 import java.awt.Dimension
 import javax.swing.*
 
-class AddLocaleAction(
+/**
+ * A custom action that provides functionality to add a new locale to a table.
+ *
+ * This action extends `ComboBoxAction` and displays a popup allowing users to search for and select
+ * a locale from a list of available options. Selected locales can then be added through a provided
+ * callback mechanism.
+ *
+ * @constructor
+ * Creates an instance of `AddLocaleAction`.
+ *
+ * @param onLocaleSelected Callback invoked when a locale is selected.
+ */
+internal class AddLocaleAction(
     private val onLocaleSelected: (LocaleInfo) -> Unit,
 ) : ComboBoxAction() {
 
@@ -71,6 +83,19 @@ class AddLocaleAction(
         return popup
     }
 
+    /**
+     * Builds a panel containing a searchable list of locales.
+     *
+     * This method creates a user interface panel that includes a search field and a scrollable list of locales.
+     * Users can search for locales by name or language tag, and select any locale that is not already present
+     * in the `existingLocales`. When a locale is selected, the provided callback is invoked.
+     *
+     * @param allLocales The list of all available locales to display and search from.
+     * @param onLocaleSelected A callback function invoked when a locale is selected by the user.
+     *                         The selected locale is passed as a parameter to this function.
+     * @param disposeCallback An optional callback that is triggered when the panel needs to be disposed or closed.
+     * @return A `JPanel` containing the searchable locale list and associated UI components.
+     */
     private fun buildSearchableLocalePanel(
         allLocales: List<LocaleInfo>,
         onLocaleSelected: (LocaleInfo) -> Unit,
@@ -136,6 +161,18 @@ class AddLocaleAction(
         }
     }
 
+    /**
+     * Custom cell renderer for displaying a list of locales in a `JList` component.
+     *
+     * This class extends `DefaultListCellRenderer` to provide a customized rendering
+     * of `LocaleInfo` objects in a list. It visually displays the locale's flag emoji,
+     * display name, and language tag. If a locale's language tag exists in the
+     * provided `existingLocales` set, it is rendered as disabled and grayed out.
+     *
+     * @constructor Creates a new instance of the renderer.
+     * @param existingLocales A set of language tags representing locales that are
+     *                        already selected or unavailable for selection.
+     */
     private class LocaleListCellRenderer(
         private val existingLocales: Set<String>,
     ) : DefaultListCellRenderer() {

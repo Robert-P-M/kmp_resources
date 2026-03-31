@@ -12,7 +12,16 @@ import dev.robdoes.kmpresources.presentation.editor.KmpResourceTableEditor
 import kotlinx.coroutines.launch
 import javax.swing.Icon
 
-class KmpResourceTarget(
+/**
+ * Represents a Kotlin Multiplatform resource target that provides a bridge between an XML-tagged resource
+ * and the IntelliJ PSI structure. This class extends [FakePsiElement] to integrate with the PSI tree and
+ * enable navigation to specific resources within the IDE.
+ *
+ * @constructor Creates an instance of [KmpResourceTarget].
+ * @param xmlTag The [XmlTag] representing the XML resource element this target is associated with.
+ * @param kotlinKeyName The key name in Kotlin corresponding to the XML resource element.
+ */
+internal class KmpResourceTarget(
     private val xmlTag: XmlTag,
     private val kotlinKeyName: String
 ) : FakePsiElement() {

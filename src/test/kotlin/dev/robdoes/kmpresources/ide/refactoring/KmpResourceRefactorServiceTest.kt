@@ -5,7 +5,7 @@ import kotlinx.coroutines.runBlocking
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
-class KmpResourceRefactorServiceTest : BasePlatformTestCase() {
+internal class KmpResourceRefactorServiceTest : BasePlatformTestCase() {
 
     fun testRenameKeyUpdatesXmlAndKotlinReferencesAndImports() = runBlocking {
         // Arrange: 1. The XML File

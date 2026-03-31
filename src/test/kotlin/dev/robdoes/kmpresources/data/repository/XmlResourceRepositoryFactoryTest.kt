@@ -5,7 +5,7 @@ import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
-class XmlResourceRepositoryFactoryTest : BasePlatformTestCase() {
+internal class XmlResourceRepositoryFactoryTest : BasePlatformTestCase() {
 
     fun testFactoryIsRegisteredAsProjectServiceAndCreatesRepository() {
         // Arrange

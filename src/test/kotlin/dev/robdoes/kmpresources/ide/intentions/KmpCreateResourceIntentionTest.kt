@@ -4,7 +4,7 @@ import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
-class KmpCreateResourceIntentionTest : BasePlatformTestCase() {
+internal class KmpCreateResourceIntentionTest : BasePlatformTestCase() {
 
     fun testIntentionIsAvailableAndGeneratesStringResource() {
         // Arrange
