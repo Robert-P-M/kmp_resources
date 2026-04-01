@@ -1,6 +1,7 @@
 package dev.robdoes.kmpresources.core.infrastructure.resolver
 
 import com.intellij.ide.highlighter.XmlFileType
+import com.intellij.openapi.components.service
 import com.intellij.openapi.progress.ProcessCanceledException
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Key
@@ -8,6 +9,7 @@ import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiManager
 import com.intellij.psi.SmartPointerManager
 import com.intellij.psi.SmartPsiElementPointer
+import com.intellij.psi.search.DelegatingGlobalSearchScope
 import com.intellij.psi.search.FileTypeIndex
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.util.CachedValue
@@ -16,14 +18,12 @@ import com.intellij.psi.util.CachedValuesManager
 import com.intellij.psi.util.PsiModificationTracker
 import com.intellij.psi.xml.XmlFile
 import com.intellij.psi.xml.XmlTag
+import dev.robdoes.kmpresources.core.application.service.ResourceSystemDetectionService
 import dev.robdoes.kmpresources.core.shared.ResourceKeyNormalizer
 import dev.robdoes.kmpresources.domain.model.ResourceType
 import org.jetbrains.kotlin.psi.KtDotQualifiedExpression
 import org.jetbrains.kotlin.psi.KtNameReferenceExpression
 import org.jetbrains.kotlin.psi.psiUtil.getQualifiedExpressionForSelector
-import com.intellij.openapi.components.service
-import com.intellij.psi.search.DelegatingGlobalSearchScope
-import dev.robdoes.kmpresources.core.application.service.ResourceSystemDetectionService
 
 /**
  * The `KmpResourceResolver` object provides functionality for resolving and managing resource references
@@ -124,6 +124,7 @@ internal object KmpResourceResolver {
                         val system = detectionService.detectSystem(file)
                         return file.path.contains(system.baseResourceDirName)
                     }
+
                     override fun isSearchInModuleContent(aModule: com.intellij.openapi.module.Module) = true
                     override fun isSearchInLibraries() = false
                 }

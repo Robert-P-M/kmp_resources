@@ -82,10 +82,14 @@ internal class KmpResourceProjectViewDecorator : ProjectViewNodeDecorator {
         val file = node.virtualFile ?: return
         if (!file.isValid) return
         val project = node.project ?: return
-        val detectionService = project.service<dev.robdoes.kmpresources.core.application.service.ResourceSystemDetectionService>()
+        val detectionService =
+            project.service<dev.robdoes.kmpresources.core.application.service.ResourceSystemDetectionService>()
         val system = detectionService.detectSystem(file)
 
-        if (file.extension == "xml" && file.parent?.name?.startsWith(system.valuesDirPrefix) == true && file.path.contains(system.baseResourceDirName)) {
+        if (file.extension == "xml" && file.parent?.name?.startsWith(system.valuesDirPrefix) == true && file.path.contains(
+                system.baseResourceDirName
+            )
+        ) {
             val project = node.project ?: return
             val path = file.path
 

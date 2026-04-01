@@ -29,16 +29,16 @@ object Bcp47FolderMapper {
         if (!bcp47.contains("-")) return "values-$bcp47"
 
         val parts = bcp47.split("-")
-        
+
         if (parts.size == 2 && parts[1].length == 2) {
             return "values-${parts[0]}-r${parts[1].uppercase()}"
         }
 
-        
+
         if (parts.size == 2 && parts[1].startsWith("r", ignoreCase = true) && parts[1].length == 3) {
             return "values-${parts[0]}-${parts[1]}"
         }
-        
+
         return "values-b+${bcp47.replace("-", "+")}"
     }
 

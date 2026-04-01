@@ -26,10 +26,10 @@ internal class XmlLocaleRepository(
             val scope = GlobalSearchScope.projectScope(project)
             val xmlFiles = FileTypeIndex.getFiles(XmlFileType.INSTANCE, scope)
             val psiManager = PsiManager.getInstance(project)
-            val detectionService = project.service<ResourceSystemDetectionService>() // NEU
+            val detectionService = project.service<ResourceSystemDetectionService>()
 
             xmlFiles.filter { file ->
-                val system = detectionService.detectSystem(file) // NEU
+                val system = detectionService.detectSystem(file)
                 !file.isDirectory &&
                         file.parent?.name == system.valuesDirPrefix &&
                         file.path.contains(system.baseResourceDirName)

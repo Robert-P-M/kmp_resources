@@ -59,7 +59,6 @@ internal class KmpResourceWorkspaceService(private val project: Project) {
                         if (isResourcePath) {
                             if (event is VFileDeleteEvent) {
                                 fileStates.keys.removeIf { it.contains(event.path) }
-                                // event.file.url.let { fileStates.remove(it) }
                             } else {
                                 needsReload = true
                             }

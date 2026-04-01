@@ -71,7 +71,10 @@ internal class KmpLocaleInteractionHandler(
                 override fun checkInput(inputString: String?) = inputString == folderName
                 override fun canClose(inputString: String?) = inputString == folderName
                 override fun getErrorText(inputString: String?) =
-                    if (inputString == folderName) null else KmpResourcesBundle.message("dialog.delete.restrictive.error", folderName)
+                    if (inputString == folderName) null else KmpResourcesBundle.message(
+                        "dialog.delete.restrictive.error",
+                        folderName
+                    )
             }
 
             val result = Messages.showInputDialog(
@@ -101,7 +104,11 @@ internal class KmpLocaleInteractionHandler(
                         success = false
                         Messages.showErrorDialog(
                             project,
-                            KmpResourcesBundle.message("dialog.error.delete.locale", folderName, e.localizedMessage ?: ""),
+                            KmpResourcesBundle.message(
+                                "dialog.error.delete.locale",
+                                folderName,
+                                e.localizedMessage ?: ""
+                            ),
                             KmpResourcesBundle.message("dialog.error.title")
                         )
                     }
@@ -153,7 +160,11 @@ internal class KmpLocaleInteractionHandler(
                         success = false
                         Messages.showErrorDialog(
                             project,
-                            KmpResourcesBundle.message("dialog.error.rename.locale", oldFolderName, e.localizedMessage ?: ""),
+                            KmpResourcesBundle.message(
+                                "dialog.error.rename.locale",
+                                oldFolderName,
+                                e.localizedMessage ?: ""
+                            ),
                             KmpResourcesBundle.message("dialog.error.title")
                         )
                     }

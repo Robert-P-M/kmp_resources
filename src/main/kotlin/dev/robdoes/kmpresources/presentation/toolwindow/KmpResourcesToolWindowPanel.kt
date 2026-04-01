@@ -145,7 +145,8 @@ internal class KmpResourcesToolWindowPanel(
             VirtualFileManager.VFS_CHANGES,
             object : BulkFileListener {
                 override fun after(events: List<VFileEvent>) {
-                    val detectionService = project.service<dev.robdoes.kmpresources.core.application.service.ResourceSystemDetectionService>()
+                    val detectionService =
+                        project.service<dev.robdoes.kmpresources.core.application.service.ResourceSystemDetectionService>()
 
                     val isKmpResourceChanged = events.any { event ->
                         val changedFile = event.file ?: return@any false
@@ -195,7 +196,6 @@ internal class KmpResourcesToolWindowPanel(
             })
         }
     }
-
 
 
     /**
@@ -323,7 +323,6 @@ internal class KmpResourcesToolWindowPanel(
     }
 
 
-
     /**
      * Refreshes and updates the resource tree within the KMP Resources Tool Window panel.
      *
@@ -359,7 +358,10 @@ internal class KmpResourcesToolWindowPanel(
                 val folderName = file.parent.name
                 val system = detectionService.detectSystem(file)
 
-                val localeTag = dev.robdoes.kmpresources.core.shared.Bcp47FolderMapper.folderNameToBcp47(folderName, system.valuesDirPrefix)
+                val localeTag = dev.robdoes.kmpresources.core.shared.Bcp47FolderMapper.folderNameToBcp47(
+                    folderName,
+                    system.valuesDirPrefix
+                )
                 val displayLocale = localeTag ?: KmpResourcesBundle.message("doc.popup.locale.default")
 
                 structure.getOrPut(modulePath) { mutableListOf() }

@@ -1,6 +1,5 @@
 package dev.robdoes.kmpresources.ide.navigation
 
-import com.intellij.codeInsight.navigation.actions.GotoDeclarationHandler
 import com.intellij.codeInsight.navigation.actions.GotoDeclarationHandlerBase
 import com.intellij.openapi.actionSystem.DataContext
 import com.intellij.openapi.components.service
