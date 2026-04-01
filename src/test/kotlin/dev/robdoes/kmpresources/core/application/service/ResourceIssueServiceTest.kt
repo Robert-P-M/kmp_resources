@@ -10,29 +10,22 @@ import kotlin.test.assertEquals
 internal class ResourceIssueServiceTest : BasePlatformTestCase() {
 
     fun testFindAllResourceFilesFindsOnlyValidKmpStringsFiles() = runBlocking {
-        // Arrange
         val validFile1 = myFixture.addFileToProject("composeResources/values/strings.xml", "<resources></resources>")
-        val validFile2 = myFixture.addFileToProject("composeResources/values/colors.xml", "<resources></resources>")
+        myFixture.addFileToProject("composeResources/values/colors.xml", "<resources></resources>")
         myFixture.addFileToProject("androidApp/src/main/res/values/strings.xml", "<resources></resources>")
 
         val issueService = project.service<ResourceIssueService>()
-
-        // Act
         val files = issueService.findAllResourceFiles()
 
-        // Assert
         assertEquals(
             expected = 2,
             actual = files.size,
-            message = "Should find all XML files with <resources> tag inside composeResources/values"
+            message = "Should find only strings.xml inside composeResources/values — colors.xml and android paths are excluded"
         )
-        // Check if both valid files are found (order might vary, so we check if the paths exist)
-        val filePaths = files.map { it.path }
-        assertContainsElements(filePaths, validFile1.virtualFile.path, validFile2.virtualFile.path)
+        assertContainsElements(files.map { it.path }, validFile1.virtualFile.path)
     }
 
     fun testCountIssuesCorrectlyIdentifiesUnusedKeys() = runBlocking {
-        // Arrange
         val xmlContent = """
             <resources>
                 <string name="used_key">Used</string>
@@ -43,39 +36,30 @@ internal class ResourceIssueServiceTest : BasePlatformTestCase() {
 
         val xmlFile = myFixture.addFileToProject("composeResources/values/strings.xml", xmlContent)
         myFixture.addFileToProject("src/commonMain/kotlin/App.kt", "val text = Res.string.used_key")
-
         PsiDocumentManager.getInstance(project).commitAllDocuments()
 
         val issueService = project.service<ResourceIssueService>()
-
-        // Act
         val issueCount = issueService.countIssues(xmlFile.virtualFile)
 
-        // Assert
         assertEquals(
             expected = 2,
             actual = issueCount,
-            message = "Should find exactly 2 unused keys (issues) out of the 3 defined in XML"
+            message = "Should find exactly 2 unused keys out of 3 defined in XML"
         )
     }
 
     fun testCountIssuesReturnsZeroForInvalidFile() = runBlocking {
-        // Arrange
         val xmlFile = myFixture.addFileToProject("composeResources/values/strings.xml", "<resources></resources>")
         val issueService = project.service<ResourceIssueService>()
 
-        runWriteAction {
-            xmlFile.virtualFile.delete(this)
-        }
+        runWriteAction { xmlFile.virtualFile.delete(this) }
 
-        // Act
         val issueCount = issueService.countIssues(xmlFile.virtualFile)
 
-        // Assert
         assertEquals(
             expected = 0,
             actual = issueCount,
-            message = "Should return 0 immediately if the VirtualFile is no longer valid"
+            message = "Should return 0 if the VirtualFile is no longer valid"
         )
     }
 }

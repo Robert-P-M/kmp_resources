@@ -21,6 +21,9 @@ import dev.robdoes.kmpresources.domain.model.ResourceType
 import org.jetbrains.kotlin.psi.KtDotQualifiedExpression
 import org.jetbrains.kotlin.psi.KtNameReferenceExpression
 import org.jetbrains.kotlin.psi.psiUtil.getQualifiedExpressionForSelector
+import com.intellij.openapi.components.service
+import com.intellij.psi.search.DelegatingGlobalSearchScope
+import dev.robdoes.kmpresources.core.application.service.ResourceSystemDetectionService
 
 /**
  * The `KmpResourceResolver` object provides functionality for resolving and managing resource references
@@ -59,24 +62,23 @@ internal object KmpResourceResolver {
         Key.create<CachedValue<Map<ResolvedResource, List<SmartPsiElementPointer<XmlTag>>>>>("KmpResourceCache")
 
     /**
-     * Resolves the given PsiElement into a corresponding resource key and type.
+     * Resolves a resource reference from the given PSI element.
      *
-     * This method analyzes a Kotlin code element to determine if it represents
-     * a reference to a resource (e.g., a string, array, or plural resource).
-     * If the reference is valid, it extracts the key and identifies the type of resource.
+     * This method attempts to determine the resource key and type based on the context
+     * of a Kotlin PSI element. The resolution process involves analyzing qualified expressions
+     * and extracting the resource details by leveraging the resource system detection and
+     * resource type matching logic.
      *
-     * @param element The PsiElement to resolve. Typically represents an element in Kotlin code
-     *                that may refer to a resource, such as a `KtNameReferenceExpression`.
-     * @return A `ResolvedResource` containing the resource key and type if the resolution is successful,
-     *         or `null` if the element does not represent a valid resource reference.
+     * @param element The PSI element for which the resource reference is being resolved.
+     * This is typically a Kotlin element that represents a reference to a resource in the project.
+     * @return A `ResolvedResource` instance containing the resource key and type if the reference
+     * could be resolved successfully, or `null` if resolution failed.
      */
     fun resolveReference(element: PsiElement): ResolvedResource? {
         var dotQualified: KtDotQualifiedExpression? = null
-
         if (element is KtNameReferenceExpression) {
             dotQualified = element.getQualifiedExpressionForSelector() as? KtDotQualifiedExpression
         }
-
         if (dotQualified == null) {
             dotQualified = generateSequence(element) { it.parent }
                 .filterIsInstance<KtDotQualifiedExpression>()
@@ -85,15 +87,17 @@ internal object KmpResourceResolver {
 
         val text = dotQualified?.text ?: return null
 
-        val type = ResourceType.fromKotlinAccessor(text) ?: return null
+        val detectionService = element.project.service<ResourceSystemDetectionService>()
+        val system = detectionService.detectSystem(element.containingFile?.originalFile?.virtualFile)
 
-        val prefix = "${type.kotlinAccessor}."
+        val type = ResourceType.fromKotlinAccessor(text, system) ?: return null
+
+        val prefix = system.getAccessorPrefix(type)
         val key = text.substringAfter(prefix)
 
         if (key.isNotBlank()) {
             return ResolvedResource(key, type)
         }
-
         return null
     }
 
@@ -114,11 +118,12 @@ internal object KmpResourceResolver {
                 val map = mutableMapOf<ResolvedResource, MutableList<SmartPsiElementPointer<XmlTag>>>()
                 val pointerManager = SmartPointerManager.getInstance(project)
 
-                val composeScope = object : GlobalSearchScope(project) {
+                val composeScope = object : DelegatingGlobalSearchScope(project) {
                     override fun contains(file: com.intellij.openapi.vfs.VirtualFile): Boolean {
-                        return file.path.contains("/composeResources/")
+                        val detectionService = project.service<ResourceSystemDetectionService>()
+                        val system = detectionService.detectSystem(file)
+                        return file.path.contains(system.baseResourceDirName)
                     }
-
                     override fun isSearchInModuleContent(aModule: com.intellij.openapi.module.Module) = true
                     override fun isSearchInLibraries() = false
                 }

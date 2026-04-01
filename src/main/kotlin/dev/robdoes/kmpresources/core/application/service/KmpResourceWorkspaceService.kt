@@ -46,13 +46,20 @@ internal class KmpResourceWorkspaceService(private val project: Project) {
             VirtualFileManager.VFS_CHANGES,
             object : BulkFileListener {
                 override fun after(events: List<VFileEvent>) {
-
+                    val detectionService = project.service<ResourceSystemDetectionService>()
                     var needsReload = false
                     for (event in events) {
                         val path = event.path
-                        if (path.contains("/composeResources/values") && path.endsWith(".xml")) {
+                        if (!path.endsWith(".xml")) continue
+
+                        val system = detectionService.detectSystem(path)
+
+                        val isResourcePath = path.contains("/${system.baseResourceDirName}/${system.valuesDirPrefix}")
+
+                        if (isResourcePath) {
                             if (event is VFileDeleteEvent) {
-                                fileStates.remove(event.file.url)
+                                fileStates.keys.removeIf { it.contains(event.path) }
+                                // event.file.url.let { fileStates.remove(it) }
                             } else {
                                 needsReload = true
                             }
@@ -90,11 +97,9 @@ internal class KmpResourceWorkspaceService(private val project: Project) {
             fileStates[url] = MutableStateFlow(emptyList())
             scope.launch(Dispatchers.Default) {
                 project.awaitSmartMode()
-
                 withContext(Dispatchers.EDT) {
                     PsiDocumentManager.getInstance(project).commitAllDocuments()
                 }
-
                 reloadFromDisk(file)
             }
         }

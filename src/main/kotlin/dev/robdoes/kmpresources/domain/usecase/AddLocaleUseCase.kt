@@ -35,14 +35,12 @@ internal class AddLocaleUseCase(
      * @param localeTag The BCP 47 language tag identifying the locale to be added (e.g., "en-US").
      */
     suspend operator fun invoke(localeTag: String) {
-        val parsedLocale = Locale.forLanguageTag(localeTag)
-
         val contexts = localeRepository.findAllDefaultLocaleContexts()
 
         for (context in contexts) {
-            if (localeRepository.localeFileExists(context, parsedLocale)) continue
+            if (localeRepository.localeFileExists(context, localeTag)) continue
 
-            localeRepository.createLocaleStructure(context, parsedLocale)
+            localeRepository.createLocaleStructure(context, localeTag)
         }
     }
 }

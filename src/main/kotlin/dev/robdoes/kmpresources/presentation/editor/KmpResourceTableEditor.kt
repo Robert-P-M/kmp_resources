@@ -27,13 +27,19 @@ import dev.robdoes.kmpresources.core.shared.ResourceKeyNormalizer
 import dev.robdoes.kmpresources.domain.repository.ResourceRepository
 import dev.robdoes.kmpresources.domain.usecase.*
 import dev.robdoes.kmpresources.ide.utils.KmpGradleSyncHelper
-import dev.robdoes.kmpresources.presentation.editor.action.*
+import dev.robdoes.kmpresources.presentation.editor.action.AddResourceKeyAction
+import dev.robdoes.kmpresources.presentation.editor.action.FilterResourceAction
+import dev.robdoes.kmpresources.presentation.editor.action.RemoveResourceKeyAction
+import dev.robdoes.kmpresources.presentation.editor.action.SyncGradleAction
 import dev.robdoes.kmpresources.presentation.editor.controller.KmpResourceTableEditorController
 import dev.robdoes.kmpresources.presentation.editor.model.ResourceFilter
 import dev.robdoes.kmpresources.presentation.editor.search.KmpUsageSearchScope
 import dev.robdoes.kmpresources.presentation.editor.ui.ResourceEditPanel
 import dev.robdoes.kmpresources.presentation.editor.ui.ResourceTablePanel
+import dev.robdoes.kmpresources.presentation.shared.KmpLocaleInteractionHandler
+import dev.robdoes.kmpresources.presentation.shared.KmpLocaleToolbarFactory
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.filter
 import java.awt.BorderLayout
 import java.beans.PropertyChangeListener
 import javax.swing.JComponent
@@ -61,6 +67,8 @@ internal class KmpResourceTableEditor(
 
     private val scannerService = project.service<ResourceUsageService>()
 
+    private val localeHandler = KmpLocaleInteractionHandler(project)
+
     private val loadResourcesUseCase = LoadResourcesUseCase(repository)
     private val deleteResourceUseCase = DeleteResourceUseCase(repository, loadResourcesUseCase)
     private val saveResourceUseCase = SaveResourceUseCase(repository)
@@ -68,6 +76,7 @@ internal class KmpResourceTableEditor(
     private val updateInlinePluralUseCase = UpdateInlinePluralUseCase(repository, loadResourcesUseCase)
     private val updateInlineArrayUseCase = UpdateInlineArrayUseCase(repository, loadResourcesUseCase)
     private val toggleUntranslatableUseCase = ToggleUntranslatableUseCase(repository)
+    private var activeLocales = emptySet<String>()
 
     private val mainPanel = JPanel(BorderLayout())
     private val tablePanel = ResourceTablePanel(project, scannerService)
@@ -91,9 +100,12 @@ internal class KmpResourceTableEditor(
         wireUpCallbacks()
 
         editorScope.launch {
-            project.service<KmpResourceWorkspaceService>().getResourceStateFlow(file).collect {
-                reloadTableData()
-            }
+            project.service<KmpResourceWorkspaceService>()
+                .getResourceStateFlow(file)
+                .filter { it.isNotEmpty() }
+                .collect {
+                    reloadTableData()
+                }
         }
 
         project.messageBus.connect(this).subscribe(
@@ -269,11 +281,13 @@ internal class KmpResourceTableEditor(
                 ))
 
             addSeparator()
-            add(AddLocaleAction { selectedLocale ->
-                project.service<KmpProjectScopeService>().coroutineScope.launch {
-                    controller.handleAddLocale(selectedLocale.languageTag)
-                }
-            })
+            KmpLocaleToolbarFactory.addLocaleActions(
+                group = this,
+                project = project,
+                localeHandler = localeHandler,
+                getActiveLocales = { activeLocales },
+                onLocalesChanged = { reloadTableData() }
+            )
         }
 
         val toolbar = ActionManager.getInstance().createActionToolbar("KmpResourceEditorToolbar", actionGroup, true)
@@ -281,6 +295,24 @@ internal class KmpResourceTableEditor(
         mainPanel.add(toolbar.component, BorderLayout.NORTH)
     }
 
+    private fun updateActiveLocales() {
+        val baseDir = file.parent?.parent ?: return
+
+        val detectionService =
+            project.service<dev.robdoes.kmpresources.core.application.service.ResourceSystemDetectionService>()
+        val system = detectionService.detectSystem(file)
+
+        activeLocales = baseDir.children
+            .filter { it.isDirectory && it.name.startsWith("${system.valuesDirPrefix}-") }
+            .mapNotNull {
+                val tag = dev.robdoes.kmpresources.core.shared.Bcp47FolderMapper.folderNameToBcp47(
+                    it.name,
+                    system.valuesDirPrefix
+                )
+                if (tag != null && LocaleFormatValidator.isValid(tag)) tag else null
+            }
+            .toSet()
+    }
 
     /**
      * Reloads and updates the resource table data.
@@ -293,6 +325,8 @@ internal class KmpResourceTableEditor(
      * lifecycle management aligned with the project context.
      */
     private fun reloadTableData() {
+
+        updateActiveLocales()
         project.service<KmpProjectScopeService>().coroutineScope.launch(Dispatchers.Default) {
             val resources = readAction { loadResourcesUseCase() }
             withEdtContext {

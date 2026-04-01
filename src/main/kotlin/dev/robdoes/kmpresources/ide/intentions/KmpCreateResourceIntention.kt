@@ -5,19 +5,23 @@ import com.intellij.codeInsight.intention.PsiElementBaseIntentionAction
 import com.intellij.icons.AllIcons
 import com.intellij.ide.highlighter.XmlFileType
 import com.intellij.openapi.application.ApplicationManager
-import com.intellij.openapi.application.runReadAction
+import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.command.WriteCommandAction
+import com.intellij.openapi.components.service
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.roots.ProjectRootManager
 import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.util.Iconable
+import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.*
 import com.intellij.psi.codeStyle.CodeStyleManager
 import com.intellij.psi.search.FileTypeIndex
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.xml.XmlFile
+import com.intellij.util.concurrency.annotations.RequiresReadLock
+import dev.robdoes.kmpresources.core.application.service.ResourceSystemDetectionService
 import dev.robdoes.kmpresources.core.infrastructure.i18n.KmpResourcesBundle
 import dev.robdoes.kmpresources.core.infrastructure.resolver.KmpResourceResolver
 import dev.robdoes.kmpresources.data.repository.XmlResourceWriter
@@ -67,6 +71,7 @@ internal class KmpCreateResourceIntention : PsiElementBaseIntentionAction(), Pri
 
     override fun startInWriteAction(): Boolean = false
 
+    @RequiresReadLock
     override fun isAvailable(project: Project, editor: Editor?, element: PsiElement): Boolean {
         val resolved = KmpResourceResolver.resolveReference(element) ?: return false
         text = KmpResourcesBundle.message("intention.create.resource.text", resolved.xmlTag, resolved.key)
@@ -88,11 +93,14 @@ internal class KmpCreateResourceIntention : PsiElementBaseIntentionAction(), Pri
         }
         if (value.isNullOrBlank()) return
 
-        val stringsFile = runReadAction {
+        val stringsFile = ReadAction.compute<VirtualFile?, Throwable> {
             val scope = GlobalSearchScope.projectScope(project)
+            val detectionService = project.service<ResourceSystemDetectionService>()
 
-            val composeResFiles = FileTypeIndex.getFiles(XmlFileType.INSTANCE, scope).filter {
-                it.extension == "xml" && it.parent?.name == "values" && it.path.contains("composeResources")
+            val composeResFiles = FileTypeIndex.getFiles(XmlFileType.INSTANCE, scope).filter { vFile ->
+                if (vFile.extension != "xml") return@filter false
+                val system = detectionService.detectSystem(vFile)
+                vFile.parent?.name == system.valuesDirPrefix && vFile.path.contains(system.baseResourceDirName)
             }.filter {
                 val xml = PsiManager.getInstance(project).findFile(it) as? XmlFile
                 xml?.rootTag?.name == "resources"

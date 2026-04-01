@@ -12,7 +12,9 @@ import com.intellij.psi.PsiManager
 import com.intellij.psi.search.FileTypeIndex
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.xml.XmlFile
+import dev.robdoes.kmpresources.core.shared.Bcp47FolderMapper
 import dev.robdoes.kmpresources.data.repository.XmlResourceRepositoryFactory
+import dev.robdoes.kmpresources.domain.usecase.LocaleFormatValidator
 
 /**
  * Service for analyzing and managing resource usage and issues within a project.
@@ -64,19 +66,16 @@ internal class ResourceIssueService(private val project: Project) {
     }
 
     /**
-     * Finds all resource files in the project that match specific criteria.
+     * Finds all XML resource files in the project that conform to specific path and content patterns.
      *
-     * This method scans the project's XML files within the "composeResources" directory and identifies
-     * files that meet the following conditions:
-     * - The file extension is "xml".
-     * - The file is located in a folder starting with "values".
-     * - The root tag of the file is named "resources".
+     * This method scans the project's file system to locate XML files that are part of a resource
+     * directory structure and have a root tag named "resources". It uses the configured resource system
+     * detection service to match files against resource directory conventions (e.g., "values" folder
+     * naming patterns). Only files with an `.xml` extension and valid parent directory names are considered.
      *
-     * The method performs the operation within a read action and handles any exceptions that
-     * may occur, including `ProcessCanceledException` for cancellation scenarios.
-     *
-     * @return A list of `VirtualFile` objects representing the identified resource files.
-     *         Returns an empty list if no matching files are found or in case of an error.
+     * @return A list of [VirtualFile] instances representing valid resource files in the project.
+     * If no matching files are found, an empty list is returned.
+     * @throws ProcessCanceledException If the operation is interrupted or canceled during execution.
      */
     suspend fun findAllResourceFiles(): List<VirtualFile> {
         return try {
@@ -84,12 +83,22 @@ internal class ResourceIssueService(private val project: Project) {
                 val resourceFiles = mutableListOf<VirtualFile>()
                 val projectScope = GlobalSearchScope.projectScope(project)
                 val psiManager = PsiManager.getInstance(project)
+                val detectionService = project.service<ResourceSystemDetectionService>()
 
                 FileTypeIndex.getFiles(XmlFileType.INSTANCE, projectScope).forEach { file ->
-                    if (file.extension == "xml" && file.parent?.name?.startsWith("values") == true && file.path.contains(
-                            "composeResources"
-                        )
+                    if (file.name != "strings.xml" && file.name != "string.xml") return@forEach
+
+                    val system = detectionService.detectSystem(file)
+                    val parentName = file.parent?.name ?: return@forEach
+
+                    if (parentName.startsWith(system.valuesDirPrefix) &&
+                        file.path.contains(system.baseResourceDirName)
                     ) {
+                        val bcp47Tag = Bcp47FolderMapper.folderNameToBcp47(parentName, system.valuesDirPrefix)
+                        if (bcp47Tag != null && !LocaleFormatValidator.isValid(bcp47Tag)) {
+                            return@forEach
+                        }
+
                         val xmlFile = psiManager.findFile(file) as? XmlFile
                         if (xmlFile?.rootTag?.name == "resources") {
                             resourceFiles.add(file)

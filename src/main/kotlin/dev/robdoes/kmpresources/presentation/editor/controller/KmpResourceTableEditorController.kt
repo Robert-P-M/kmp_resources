@@ -1,16 +1,13 @@
 package dev.robdoes.kmpresources.presentation.editor.controller
 
-import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.vfs.VirtualFile
 import dev.robdoes.kmpresources.core.application.service.ResourceUsageService
 import dev.robdoes.kmpresources.core.infrastructure.coroutines.withEdtContext
 import dev.robdoes.kmpresources.core.infrastructure.i18n.KmpResourcesBundle
-import dev.robdoes.kmpresources.data.repository.XmlLocaleRepositoryFactory
 import dev.robdoes.kmpresources.domain.model.ResourceType
 import dev.robdoes.kmpresources.domain.model.XmlResource
-import dev.robdoes.kmpresources.domain.usecase.AddLocaleUseCase
 import dev.robdoes.kmpresources.domain.usecase.DeleteResourceUseCase
 import dev.robdoes.kmpresources.domain.usecase.SaveResourceUseCase
 import dev.robdoes.kmpresources.ide.refactoring.KmpResourceRefactorService
@@ -164,37 +161,5 @@ internal class KmpResourceTableEditorController(
             KmpGradleSyncHelper.triggerGenerateAccessors(project, file)
         }
         return true
-    }
-
-    /**
-     * Handles the addition of a new locale to the project.
-     *
-     * This method leverages the `AddLocaleUseCase` to create the directory structure
-     * and necessary files for the specified **locale tag** in all available default locale contexts.
-     * If the operation fails, an error dialog will be displayed in the UI to inform the user.
-     *
-     * @param localeTag The BCP 47 language tag (e.g., "en-US") identifying the locale to be added.
-     */
-    suspend fun handleAddLocale(localeTag: String) {
-        val localeFactory = project.service<XmlLocaleRepositoryFactory>()
-        val localeRepo = localeFactory.createLocaleRepository()
-        val addLocaleUseCase = AddLocaleUseCase(
-            localeRepository = localeRepo,
-        )
-
-        try {
-            addLocaleUseCase(localeTag)
-            withEdtContext {
-                onDataChanged()
-            }
-        } catch (e: Exception) {
-            withEdtContext {
-                Messages.showErrorDialog(
-                    project,
-                    e.message ?: "Failed to add locale $localeTag",
-                    KmpResourcesBundle.message("dialog.error.title")
-                )
-            }
-        }
     }
 }

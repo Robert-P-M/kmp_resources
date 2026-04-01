@@ -1,9 +1,12 @@
 package dev.robdoes.kmpresources.ide.navigation
 
 import com.intellij.codeInsight.navigation.actions.GotoDeclarationHandler
+import com.intellij.codeInsight.navigation.actions.GotoDeclarationHandlerBase
 import com.intellij.openapi.actionSystem.DataContext
+import com.intellij.openapi.components.service
 import com.intellij.openapi.editor.Editor
 import com.intellij.psi.PsiElement
+import dev.robdoes.kmpresources.core.application.service.ResourceSystemDetectionService
 import dev.robdoes.kmpresources.core.infrastructure.i18n.KmpResourcesBundle
 import dev.robdoes.kmpresources.core.infrastructure.resolver.KmpResourceResolver
 
@@ -14,13 +17,12 @@ import dev.robdoes.kmpresources.core.infrastructure.resolver.KmpResourceResolver
  * XML definitions in the project. It identifies the target XML tags by resolving resource keys and locating
  * matching definitions in resource files.
  */
-internal class KmpGotoDeclarationHandler : GotoDeclarationHandler {
+internal class KmpGotoDeclarationHandler : GotoDeclarationHandlerBase() {
 
-    override fun getGotoDeclarationTargets(
+    override fun getGotoDeclarationTarget(
         sourceElement: PsiElement?,
-        offset: Int,
         editor: Editor
-    ): Array<PsiElement>? {
+    ): PsiElement? {
         if (sourceElement == null) return null
         val project = sourceElement.project
 
@@ -29,12 +31,19 @@ internal class KmpGotoDeclarationHandler : GotoDeclarationHandler {
 
         if (tags.isEmpty()) return null
 
+        val detectionService = project.service<ResourceSystemDetectionService>()
+
         val defaultTag = tags.find { tag ->
-            val dirName = tag.containingFile?.virtualFile?.parent?.name
-            dirName == "values"
+            val virtualFile = tag.containingFile?.virtualFile
+            if (virtualFile != null) {
+                val system = detectionService.detectSystem(virtualFile)
+                virtualFile.parent?.name == system.valuesDirPrefix
+            } else {
+                false
+            }
         } ?: tags.first()
 
-        return arrayOf(KmpResourceTarget(defaultTag, resolved.key))
+        return KmpResourceTarget(defaultTag, resolved.key)
     }
 
     override fun getActionText(context: DataContext): String =

@@ -14,7 +14,10 @@ package dev.robdoes.kmpresources.core.shared
  * This utility is intended for internal use within the module to ensure uniform key formatting.
  */
 internal object ResourceKeyNormalizer {
-    fun normalize(rawKey: String): String {
-        return rawKey.replace(".", "_").replace("-", "_")
-    }
+    fun normalize(rawKey: String): String =
+        rawKey.replace(".", "_").replace("-", "_")
+
+    fun normalizeOrNull(rawKey: String?): String? =
+        rawKey?.replace(".", "_")?.replace("-", "_")
+
 }

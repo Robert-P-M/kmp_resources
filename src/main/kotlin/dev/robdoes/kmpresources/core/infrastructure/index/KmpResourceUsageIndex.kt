@@ -4,6 +4,9 @@ import com.intellij.lexer.Lexer
 import com.intellij.util.indexing.*
 import com.intellij.util.io.EnumeratorStringDescriptor
 import com.intellij.util.io.KeyDescriptor
+import dev.robdoes.kmpresources.domain.model.AndroidNativeSystem
+import dev.robdoes.kmpresources.domain.model.ComposeMultiplatformSystem
+import dev.robdoes.kmpresources.domain.model.ResourceType
 import org.jetbrains.kotlin.idea.KotlinFileType
 import org.jetbrains.kotlin.lexer.KotlinLexer
 import org.jetbrains.kotlin.lexer.KtTokens
@@ -23,19 +26,7 @@ internal val KMP_RESOURCE_USAGE_INDEX_NAME = ID.create<String, Void>("dev.robdoe
  * Provides an implementation of a scalar index for analyzing Kotlin resource usage patterns.
  *
  * This class is responsible for indexing Kotlin code files to identify resource references
- * such as strings, plurals, and arrays. It works in conjunction with IntelliJ's file-based
- * indexing infrastructure to efficiently store and retrieve these resource references.
- *
- * The index captures resource usage following the pattern `Res.string.<resourceName>`,
- * `Res.plurals.<resourceName>`, or `Res.array.<resourceName>`, where `<resourceName>`
- * represents the specific name of the resource being used. This is achieved using a simple
- * state machine lexer over the input content.
- *
- * Key attributes of this class include:
- * - Scanning only Kotlin files while ignoring files in specific directories like `/build/` or `/generated/`.
- * - Dependency on file content changes to update the index.
- * - Providing a unique index name for retrieval and usage in the indexing framework.
- * - Using a simple key descriptor for resource names that ensures efficient serialization.
+ * dynamically based on defined ResourceSystems and ResourceTypes.
  */
 internal class KmpResourceUsageIndex : ScalarIndexExtension<String>() {
 
@@ -65,7 +56,7 @@ internal class KmpResourceUsageIndex : ScalarIndexExtension<String>() {
 
                 when (state) {
                     0 -> {
-                        if (tokenType == KtTokens.IDENTIFIER && tokenText == "Res") state = 1
+                        if (tokenType == KtTokens.IDENTIFIER && tokenText in VALID_REFERENCE_CLASSES) state = 1
                     }
 
                     1 -> {
@@ -74,10 +65,10 @@ internal class KmpResourceUsageIndex : ScalarIndexExtension<String>() {
 
                     2 -> {
                         state =
-                            if (tokenType == KtTokens.IDENTIFIER && (tokenText == "string" || tokenText == "plurals" || tokenText == "array")) {
+                            if (tokenType == KtTokens.IDENTIFIER && tokenText in VALID_ACCESSORS) {
                                 3
                             } else {
-                                if (tokenType == KtTokens.IDENTIFIER && tokenText == "Res") 1 else 0
+                                if (tokenType == KtTokens.IDENTIFIER && tokenText in VALID_REFERENCE_CLASSES) 1 else 0
                             }
                     }
 
@@ -89,7 +80,7 @@ internal class KmpResourceUsageIndex : ScalarIndexExtension<String>() {
                         if (tokenType == KtTokens.IDENTIFIER) {
                             usages[tokenText] = null
                         }
-                        state = if (tokenType == KtTokens.IDENTIFIER && tokenText == "Res") 1 else 0
+                        state = if (tokenType == KtTokens.IDENTIFIER && tokenText in VALID_REFERENCE_CLASSES) 1 else 0
                     }
                 }
 
@@ -101,7 +92,7 @@ internal class KmpResourceUsageIndex : ScalarIndexExtension<String>() {
 
     override fun getKeyDescriptor(): KeyDescriptor<String> = EnumeratorStringDescriptor.INSTANCE
 
-    override fun getVersion(): Int = 2
+    override fun getVersion(): Int = 3
 
     override fun getInputFilter(): FileBasedIndex.InputFilter {
         return FileBasedIndex.InputFilter { file ->
@@ -113,3 +104,10 @@ internal class KmpResourceUsageIndex : ScalarIndexExtension<String>() {
 
     override fun dependsOnFileContent(): Boolean = true
 }
+
+private val VALID_REFERENCE_CLASSES = setOf(
+    ComposeMultiplatformSystem.kotlinReferenceClass,
+    AndroidNativeSystem.kotlinReferenceClass
+)
+
+private val VALID_ACCESSORS = ResourceType.entries.map { it.kotlinAccessor }.toSet()
