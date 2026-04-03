@@ -2,6 +2,7 @@ package dev.robdoes.kmpresources.ide.refactoring
 
 import com.intellij.openapi.application.readAction
 import com.intellij.openapi.command.WriteCommandAction
+import com.intellij.openapi.components.service
 import com.intellij.openapi.module.ModuleUtilCore
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
@@ -12,6 +13,7 @@ import com.intellij.psi.SmartPsiElementPointer
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.search.PsiSearchHelper
 import com.intellij.psi.xml.XmlFile
+import dev.robdoes.kmpresources.core.application.service.ResourceSystemDetectionService
 import dev.robdoes.kmpresources.core.infrastructure.coroutines.withEdtContext
 import dev.robdoes.kmpresources.core.shared.ResourceKeyNormalizer
 import dev.robdoes.kmpresources.presentation.editor.search.KmpUsageSearchScope
@@ -149,29 +151,34 @@ private object XmlResourceUpdater {
 }
 
 /**
- * Handles Kotlin code updates by replacing references to a specific resource key with a new key.
+ * Provides functionality to update usage references of resource keys in Kotlin files.
  *
- * This object is primarily utilized in cases where Kotlin files need to be updated after a resource key
- * in an XML file has been renamed. It operates on usages of the specified key within Kotlin source files,
- * ensuring that resource references are updated consistently.
+ * This object is responsible for identifying and replacing references to an old resource key with a new one
+ * in a given Kotlin file. It uses the detected resource system and import contexts to ensure accurate
+ * updates within the file's scope.
  */
 private object KotlinUsageUpdater {
+
     /**
-     * Updates usages of a given resource key in the provided Kotlin file.
+     * Updates all usages of a resource key in the given Kotlin file.
      *
-     * This method searches for all references to the old resource key within the specified Kotlin file
-     * and replaces them with the new resource key. It accounts for both direct and indirect imports of the resource.
-     * If the resource type is "string-array," it is translated to "array" for reference purposes.
+     * This method identifies and replaces all references to the specified old resource key
+     * within the provided Kotlin file, using the new resource key. It handles cases where
+     * the old key is explicitly imported or referenced through a fully qualified name.
      *
-     * @param ktFile The Kotlin file in which resource key usages will be updated.
-     * @param psiFactory A factory instance used to create new PSI elements, such as the updated key.
+     * @param ktFile The Kotlin file where usages of the resource key need to be updated.
+     * @param psiFactory A factory instance for creating Kotlin PSI elements.
      * @param resourceType The type of the resource (e.g., "string", "string-array").
-     * @param oldKey The existing resource key to be replaced.
-     * @param newKey The new resource key to replace the old one.
+     * @param oldKey The name of the resource key to be replaced.
+     * @param newKey The new name of the resource key to replace the old one.
      */
     fun updateUsages(ktFile: KtFile, psiFactory: KtPsiFactory, resourceType: String, oldKey: String, newKey: String) {
+        val detectionService = ktFile.project.service<ResourceSystemDetectionService>()
+        val system = detectionService.detectSystem(ktFile.virtualFile)
+
         val ktType = if (resourceType == "string-array") "array" else resourceType
-        val fullOldReference = "Res.$ktType.$oldKey"
+
+        val fullOldReference = "${system.kotlinReferenceClass}.$ktType.$oldKey"
 
         val isImported = ktFile.importDirectives.any { it.importedName?.asString() == oldKey }
 

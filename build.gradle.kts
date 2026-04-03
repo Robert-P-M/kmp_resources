@@ -48,7 +48,6 @@ intellijPlatform {
         name = providers.gradleProperty("pluginName")
         version = providers.gradleProperty("pluginVersion")
 
-//
 
         val changelog = project.changelog
         changeNotes = providers.gradleProperty("pluginVersion").map { pluginVersion ->

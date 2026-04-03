@@ -80,19 +80,17 @@ internal class KmpDuplicateResourceKeyInspectionTest : BasePlatformTestCase() {
         )
     }
 
-    fun testInspectionIgnoresNonComposeResourcesFiles() {
-        // Arrange: A file WITH duplicates, but NOT in a composeResources directory
+    fun testInspectionRunsOnAndroidResFilesWithDuplicates() {
         val xmlContent = """
-            <resources>
-                <string name="app_name">My App</string>
-                <string name="app_name">My App Duplicate</string>
-            </resources>
-        """.trimIndent()
+        <resources>
+            <string name="app_name">My App</string>
+            <string <error descr="Duplicate resource key 'app_name' in the same file.">name="app_name"</error>>My App Duplicate</string>
+        </resources>
+    """.trimIndent()
 
         val psiFile = myFixture.addFileToProject("androidApp/src/main/res/values/strings.xml", xmlContent)
         myFixture.configureFromExistingVirtualFile(psiFile.virtualFile)
 
-        // Act & Assert: Should NOT highlight the duplicate because of the path check
         myFixture.checkHighlighting(true, false, true)
     }
 }

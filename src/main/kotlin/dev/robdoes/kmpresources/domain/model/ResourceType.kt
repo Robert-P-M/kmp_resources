@@ -1,8 +1,5 @@
 package dev.robdoes.kmpresources.domain.model
 
-import dev.robdoes.kmpresources.domain.model.ResourceType.Companion.RES_PREFIX
-import dev.robdoes.kmpresources.domain.model.ResourceType.Companion.entries
-
 
 /**
  * Represents a type of resource within the system.
@@ -37,9 +34,9 @@ internal sealed interface ResourceType {
      * Implements the `ResourceType` interface to cooperate with other resource types in the system.
      */
     data object String : ResourceType {
-        override val xmlTag: kotlin.String = "string"
-        override val kotlinAccessor: kotlin.String = "${RES_PREFIX}$xmlTag"
-        override val supportedQuantities: List<kotlin.String> = emptyList()
+        override val xmlTag = "string"
+        override val kotlinAccessor = "string"
+        override val supportedQuantities = emptyList<kotlin.String>()
     }
 
     /**
@@ -59,9 +56,9 @@ internal sealed interface ResourceType {
      * This class is a data object and implements the `ResourceType` interface.
      */
     data object Plural : ResourceType {
-        override val xmlTag: kotlin.String = "plurals"
-        override val kotlinAccessor: kotlin.String = "${RES_PREFIX}$xmlTag"
-        override val supportedQuantities: List<kotlin.String> = listOf("zero", "one", "two", "few", "many", "other")
+        override val xmlTag = "plurals"
+        override val kotlinAccessor = "plurals"
+        override val supportedQuantities = listOf("zero", "one", "two", "few", "many", "other")
     }
 
     /**
@@ -87,50 +84,61 @@ internal sealed interface ResourceType {
      *   does not support quantity-specific localizations.
      */
     data object Array : ResourceType {
-        override val xmlTag: kotlin.String = "string-array"
-        override val kotlinAccessor: kotlin.String = "${RES_PREFIX}array"
-        override val supportedQuantities: List<kotlin.String> = emptyList()
+        override val xmlTag = "string-array"
+        override val kotlinAccessor = "array"
+        override val supportedQuantities = emptyList<kotlin.String>()
     }
 
     /**
-     * Companion object for the ResourceType class, providing utility methods and predefined constants
-     * related to resources.
+     * Companion object for the `ResourceType` class, providing utility methods and properties
+     * for working with resource types.
      *
-     * @property RES_PREFIX A constant prefix used for resources.
-     * @property entries A list of all defined ResourceType entries.
+     * This object includes functions to retrieve `ResourceType` instances based on specific
+     * criteria, such as XML tags or Kotlin-specific accessors. It also maintains a list of
+     * predefined `ResourceType` entries for use within the system.
      */
     companion object {
-        const val RES_PREFIX = "Res."
-        val entries: List<ResourceType> = listOf(String, Plural, Array)
 
         /**
-         * Retrieves a `ResourceType` instance corresponding to the provided XML tag.
+         * Retrieves a `ResourceType` instance from the given XML tag.
          *
-         * This method searches the entries of the `ResourceType` enumeration to find the
-         * one that matches the specified XML tag. If no matching entry is found, it
-         * returns null.
+         * This function searches through all available `ResourceType` entries to find
+         * one whose `xmlTag` matches the specified XML tag. If no match is found, it
+         * returns `null`.
          *
-         * @param tag The XML tag to search for within the enumeration entries.
-         * @return The `ResourceType` that corresponds to the provided XML tag, or null if
-         * no match is found.
+         * @param xmlTag The XML tag string for which the corresponding `ResourceType`
+         *               needs to be found.
+         * @return The matching `ResourceType` if found, otherwise `null`.
          */
-        fun fromXmlTag(tag: kotlin.String): ResourceType? =
-            entries.find { it.xmlTag == tag }
+        fun fromXmlTag(xmlTag: kotlin.String): ResourceType? {
+            return entries.find { it.xmlTag == xmlTag }
+        }
 
         /**
-         * Finds a `ResourceType` instance based on the provided Kotlin accessor.
+         * Finds the matching resource type based on the provided Kotlin accessor string and resource system.
          *
-         * This function searches through the list of `ResourceType` entries and attempts to
-         * match the given `accessor` with the `kotlinAccessor` field of each entry. A match is
-         * found if the `accessor` starts with the corresponding `kotlinAccessor` concatenated
-         * with a period ("."), and the function returns the matching `ResourceType`. If no match
-         * is found, it returns `null`.
+         * This method searches through a collection of resource types to identify the first one
+         * whose accessor prefix, as defined by the given `ResourceSystemProject`, matches the start
+         * of the provided `accessor` string. The prefix is determined using the `getAccessorPrefix`
+         * method of the resource system for each resource type.
          *
-         * @param accessor The Kotlin accessor string to be matched against the `kotlinAccessor`
-         * field of the `ResourceType` entries.
-         * @return The matching `ResourceType` if a match is found; otherwise, `null`.
+         * @param accessor The Kotlin accessor string used to locate the resource type.
+         * @param system The `ResourceSystemProject` instance that defines the resource system and its accessor prefixes.
+         * @return The matching `ResourceType`, or `null` if no matching resource type is found.
          */
-        fun fromKotlinAccessor(accessor: kotlin.String): ResourceType? =
-            entries.find { accessor.startsWith(it.kotlinAccessor + ".") }
+        fun fromKotlinAccessor(accessor: kotlin.String, system: ResourceSystemProject): ResourceType? {
+            return entries.find { accessor.startsWith(system.getAccessorPrefix(it)) }
+        }
+
+        /**
+         * Defines the entries associated with the `ResourceType`.
+         *
+         * This list contains the supported types of resources that can be processed.
+         * The entries include:
+         * - `String`: Represents a single string resource.
+         * - `Plural`: Represents a plural resource, supporting multiple quantities.
+         * - `Array`: Represents an array of string resources.
+         */
+        val entries = listOf(String, Plural, Array)
     }
 }

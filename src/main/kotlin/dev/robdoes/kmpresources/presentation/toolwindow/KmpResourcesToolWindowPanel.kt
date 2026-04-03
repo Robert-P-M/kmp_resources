@@ -22,11 +22,14 @@ import com.intellij.ui.SimpleTextAttributes
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.treeStructure.Tree
 import dev.robdoes.kmpresources.core.application.service.ResourceIssueService
+import dev.robdoes.kmpresources.core.application.service.ResourceSystemDetectionService
 import dev.robdoes.kmpresources.core.infrastructure.coroutines.KmpProjectScopeService
 import dev.robdoes.kmpresources.core.infrastructure.coroutines.awaitSmartMode
 import dev.robdoes.kmpresources.core.infrastructure.i18n.KmpResourcesBundle
 import dev.robdoes.kmpresources.core.shared.LocaleProvider
 import dev.robdoes.kmpresources.presentation.editor.KmpResourceVirtualFile
+import dev.robdoes.kmpresources.presentation.shared.KmpLocaleInteractionHandler
+import dev.robdoes.kmpresources.presentation.shared.KmpLocaleToolbarFactory
 import dev.robdoes.kmpresources.presentation.view.invalidateProjectViewCache
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -114,6 +117,12 @@ internal class KmpResourcesToolWindowPanel(
     private val rootNode = DefaultMutableTreeNode("Root")
     private val treeModel = DefaultTreeModel(rootNode)
     private val tree = Tree(treeModel)
+    private var activeLocales = emptySet<String>()
+
+    private val allAvailableLocales = LocaleProvider.getAvailableLocales()
+
+    private val localeHandler = KmpLocaleInteractionHandler(project)
+
 
     init {
         setupToolbar()
@@ -136,9 +145,13 @@ internal class KmpResourcesToolWindowPanel(
             VirtualFileManager.VFS_CHANGES,
             object : BulkFileListener {
                 override fun after(events: List<VFileEvent>) {
+                    val detectionService =
+                        project.service<dev.robdoes.kmpresources.core.application.service.ResourceSystemDetectionService>()
+
                     val isKmpResourceChanged = events.any { event ->
                         val changedFile = event.file ?: return@any false
-                        changedFile.path.contains("/composeResources/values") && changedFile.extension == "xml"
+                        val system = detectionService.detectSystem(changedFile)
+                        changedFile.path.contains(system.baseResourceDirName) && changedFile.extension == "xml"
                     }
                     if (isKmpResourceChanged) {
                         invalidateProjectViewCache()
@@ -183,6 +196,7 @@ internal class KmpResourcesToolWindowPanel(
             })
         }
     }
+
 
     /**
      * Creates a custom tree cell renderer for the resource tree in the KMP Resources Tool Window.
@@ -252,7 +266,7 @@ internal class KmpResourcesToolWindowPanel(
 
                 is LocaleFileNodeData -> {
                     val localeInfo = if (userObject.localeTag != null) {
-                        LocaleProvider.getAvailableLocales().find { it.languageTag == userObject.localeTag }
+                        allAvailableLocales.find { it.languageTag == userObject.localeTag }
                     } else null
 
                     icon = AllIcons.FileTypes.Xml
@@ -298,7 +312,7 @@ internal class KmpResourcesToolWindowPanel(
             is ResourceViewNodeData -> {
                 val file = data.defaultFile ?: return
 
-                val kmpVirtualFile = dev.robdoes.kmpresources.presentation.editor.KmpResourceVirtualFile(
+                val kmpVirtualFile = KmpResourceVirtualFile(
                     data.modulePath,
                     file
                 )
@@ -307,6 +321,7 @@ internal class KmpResourcesToolWindowPanel(
             }
         }
     }
+
 
     /**
      * Refreshes and updates the resource tree within the KMP Resources Tool Window panel.
@@ -336,16 +351,18 @@ internal class KmpResourcesToolWindowPanel(
             val structure = mutableMapOf<String, MutableList<LocaleFileNodeData>>()
             val moduleIssues = mutableMapOf<String, Int>()
             val missingTranslationsMap = mutableMapOf<String, Boolean>()
-
+            val detectionService = project.service<ResourceSystemDetectionService>()
             for (file in files) {
-                val modulePath = KmpResourceVirtualFile.computeModuleName(
-                    project,
-                    file
-                )
+                val modulePath = KmpResourceVirtualFile.computeModuleName(project, file)
 
                 val folderName = file.parent.name
-                val localeTag = if (folderName == "values") null else folderName.substringAfter("values-")
-                val displayLocale = localeTag ?: "default"
+                val system = detectionService.detectSystem(file)
+
+                val localeTag = dev.robdoes.kmpresources.core.shared.Bcp47FolderMapper.folderNameToBcp47(
+                    folderName,
+                    system.valuesDirPrefix
+                )
+                val displayLocale = localeTag ?: KmpResourcesBundle.message("doc.popup.locale.default")
 
                 structure.getOrPut(modulePath) { mutableListOf() }
                     .add(LocaleFileNodeData(file, localeTag, displayLocale))
@@ -367,6 +384,7 @@ internal class KmpResourcesToolWindowPanel(
                 }
             }
 
+            activeLocales = structure.values.flatten().mapNotNull { it.localeTag }.toSet()
 
             withContext(Dispatchers.EDT) {
                 rootNode.removeAllChildren()
@@ -418,6 +436,7 @@ internal class KmpResourcesToolWindowPanel(
      */
     private fun setupToolbar() {
         val actionGroup = DefaultActionGroup().apply {
+
             add(object : AnAction(
                 KmpResourcesBundle.message("action.toolwindow.refresh.text"),
                 KmpResourcesBundle.message("action.toolwindow.refresh.description"),
@@ -429,6 +448,18 @@ internal class KmpResourcesToolWindowPanel(
                     refreshData()
                 }
             })
+
+            addSeparator()
+
+            KmpLocaleToolbarFactory.addLocaleActions(
+                group = this,
+                project = project,
+                localeHandler = localeHandler,
+                getActiveLocales = { activeLocales },
+                onLocalesChanged = { refreshData() }
+            )
+
+
         }
         val toolbar = ActionManager.getInstance().createActionToolbar("KmpResourcesToolbar", actionGroup, true)
         toolbar.targetComponent = this

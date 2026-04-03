@@ -1,7 +1,6 @@
 package dev.robdoes.kmpresources.domain.repository
 
 import dev.robdoes.kmpresources.domain.usecase.AddLocaleUseCase.LocaleContext
-import java.util.*
 
 /**
  * Interface that defines a repository for managing and interacting with locale-related data
@@ -25,17 +24,17 @@ internal interface LocaleRepository {
      * Checks if a locale-specific file exists in the given context.
      *
      * @param context The locale context containing paths to the default values directory and default strings file.
-     * @param locale The locale to check for the existence of a corresponding file.
+     * @param localeTag The BCP 47 language tag identifying the locale (e.g., "en-US", "zh-Hant").
      * @return `true` if the locale-specific file exists in the specified context, otherwise `false`.
      */
-    suspend fun localeFileExists(context: LocaleContext, locale: Locale): Boolean
+    suspend fun localeFileExists(context: LocaleContext, localeTag: String): Boolean
 
     /**
      * Creates the directory structure and necessary files for a specific locale in the given context.
      *
      * @param context The locale context containing paths to the default values directory and default strings file.
-     * @param locale The locale for which the structure should be created.
+     * @param localeTag The BCP 47 language tag identifying the locale (e.g., "en-US", "zh-Hant").
      */
-    suspend fun createLocaleStructure(context: LocaleContext, locale: Locale)
+    suspend fun createLocaleStructure(context: LocaleContext, localeTag: String)
 
 }

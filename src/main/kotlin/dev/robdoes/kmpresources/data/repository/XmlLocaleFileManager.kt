@@ -1,10 +1,13 @@
 package dev.robdoes.kmpresources.data.repository
 
 import com.intellij.openapi.application.edtWriteAction
+import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiManager
 import com.intellij.psi.xml.XmlFile
+import dev.robdoes.kmpresources.core.application.service.ResourceSystemDetectionService
+import dev.robdoes.kmpresources.core.shared.Bcp47FolderMapper
 
 /**
  * Utility object for managing locale-specific XML files within a project structure.
@@ -23,13 +26,18 @@ internal object XmlLocaleFileManager {
         val valuesDir = defaultFile.parent ?: return emptyMap()
         val composeResourcesDir = valuesDir.parent ?: return emptyMap()
         val psiManager = PsiManager.getInstance(project)
+        val detectionService = project.service<ResourceSystemDetectionService>()
+        val system = detectionService.detectSystem(defaultFile)
 
         return composeResourcesDir.children
-            .filter { it.isDirectory && it.name.startsWith("values-") }
+            .filter { it.isDirectory && it.name.startsWith("${system.valuesDirPrefix}-") }
             .mapNotNull { dir ->
-                val localeTag = dir.name.substringAfter("values-")
+                val localeTag = Bcp47FolderMapper.folderNameToBcp47(dir.name, system.valuesDirPrefix)
+                    ?: return@mapNotNull null
+
                 val xmlFile = dir.findChild(defaultFile.name) ?: return@mapNotNull null
                 val psiFile = psiManager.findFile(xmlFile) as? XmlFile ?: return@mapNotNull null
+
                 localeTag to psiFile
             }.toMap()
     }
@@ -43,17 +51,21 @@ internal object XmlLocaleFileManager {
      * @param localeTag The locale tag (e.g., "fr", "es", "en") specifying the target localization.
      * @return The created or retrieved locale-specific XML file, or null if the operation fails.
      */
-    suspend fun createLocaleFileInternal(defaultFile: VirtualFile, localeTag: String): VirtualFile? {
+    suspend fun createLocaleFileInternal(
+        defaultFile: VirtualFile,
+        localeTag: String
+    ): VirtualFile? {
         return edtWriteAction {
             val defaultDir = defaultFile.parent ?: return@edtWriteAction null
-            val composeResourcesDir = defaultDir.parent ?: return@edtWriteAction null
-            val targetDirName = "values-$localeTag"
+            val baseResourceDir = defaultDir.parent ?: return@edtWriteAction null
 
-            val targetDir = composeResourcesDir.findChild(targetDirName)
-                ?: composeResourcesDir.createChildDirectory(null, targetDirName)
+            val targetDirName = Bcp47FolderMapper.bcp47ToFolderName(localeTag)
+
+            val targetDir = baseResourceDir.findChild(targetDirName)
+                ?: baseResourceDir.createChildDirectory(this, targetDirName)
 
             val targetFile = targetDir.findChild(defaultFile.name)
-                ?: targetDir.createChildData(null, defaultFile.name)
+                ?: targetDir.createChildData(this, defaultFile.name)
 
             if (targetFile.length == 0L) {
                 val initialContent = "<resources>\n</resources>"

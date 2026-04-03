@@ -1,7 +1,6 @@
 package dev.robdoes.kmpresources.domain.usecase
 
 import dev.robdoes.kmpresources.domain.repository.LocaleRepository
-import java.util.*
 
 /**
  * Use case responsible for adding support for a new locale in the system. This involves creating the necessary
@@ -35,14 +34,12 @@ internal class AddLocaleUseCase(
      * @param localeTag The BCP 47 language tag identifying the locale to be added (e.g., "en-US").
      */
     suspend operator fun invoke(localeTag: String) {
-        val parsedLocale = Locale.forLanguageTag(localeTag)
-
         val contexts = localeRepository.findAllDefaultLocaleContexts()
 
         for (context in contexts) {
-            if (localeRepository.localeFileExists(context, parsedLocale)) continue
+            if (localeRepository.localeFileExists(context, localeTag)) continue
 
-            localeRepository.createLocaleStructure(context, parsedLocale)
+            localeRepository.createLocaleStructure(context, localeTag)
         }
     }
 }

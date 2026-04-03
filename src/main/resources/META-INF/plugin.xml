@@ -9,17 +9,26 @@
     <depends>org.jetbrains.kotlin</depends>
 
     <description><![CDATA[
-        <p>KMP Resources is an advanced Table Editor and Refactoring Tool for Compose Multiplatform projects.</p>
+    <p><b>KMP Resources</b> is the essential productivity tool for Kotlin Multiplatform developers using Compose Resources. It replaces manual XML editing with a powerful, centralized workflow.</p>
 
-        <h3>Features:</h3>
-        <ul>
-            <li><b>Table Editor:</b> View, filter, and edit all your strings, plurals, and string-arrays in a clean UI.</li>
-            <li><b>Safe Key Renaming:</b> Rename a resource key and instantly refactor all Kotlin usages (<code>Res.string.*</code>) across your module.</li>
-            <li><b>Format Argument Linter:</b> Real-time IDE inspections to prevent missing or mismatched format arguments (like <code>%1$s</code>) in your Compose Multiplatform code.</li>
-            <li><b>Quick Documentation:</b> Hover over any KMP resource in your code to see its actual value, type, and navigate directly to translations.</li>
-            <li><b>Gradle Sync:</b> Seamlessly triggers Compose resource generation in the background.</li>
-        </ul>
-    ]]></description>
+    <h3>🚀 Core Features:</h3>
+    <ul>
+        <li><b>Visual Table Editor:</b> A clean, side-by-side view of all your strings, plurals, and arrays. Edit keys and values across all languages simultaneously.
+            <i>Shortcut: Press <b>Cmd+B</b> (Ctrl+B) on any resource reference to jump straight into the editor.</i></li>
+        <li><b>Smart Locale Management:</b> Add new languages via a searchable popup (supports flag emojis and BCP 47 tags). The plugin automatically generates the required <code>values-***</code> directories and XML files across all modules.</li>
+        <li><b>Safe Key Renaming:</b> Rename a key in the table and the plugin instantly refactors all Kotlin usages (<code>Res.string.*</code>) and handles necessary imports project-wide.</li>
+        <li><b>Generate on the Fly:</b> Type a non-existent key in Kotlin, hit <b>Alt+Enter</b>, and instantly create the XML tag and trigger a Gradle resync without leaving the file.</li>
+    </ul>
+
+    <h3>🛡️ Quality & Diagnostics:</h3>
+    <ul>
+        <li><b>Format Argument Linter:</b> Real-time IDE highlighting for missing or mismatched format arguments (like <code>%1$s</code>) in your Kotlin code.</li>
+        <li><b>Project Health Toolwindow:</b> A dedicated view to detect <b>missing translations</b> and <b>unused keys</b> across your entire project structure.</li>
+        <li><b>Duplicate Key Detector:</b> Prevents build errors by identifying duplicate resource keys within the same file.</li>
+    </ul>
+
+    <p>Stop fighting XML files and start focusing on your code. Built for seamless integration with Compose Multiplatform.</p>
+]]></description>
 
     <extensions defaultExtensionNs="com.intellij">
         <errorHandler implementation="dev.robdoes.kmpresources.core.infrastructure.error.KmpErrorReportSubmitter"/>
@@ -57,7 +66,9 @@
         <toolWindow id="KMP Resources"
                     anchor="bottom"
                     icon="/icons/toolWindowIcon.svg"
-                    factoryClass="dev.robdoes.kmpresources.presentation.toolwindow.KmpResourcesToolWindowFactory"/>
+                    factoryClass="dev.robdoes.kmpresources.presentation.toolwindow.KmpResourcesToolWindowFactory"
+                    doNotActivateOnStart="true"
+        />
 
         <projectViewNodeDecorator
                 order="first"

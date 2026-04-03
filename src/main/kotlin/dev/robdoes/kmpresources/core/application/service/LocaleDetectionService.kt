@@ -3,14 +3,17 @@ package dev.robdoes.kmpresources.core.application.service
 import com.intellij.ide.highlighter.XmlFileType
 import com.intellij.openapi.application.readAction
 import com.intellij.openapi.components.Service
+import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
 import com.intellij.psi.PsiManager
 import com.intellij.psi.search.FileTypeIndex
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.xml.XmlFile
 import dev.robdoes.kmpresources.core.infrastructure.i18n.KmpResourcesBundle
+import dev.robdoes.kmpresources.core.shared.Bcp47FolderMapper
 import dev.robdoes.kmpresources.core.shared.LocaleInfo
 import dev.robdoes.kmpresources.core.shared.LocaleProvider
+import dev.robdoes.kmpresources.domain.usecase.LocaleFormatValidator
 
 /**
  * Service for detecting and managing locales within a project.
@@ -41,18 +44,23 @@ internal class LocaleDetectionService(private val project: Project) {
             val scope = GlobalSearchScope.projectScope(project)
             val xmlFiles = FileTypeIndex.getFiles(XmlFileType.INSTANCE, scope)
 
+            val detectionService = project.service<ResourceSystemDetectionService>()
+
             for (file in xmlFiles) {
-                if (file.extension != "xml") continue
-                if (!file.path.contains("composeResources")) continue
+                if (file.name != "strings.xml" && file.name != "string.xml") continue
+
+                val system = detectionService.detectSystem(file)
+                if (!file.path.contains(system.baseResourceDirName)) continue
 
                 val parentDir = file.parent ?: continue
 
-                if (parentDir.name.startsWith("values-")) {
+                if (parentDir.name.startsWith("${system.valuesDirPrefix}-")) {
+                    val bcp47Tag = Bcp47FolderMapper.folderNameToBcp47(parentDir.name, system.valuesDirPrefix)
+                    if (bcp47Tag == null || !LocaleFormatValidator.isValid(bcp47Tag)) continue
                     val xmlFile = PsiManager.getInstance(project).findFile(file) as? XmlFile ?: continue
 
                     if (xmlFile.rootTag?.name == "resources") {
-                        val localeTag = parentDir.name.substringAfter("values-")
-                        result.add(localeTag)
+                        result.add(bcp47Tag)
                     }
                 }
             }

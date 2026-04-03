@@ -28,14 +28,6 @@ internal class KmpUsageSearchScope(baseScope: GlobalSearchScope) : DelegatingGlo
                 super.contains(file)
     }
 
-    override fun equals(other: Any?): Boolean {
-        if (this === other) return true
-        if (javaClass != other?.javaClass) return false
-        other as KmpUsageSearchScope
-        return myBaseScope == other.myBaseScope
-    }
-
-    override fun hashCode(): Int = myBaseScope.hashCode()
 
     override fun toString() = KmpResourcesBundle.message("search.scope.name")
 }

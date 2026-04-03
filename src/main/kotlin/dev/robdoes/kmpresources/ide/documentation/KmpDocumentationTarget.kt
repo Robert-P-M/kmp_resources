@@ -2,6 +2,7 @@ package dev.robdoes.kmpresources.ide.documentation
 
 import com.intellij.lang.documentation.DocumentationMarkup
 import com.intellij.model.Pointer
+import com.intellij.openapi.components.service
 import com.intellij.platform.backend.documentation.DocumentationResult
 import com.intellij.platform.backend.documentation.DocumentationTarget
 import com.intellij.platform.backend.presentation.TargetPresentation
@@ -9,7 +10,11 @@ import com.intellij.psi.PsiManager
 import com.intellij.psi.SmartPointerManager
 import com.intellij.psi.xml.XmlFile
 import com.intellij.psi.xml.XmlTag
+import dev.robdoes.kmpresources.core.application.service.ResourceSystemDetectionService
 import dev.robdoes.kmpresources.core.infrastructure.i18n.KmpResourcesBundle
+import dev.robdoes.kmpresources.core.shared.Bcp47FolderMapper
+import dev.robdoes.kmpresources.core.shared.ResourceKeyNormalizer
+import dev.robdoes.kmpresources.domain.model.ResourceSystemProject
 import dev.robdoes.kmpresources.domain.model.ResourceType
 
 /**
@@ -44,12 +49,16 @@ internal class KmpDocumentationTarget(
     }
 
     override fun computeDocumentation(): DocumentationResult? {
+
+        val detectionService = xmlTag.project.service<ResourceSystemDetectionService>()
+        val currentFile = xmlTag.containingFile.virtualFile
+        val system = detectionService.detectSystem(currentFile)
         val resourceType = ResourceType.fromXmlTag(xmlTag.name) ?: return null
         val sb = StringBuilder()
 
-        val currentDirName = xmlTag.containingFile.virtualFile?.parent?.name ?: "values"
-        val localeName = if (currentDirName.startsWith("values-")) {
-            currentDirName.substringAfter("values-")
+        val currentDirName = currentFile?.parent?.name ?: system.valuesDirPrefix
+        val localeName = if (currentDirName.startsWith("${system.valuesDirPrefix}-")) {
+            currentDirName.substringAfter("${system.valuesDirPrefix}-")
         } else {
             KmpResourcesBundle.message("doc.popup.locale.default")
         }
@@ -85,7 +94,7 @@ internal class KmpDocumentationTarget(
         }
         sb.append(DocumentationMarkup.CONTENT_END)
 
-        val availableLocales = findAvailableLocales(xmlTag, keyName)
+        val availableLocales = findAvailableLocales(currentTag = xmlTag, keyName = keyName, system = system)
         if (availableLocales.isNotEmpty()) {
             sb.append(DocumentationMarkup.SECTIONS_START)
             sb.append(DocumentationMarkup.SECTION_HEADER_START)
@@ -94,10 +103,11 @@ internal class KmpDocumentationTarget(
 
             for (localeTag in availableLocales) {
                 val dirName = localeTag.containingFile.virtualFile?.parent?.name ?: continue
-                val displayLocale = if (dirName == "values") {
+                val displayLocale = if (dirName == system.valuesDirPrefix) {
                     KmpResourcesBundle.message("doc.popup.locale.default")
                 } else {
-                    dirName.substringAfter("values-")
+                    Bcp47FolderMapper.folderNameToBcp47(dirName, system.valuesDirPrefix)
+                        ?: KmpResourcesBundle.message("doc.popup.locale.default")
                 }
                 sb.append("<a href='locale_$dirName'>[$displayLocale]</a>&nbsp;&nbsp;")
             }
@@ -126,21 +136,25 @@ internal class KmpDocumentationTarget(
      * @param keyName The key name used to match the specific XML tag in localized files.
      * @return A list of XML tags that match the specified tag and key in localized resource directories.
      */
-    private fun findAvailableLocales(currentTag: XmlTag, keyName: String): List<XmlTag> {
+    private fun findAvailableLocales(
+        currentTag: XmlTag,
+        keyName: String,
+        system: ResourceSystemProject
+    ): List<XmlTag> {
         val currentFile = currentTag.containingFile.virtualFile ?: return emptyList()
         val composeResourcesDir = currentFile.parent?.parent ?: return emptyList()
+
 
         val locales = mutableListOf<XmlTag>()
         val psiManager = PsiManager.getInstance(currentTag.project)
 
         for (dir in composeResourcesDir.children) {
-            if (dir.isDirectory && dir.name.startsWith("values")) {
+            if (dir.isDirectory && dir.name.startsWith(system.valuesDirPrefix)) {
                 val localeXmlFile = dir.findChild(currentFile.name) ?: continue
                 val psiFile = psiManager.findFile(localeXmlFile) as? XmlFile ?: continue
 
                 val targetTag = psiFile.rootTag?.subTags?.find {
-                    it.name == currentTag.name &&
-                            it.getAttributeValue("name")?.replace(".", "_")?.replace("-", "_") == keyName
+                    it.name == currentTag.name && ResourceKeyNormalizer.normalizeOrNull(it.getAttributeValue("name")) == keyName
                 }
 
                 if (targetTag != null) locales.add(targetTag)

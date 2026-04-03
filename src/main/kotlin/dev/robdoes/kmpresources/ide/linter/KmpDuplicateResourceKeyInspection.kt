@@ -1,16 +1,18 @@
 package dev.robdoes.kmpresources.ide.linter
 
 import com.intellij.codeInspection.*
+import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
 import com.intellij.psi.PsiElementVisitor
 import com.intellij.psi.XmlElementVisitor
 import com.intellij.psi.xml.XmlAttribute
 import com.intellij.psi.xml.XmlTag
+import dev.robdoes.kmpresources.core.application.service.ResourceSystemDetectionService
 import dev.robdoes.kmpresources.core.infrastructure.i18n.KmpResourcesBundle
 import dev.robdoes.kmpresources.domain.model.ResourceType
 
 /**
- * Inspects XML resource files for duplicate resource keys within `composeResources/values` directories.
+ * Inspects XML resource files for duplicate resource keys within resource directories.
  *
  * This inspection helps to identify and prevent errors caused by duplicate resource keys, which can
  * lead to undefined behavior or conflicts when resolving resources in a project. Duplicate keys
@@ -18,7 +20,7 @@ import dev.robdoes.kmpresources.domain.model.ResourceType
  * duplicate resource.
  *
  * Functionality:
- * - Processes only XML files under directories with a structure containing `composeResources/values`.
+ * - Processes only XML files under valid resource directories (e.g., `composeResources/values` or `res/values`).
  * - Locates duplicate `name` attributes among valid resource XML tags (e.g., `string`, `color`).
  * - Registers a problem for every duplicate key found and provides a quick-fix option to remove it.
  */
@@ -31,9 +33,15 @@ internal class KmpDuplicateResourceKeyInspection : LocalInspectionTool() {
 
                 val containingFile = tag.containingFile ?: return
                 val vFile = containingFile.virtualFile ?: return
+                val project = tag.project
 
                 if (vFile.extension != "xml") return
-                if (!vFile.path.contains("composeResources") || !vFile.parent.name.startsWith("values")) return
+
+                val detectionService = project.service<ResourceSystemDetectionService>()
+                val system = detectionService.detectSystem(vFile)
+
+                val parentName = vFile.parent?.name ?: return
+                if (!vFile.path.contains(system.baseResourceDirName) || !parentName.startsWith(system.valuesDirPrefix)) return
 
                 val seenKeys = mutableSetOf<String>()
 
@@ -61,7 +69,7 @@ internal class KmpDuplicateResourceKeyInspection : LocalInspectionTool() {
 /**
  * A quick-fix implementation for resolving duplicate resource keys in XML files.
  * This fix is triggered by `KmpDuplicateResourceKeyInspection` when a duplicate
- * resource key is detected within the `values` directory of a Compose Resources file.
+ * resource key is detected within the `values` directory of a Resource file.
  *
  * The fix removes the conflicting XML tag associated with the duplicate resource
  * key to resolve the issue.
@@ -75,9 +83,13 @@ internal class RemoveDuplicateResourceFix(private val keyName: String) : LocalQu
     override fun getName(): String = KmpResourcesBundle.message("inspection.duplicate.key.fix.name", keyName)
 
     override fun applyFix(project: Project, descriptor: ProblemDescriptor) {
-        val element = descriptor.psiElement
-
-        val tag = (element as? XmlAttribute)?.parent ?: element as? XmlTag ?: return
+        val tag = (descriptor.psiElement as? com.intellij.psi.xml.XmlAttributeValue)
+            ?.parent
+            ?.parent
+            ?: (descriptor.psiElement as? XmlAttribute)?.parent
+            ?: descriptor.psiElement as? XmlTag
+            ?: return
         tag.delete()
+
     }
 }
