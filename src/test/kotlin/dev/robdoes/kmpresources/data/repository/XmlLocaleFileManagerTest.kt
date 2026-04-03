@@ -22,8 +22,8 @@ internal class XmlLocaleFileManagerTest : BasePlatformTestCase() {
         project.service<KmpProjectScopeService>().coroutineScope.launch {
             try {
                 deferred.complete(block())
-            } catch (e: Throwable) {
-                deferred.completeExceptionally(e)
+            } catch (t: Throwable) {
+                deferred.completeExceptionally(t)
             }
         }
 
