@@ -42,8 +42,8 @@ jobs:
           CERTIFICATE_CHAIN: ${{ secrets.CERTIFICATE_CHAIN }}
           PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
           PRIVATE_KEY_PASSWORD: ${{ secrets.PRIVATE_KEY_PASSWORD }}
-        run: ./gradlew publishPlugin --console=plain
+        run: ./gradlew :ide-plugin:publishPlugin --console=plain
       - name: Attach zip to GitHub release
         if: env.SKIP != 'true' && github.event_name == 'release'
         env: { GH_TOKEN: "${{ secrets.GITHUB_TOKEN }}" }
-        run: gh release upload "${{ github.event.release.tag_name }}" build/distributions/*.zip --clobber
+        run: gh release upload "${{ github.event.release.tag_name }}" ide-plugin/build/distributions/*.zip --clobber
