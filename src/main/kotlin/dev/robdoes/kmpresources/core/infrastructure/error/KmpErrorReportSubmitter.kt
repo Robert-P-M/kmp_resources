@@ -1,80 +1,89 @@
 package dev.robdoes.kmpresources.core.infrastructure.error
 
 import com.intellij.ide.BrowserUtil
-import com.intellij.ide.plugins.PluginManagerCore
 import com.intellij.openapi.application.ApplicationInfo
 import com.intellij.openapi.diagnostic.ErrorReportSubmitter
 import com.intellij.openapi.diagnostic.IdeaLoggingEvent
 import com.intellij.openapi.diagnostic.SubmittedReportInfo
-import com.intellij.openapi.extensions.PluginId
+import com.intellij.openapi.util.SystemInfo
 import com.intellij.util.Consumer
 import java.awt.Component
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
 /**
- * An implementation of `ErrorReportSubmitter` that handles the submission of error reports
- * by creating a new issue on the GitHub repository associated with the plugin.
+ * Opens a pre-filled GitHub issue for exceptions the IDE attributes to this plugin.
  *
- * This class gathers relevant information about the error, including the IDE version, plugin version,
- * and stacktrace, and encodes it into a URL to open the user's default web browser. The user can review
- * and submit the issue on the repository's issue tracker.
- *
- * Key Features:
- * - Provides a custom action text to display in the error reporting UI.
- * - Collects additional user-provided information along with IDE and plugin metadata.
- * - Formats the collected data into a GitHub-compatible issue template.
- * - Opens a new issue URL in the default browser for user review and submission.
- *
- * This reporter is specific to the `kmp_resources` plugin and utilizes its GitHub repository for tracking issues.
+ * The plugin version is taken from [getPluginDescriptor], i.e. the descriptor of the plugin that
+ * registered this submitter, rather than from a hard-coded plugin id. Reports from a copy of this class
+ * in another plugin therefore show that plugin's id and are easy to tell apart.
  */
 internal class KmpErrorReportSubmitter : ErrorReportSubmitter() {
 
-    override fun getReportActionText(): String {
-        return "Report Issue to Author on GitHub"
-    }
+    override fun getReportActionText(): String = "Report Issue to Author on GitHub"
 
     override fun submit(
         events: Array<out IdeaLoggingEvent>,
         additionalInfo: String?,
         parentComponent: Component,
-        consumer: Consumer<in SubmittedReportInfo>
+        consumer: Consumer<in SubmittedReportInfo>,
     ): Boolean {
         val event = events.firstOrNull() ?: return false
+        val url = buildIssueUrl(
+            throwableText = event.throwableText,
+            additionalInfo = additionalInfo,
+            pluginId = pluginDescriptor?.pluginId?.idString ?: "unknown",
+            pluginVersion = pluginDescriptor?.version ?: "unknown",
+            ideBuild = ApplicationInfo.getInstance().let { "${it.fullApplicationName} (${it.build.asString()})" },
+            os = "${SystemInfo.OS_NAME} ${SystemInfo.OS_VERSION} (${SystemInfo.OS_ARCH})",
+            jre = "${SystemInfo.JAVA_RUNTIME_VERSION} ${SystemInfo.JAVA_VENDOR}",
+        )
+        BrowserUtil.browse(url)
+        consumer.consume(SubmittedReportInfo(SubmittedReportInfo.SubmissionStatus.NEW_ISSUE))
+        return true
+    }
 
-        val exceptionTitle = event.throwableText.lines().firstOrNull() ?: "Unknown Exception"
+    internal companion object {
+        const val REPO_URL = "https://github.com/Robert-P-M/kmp_resources"
 
-        val pluginId = PluginId.getId("dev.robdoes.kmpresources")
-        val pluginVersion = PluginManagerCore.getPlugin(pluginId)?.version ?: "Unknown"
-        val ideVersion = ApplicationInfo.getInstance().build.asString()
+        /** Browsers and GitHub reject very long URLs; keep the encoded URL well below ~8k characters. */
+        private const val MAX_TRACE_CHARS = 4_000
 
-        val issueTitle = "[Crash] ${exceptionTitle.take(65)}"
-
-        val issueBody = buildString {
-            appendLine("### User Description")
-            appendLine(additionalInfo?.takeIf { it.isNotBlank() } ?: "No additional information provided by the user.")
-            appendLine()
-            appendLine("### Environment")
-            appendLine("- **Plugin Version:** $pluginVersion")
-            appendLine("- **IDE Version:** $ideVersion")
-            appendLine()
-            appendLine("### Stacktrace")
-            appendLine("```java")
-            appendLine(event.throwableText)
-            appendLine("```")
+        fun buildIssueUrl(
+            throwableText: String,
+            additionalInfo: String?,
+            pluginId: String,
+            pluginVersion: String,
+            ideBuild: String,
+            os: String,
+            jre: String,
+        ): String {
+            val firstLine = throwableText.lineSequence().firstOrNull()?.trim().orEmpty().ifEmpty { "Unknown exception" }
+            val title = "[Crash] ${firstLine.take(80)}"
+            val trace = if (throwableText.length > MAX_TRACE_CHARS) {
+                throwableText.take(MAX_TRACE_CHARS) + "\n… (truncated, please attach the full idea.log)"
+            } else {
+                throwableText
+            }
+            val body = buildString {
+                appendLine("### User description")
+                appendLine(additionalInfo?.takeIf { it.isNotBlank() } ?: "_No additional information provided._")
+                appendLine()
+                appendLine("### Environment")
+                appendLine("- **Plugin:** $pluginId $pluginVersion")
+                appendLine("- **IDE:** $ideBuild")
+                appendLine("- **OS:** $os")
+                appendLine("- **JRE:** $jre")
+                appendLine()
+                appendLine("### Stack trace")
+                appendLine("```")
+                appendLine(trace)
+                appendLine("```")
+            }
+            return "$REPO_URL/issues/new?labels=${encode("type:crash,area:ide-plugin,status:triage")}" +
+                "&title=${encode(title)}&body=${encode(body)}"
         }
 
-        val repoUrl = "https://github.com/Robert-P-M/kmp_resources"
-
-        val encodedTitle = URLEncoder.encode(issueTitle, StandardCharsets.UTF_8.toString())
-        val encodedBody = URLEncoder.encode(issueBody, StandardCharsets.UTF_8.toString())
-
-        val url = "$repoUrl/issues/new?title=$encodedTitle&body=$encodedBody"
-
-        BrowserUtil.browse(url)
-
-        consumer.consume(SubmittedReportInfo(SubmittedReportInfo.SubmissionStatus.NEW_ISSUE))
-
-        return true
+        private fun encode(value: String): String = URLEncoder.encode(value, StandardCharsets.UTF_8)
     }
 }
