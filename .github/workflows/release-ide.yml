@@ -1,0 +1,49 @@
+name: Release IDE plugin
+# staging: publishes pre-release versions (pluginVersion with "-beta.N" suffix) to the Marketplace "beta" channel.
+# main:    publishes on a GitHub release (created by release-please) to the default channel.
+on:
+  push:
+    branches: [staging]
+    paths: [gradle.properties]
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: ${{ github.event_name == 'release' && 'production' || 'staging' }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: version
+        run: echo "version=$(grep '^pluginVersion=' gradle.properties | cut -d= -f2)" >> "$GITHUB_OUTPUT"
+      - name: Guard – staging only publishes pre-releases
+        if: github.event_name != 'release' && !contains(steps.version.outputs.version, '-')
+        run: |
+          echo "pluginVersion ${{ steps.version.outputs.version }} is not a pre-release; skipping."
+          echo "SKIP=true" >> "$GITHUB_ENV"
+      - name: Guard – secrets present
+        if: env.SKIP != 'true'
+        env: { PUBLISH_TOKEN: "${{ secrets.PUBLISH_TOKEN }}" }
+        run: |
+          if [ -z "$PUBLISH_TOKEN" ]; then echo "::warning::PUBLISH_TOKEN missing – skipping publish"; echo "SKIP=true" >> "$GITHUB_ENV"; fi
+      - uses: actions/setup-java@v4
+        if: env.SKIP != 'true'
+        with: { distribution: zulu, java-version: 21 }
+      - uses: gradle/actions/setup-gradle@v4
+        if: env.SKIP != 'true'
+      - name: Publish
+        if: env.SKIP != 'true'
+        env:
+          PUBLISH_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
+          CERTIFICATE_CHAIN: ${{ secrets.CERTIFICATE_CHAIN }}
+          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+          PRIVATE_KEY_PASSWORD: ${{ secrets.PRIVATE_KEY_PASSWORD }}
+        run: ./gradlew publishPlugin --console=plain
+      - name: Attach zip to GitHub release
+        if: env.SKIP != 'true' && github.event_name == 'release'
+        env: { GH_TOKEN: "${{ secrets.GITHUB_TOKEN }}" }
+        run: gh release upload "${{ github.event.release.tag_name }}" build/distributions/*.zip --clobber

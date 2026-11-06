@@ -1,0 +1,50 @@
+name: 🐞 Bug report
+description: Something does not work as expected
+labels: ["type:bug", "status:triage"]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for reporting! Please search [existing issues](https://github.com/Robert-P-M/kmp_resources/issues) first.
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      options: ["IDE plugin", "Gradle plugin", "Both / not sure"]
+    validations: { required: true }
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you expect, and what happened instead?
+    validations: { required: true }
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open module `:feature:x`
+        2. Rename key `foo` in the editor
+        3. …
+    validations: { required: true }
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / stack trace
+      description: idea.log excerpt or Gradle output with `--stacktrace`.
+      render: shell
+  - type: input
+    id: plugin-version
+    attributes: { label: KMP Resources version(s), placeholder: "IDE 2.0.0 / Gradle 1.0.0" }
+    validations: { required: true }
+  - type: input
+    id: ide
+    attributes: { label: IDE and version, placeholder: "Android Studio Otter 2025.2.1 / IntelliJ IDEA 2025.3" }
+    validations: { required: true }
+  - type: input
+    id: build
+    attributes: { label: Gradle / AGP / Kotlin / Compose Multiplatform versions, placeholder: "9.4.1 / 8.13 / 2.2.0 / 1.9.0" }
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options: [macOS, Linux, Windows]
