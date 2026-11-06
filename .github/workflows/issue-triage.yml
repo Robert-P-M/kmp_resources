@@ -1,0 +1,20 @@
+name: Issue triage
+on:
+  issues:
+    types: [opened]
+permissions:
+  issues: write
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Label crash reports from the IDE error reporter
+        if: startsWith(github.event.issue.title, '[Crash]')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh issue edit ${{ github.event.issue.number }} --repo ${{ github.repository }} --add-label "type:crash,area:ide-plugin,status:triage"
+      - name: Ensure triage label
+        if: ${{ !startsWith(github.event.issue.title, '[Crash]') }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh issue edit ${{ github.event.issue.number }} --repo ${{ github.repository }} --add-label "status:triage"

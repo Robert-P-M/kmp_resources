@@ -1,0 +1,32 @@
+# Source of truth for repository labels. Synced by .github/workflows/labels.yml.
+# Labels not listed here are deleted on sync.
+- { name: "type:bug",        color: "d73a4a", description: "Something isn't working" }
+- { name: "type:crash",      color: "b60205", description: "IDE exception / crash report" }
+- { name: "type:feature",    color: "0e8a16", description: "New feature or enhancement" }
+- { name: "type:chore",      color: "c5def5", description: "Maintenance, refactoring, build, dependencies" }
+- { name: "type:docs",       color: "0075ca", description: "Documentation" }
+- { name: "type:question",   color: "d876e3", description: "Question or support request" }
+
+- { name: "area:core",          color: "5319e7", description: "Shared core: YAML schema, parser, generator" }
+- { name: "area:gradle-plugin", color: "02303a", description: "Gradle plugin" }
+- { name: "area:ide-plugin",    color: "fe2857", description: "IntelliJ / Android Studio plugin" }
+- { name: "area:ci",            color: "ededed", description: "GitHub Actions, release pipeline" }
+- { name: "area:docs",          color: "bfdadc", description: "Docs site, README" }
+
+- { name: "prio:p0", color: "b60205", description: "Critical – fix immediately" }
+- { name: "prio:p1", color: "d93f0b", description: "High" }
+- { name: "prio:p2", color: "fbca04", description: "Medium" }
+- { name: "prio:p3", color: "c2e0c6", description: "Low" }
+
+- { name: "status:triage",     color: "fef2c0", description: "Needs triage by a maintainer" }
+- { name: "status:needs-info", color: "f9d0c4", description: "Waiting for reporter feedback" }
+- { name: "status:blocked",    color: "000000", description: "Blocked by another issue or upstream" }
+
+- { name: "resolution:duplicate",  color: "cfd3d7", description: "Already reported" }
+- { name: "resolution:wontfix",    color: "ffffff", description: "Will not be worked on" }
+- { name: "resolution:not-ours",   color: "e4e669", description: "Caused by another plugin or the IDE itself" }
+
+- { name: "breaking",         color: "b60205", description: "Breaking change" }
+- { name: "dependencies",     color: "0366d6", description: "Dependency updates (Dependabot)" }
+- { name: "good first issue", color: "7057ff", description: "Good for newcomers" }
+- { name: "help wanted",      color: "008672", description: "Extra attention is needed" }

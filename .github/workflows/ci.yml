@@ -1,0 +1,54 @@
+name: CI
+on:
+  pull_request:
+    branches: [staging, main]
+  push:
+    branches: [staging, main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build & test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: zulu, java-version: 21 }
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: ${{ github.ref != 'refs/heads/staging' }}
+      - name: Check
+        run: ./gradlew check buildPlugin --console=plain
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: '**/build/reports/tests/'
+      - name: Upload plugin zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: ide-plugin
+          path: '**/build/distributions/*.zip'
+
+  verify:
+    name: Plugin verifier
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: zulu, java-version: 21 }
+      - uses: gradle/actions/setup-gradle@v4
+        with: { cache-read-only: true }
+      - name: Free disk space
+        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
+      - name: Verify plugin
+        run: ./gradlew verifyPlugin --console=plain

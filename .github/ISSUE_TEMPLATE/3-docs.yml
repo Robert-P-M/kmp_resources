@@ -1,0 +1,13 @@
+name: 📚 Documentation
+description: Missing, wrong or unclear documentation
+labels: ["type:docs", "status:triage"]
+body:
+  - type: input
+    id: where
+    attributes: { label: Where?, placeholder: "README section / docs page URL" }
+    validations: { required: true }
+  - type: textarea
+    id: what
+    attributes:
+      label: What should be improved?
+    validations: { required: true }

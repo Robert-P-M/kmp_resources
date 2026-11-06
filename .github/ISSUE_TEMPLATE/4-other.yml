@@ -1,0 +1,14 @@
+name: 💬 Question / other
+description: Anything that is not a bug, feature or docs issue
+labels: ["type:question", "status:triage"]
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: Your question or topic
+    validations: { required: true }
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Versions, project setup, what you tried.

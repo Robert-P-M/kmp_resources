@@ -1,0 +1,30 @@
+name: ✨ Feature request
+description: Suggest a new feature or an improvement
+labels: ["type:feature", "status:triage"]
+body:
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      options: ["IDE plugin", "Gradle plugin", "Both / not sure"]
+    validations: { required: true }
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What problem would this solve? Who is affected?
+    validations: { required: true }
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+    validations: { required: true }
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Screenshots, YAML snippets, links.
